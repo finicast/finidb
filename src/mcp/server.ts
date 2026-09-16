@@ -127,8 +127,8 @@ export function createMcpServer(f: FiniDB): McpServer {
   server.registerTool('finicast_create_model', {
     title: 'Create model',
     description: 'Create a model (a namespace of tables, pivots and rules) when starting a new forecast, budget, plan or sales-ops framework; call once per model, before finicast_load_table. Local mode: no workspace URL is returned.',
-    inputSchema: { model: z.string().describe('snake_case id, e.g. nvda'), description: z.string().optional() },
-  }, ({ model, description }) => guard(() => { const m = f.createModel(model, description ?? model); return json({ ok: true, model: m.id, url: null, next: 'finicast_load_table your data, then finicast_define_pivot' }); }));
+    inputSchema: { model: z.string().describe('snake_case id, e.g. nvda'), description: z.string().optional(), iterate: z.union([z.boolean(), z.object({ maxIterations: z.number().optional(), tolerance: z.number().optional() })]).optional().describe('Iterative calculation for same-period circularities (interest on average debt, a minimum-cash revolver): true for Excel defaults (100 passes, 0.001). Off by default; a cycle is then #CYCLE.') },
+  }, ({ model, description, iterate }) => guard(() => { const m = f.createModel(model, description ?? model); if (iterate !== undefined) f.setIterate(model, iterate); return json({ ok: true, model: m.id, url: null, next: 'finicast_load_table your data, then finicast_define_pivot' }); }));
 
   // 3. load_table -----------------------------------------------------------
   server.registerTool('finicast_load_table', {

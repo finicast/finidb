@@ -45,7 +45,7 @@ export interface PivotHeader {
   /** measure id -> [tupleKey, value][] (the pivot's input map, doc 03) */
   inputs: [string, [string, Scalar][]][];
 }
-export interface ModelHeader { id: string; name: string; tables: TableHeader[]; pivots: PivotHeader[] }
+export interface ModelHeader { id: string; name: string; iterate?: { maxIterations: number; tolerance: number }; tables: TableHeader[]; pivots: PivotHeader[] }
 export interface SnapshotHeader {
   format: typeof MAGIC; version: number; endian: 'LE';
   /** oplog seq this snapshot covers (0 if unknown) */
@@ -127,7 +127,7 @@ export function saveSnapshot(f: FiniDB, path: string, opts: { seq?: number } = {
       rules: p.rules.map(ruleHeader),
       inputs: p.measures.filter(ms => p.inputs.has(ms.iid)).map(ms => [ms.id, [...p.inputs.get(ms.iid)!.entries()]] as [string, [string, Scalar][]]),
     }));
-    models.push({ id: m.id, name: m.name, tables, pivots });
+    models.push({ id: m.id, name: m.name, ...(m.iterate ? { iterate: m.iterate } : {}), tables, pivots });
   }
   const header: SnapshotHeader = {
     format: MAGIC, version: FORMAT_VERSION, endian: 'LE', seq: opts.seq ?? 0, createdAt: new Date().toISOString(),
@@ -192,6 +192,7 @@ export function loadSnapshot(path: string, opts: { engine?: 'incremental' | 'ref
   const db: Database = f.db;
   for (const mh of header.models) {
     const m = db.createModel(mh.id, mh.name);
+    if (mh.iterate) m.iterate = { ...mh.iterate };
     // Pass 1: every Table object exists before any ref field is added, so self- and mutual references resolve.
     const tables = new Map<string, Table>();
     for (const th of mh.tables) tables.set(th.id, m.createTable(th.id, th.name));

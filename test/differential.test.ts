@@ -38,6 +38,19 @@ function buildModel(f: FiniDB, seed: number) {
     subs                = SUM(amount[region.parent = @region]) + amount
     share               = IFERROR(amount / SUM(amount[region=all]), 0)
   `);
+  // a same-period circularity (minimum-cash revolver, interest on the average balance) under iterative calculation
+  f.setIterate('m', { maxIterations: 200, tolerance: 1e-9 });
+  f.createTable('m', 'flines', [], { rows: [{ id: 'ebitda' }, { id: 'capex' }, { id: 'interest' }, { id: 'borrow' }, { id: 'debt' }, { id: 'cash' }] });
+  f.createPivot('m', 'fin', { dims: [{ id: 'line', table: 'flines' }, { id: 'period', table: 'periods' }], lineDim: 'line', timeDim: 'period' });
+  f.setValue('m', 'fin', { line: 'debt', period: 'jan26' }, 1000);
+  f.setValue('m', 'fin', { line: 'cash', period: 'jan26' }, 600);
+  for (const p of per.slice(1)) { f.setValue('m', 'fin', { line: 'ebitda', period: p }, Math.round(rnd() * 900)); f.setValue('m', 'fin', { line: 'capex', period: p }, Math.round(rnd() * 900)); }
+  f.setRules('m', 'fin', `
+    interest[period.idx > 0] = 0.08 * (PREV(debt) + debt) / 2
+    borrow[period.idx > 0]   = MAX(0, 500 - (PREV(cash) + ebitda - interest - capex))
+    debt[period.idx > 0]     = PREV(debt) + borrow
+    cash[period.idx > 0]     = PREV(cash) + ebitda - interest - capex + borrow
+  `);
   return { rnd, per, acts };
 }
 
@@ -81,7 +94,7 @@ test('incremental engine agrees with the reference evaluator over random edit se
     assertSame(snapshot(ref), snapshot(inc), `seed ${seed} initial`);
     const regions = ['world', 'na', 'eu', 'us', 'ca'];
     for (let step = 0; step < Number(process.env.DIFF_STEPS ?? 60); step++) {
-      const kind = (rnd() * 7) | 0;
+      const kind = (rnd() * 8) | 0;
       const draws = [rnd(), rnd()];
       const apply = (f: FiniDB) => {
         const [x, y] = draws;
@@ -93,6 +106,7 @@ test('incremental engine agrees with the reference evaluator over random edit se
           case 4: f.setValue('m', 'scores', { region: regions[(x * 5) | 0], line: 'growth', period: per[(y * 6) | 0] }, Math.round(y * 50) / 100); break;
           case 5: f.setCell('m', 'periods', per[(x * 6) | 0], 'frame', y < 0.5 ? 'hist' : 'fcst'); break;
           case 6: f.setCell('m', 'regions', regions[(x * 5) | 0], 'weight', Math.round(y * 10) / 10); break;
+          case 7: f.setValue('m', 'fin', { line: x < 0.5 ? 'ebitda' : 'capex', period: per[1 + ((y * 5) | 0)] }, Math.round(x * y * 1500)); break;
         }
       };
       apply(ref); apply(inc);

@@ -160,6 +160,7 @@ export function withOplog<F extends FiniDB>(f: F, dir: string, opts: OplogOption
     createDistinctTable: f.createDistinctTable, createPeriods: f.createPeriods, createPivot: f.createPivot,
     setRules: f.setRules, setValue: f.setValue, setCell: f.setCell,
     deleteRows: f.deleteRows, dropField: f.dropField, dropTable: f.dropTable, dropModel: f.dropModel, addFieldTo: f.addFieldTo,
+    setIterate: f.setIterate,
   };
   // Run `call` under the recording guard and, if it is the outermost call, log `args`.
   const record = <T>(op: string, call: () => T, args: () => Record<string, unknown>): T => {
@@ -170,6 +171,7 @@ export function withOplog<F extends FiniDB>(f: F, dir: string, opts: OplogOption
   };
 
   f.createModel = (id, name) => record('createModel', () => orig.createModel.call(f, id, name), () => ({ id, name }));
+  f.setIterate = (modelId, iterate) => record('setIterate', () => orig.setIterate.call(f, modelId, iterate), () => ({ model: modelId, iterate: f.model(modelId).iterate ?? null }));
   f.createTable = (modelId, id, fields, o = {}) => {
     const t = record('createTable', () => orig.createTable.call(f, modelId, id, fields, { name: o.name }), () => ({ model: modelId, id, fields, name: o.name }));
     if (o.rows && log.depth === 0) f.insertRows(t, o.rows);
@@ -223,6 +225,7 @@ function applyOpRaw(f: FiniDB, rec: OpRecord, dir: string) {
   const table = (): Table => f.model(a.model).table(a.table) as Table;
   switch (rec.op) {
     case 'createModel': f.createModel(a.id, a.name); break;
+    case 'setIterate': f.setIterate(a.model, a.iterate); break;
     case 'createTable': f.createTable(a.model, a.id, a.fields as FieldSpec[], { name: a.name, rows: a.rows }); break;
     case 'addField': f.addField(table(), a.field as FieldSpec); break;
     case 'insertRows': {

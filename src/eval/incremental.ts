@@ -7,7 +7,7 @@
  */
 import { Database, Table, Pivot, Field, Measure } from '../schema/schema.js';
 import { Value, CellError, isError } from '../store/column.js';
-import { EvalCore, Ctx, RowsRes } from './reference.js';
+import { converged, EvalCore, Ctx, RowsRes } from './reference.js';
 import { FUNCTIONS, num, err } from './functions.js';
 import { compileRowRule, RowFn } from './compile.js';
 import type { Rule } from '../schema/rules.js';
@@ -20,6 +20,7 @@ interface Tracker { gen: number; deps: Map<DepKey, Ver> }
 interface Snapshot { values: Float64Array; state: Uint8Array; other: Map<number, Value>; size: number; computedOnce: boolean; version: number }
 
 interface ColState extends Tracker {
+  uid: number;                    // for cycle-iteration keys
   kind: 'measure' | 'field';
   pivot?: Pivot; measure?: Measure; table?: Table; field?: Field;
   values: Float64Array;
@@ -87,7 +88,14 @@ export class IncrementalEngine extends EvalCore {
   private stack: Tracker[] = [];
   /** per-engine property tag so several engines can share one schema (differential tests) */
   private tag = Symbol('finidb.colstate');
-  stats = { fullRecomputes: 0, partialRecomputes: 0, aggRescans: 0, aggDeltas: 0, cellsComputed: 0 };
+  stats = { fullRecomputes: 0, partialRecomputes: 0, aggRescans: 0, aggDeltas: 0, cellsComputed: 0, iterations: 0 };
+  private colUid = 0;
+  /** Cycle iteration, as in the reference evaluator (doc 05): frames per cell computation, provisional values of
+   *  cycle roots, and the cells computed from a provisional (reset to "not computed" before the next pass). */
+  private iframes: { key: string; taints: Set<string> }[] = [];
+  private provisional = new Map<string, Value>();
+  private tainted = new Map<string, Set<string>>();
+  private cellOf = new Map<string, { cs: ColState; i: number }>();
 
   constructor(db: Database) { super(db); }
 
@@ -201,7 +209,7 @@ export class IncrementalEngine extends EvalCore {
     return cs;
   }
   private newCol(kind: 'measure' | 'field', size: number): ColState {
-    return { kind, gen: 0, deps: new Map(), values: new Float64Array(size), other: new Map(), state: new Uint8Array(size), size, version: 0, computedOnce: false, checkedAt: -1, computing: false, checking: false, noPartial: false, dirtyRows: new DirtyRows(), _seen: 0 };
+    return { uid: ++this.colUid, kind, gen: 0, deps: new Map(), values: new Float64Array(size), other: new Map(), state: new Uint8Array(size), size, version: 0, computedOnce: false, checkedAt: -1, computing: false, checking: false, noPartial: false, dirtyRows: new DirtyRows(), _seen: 0 };
   }
   private read(cs: ColState, i: number): Value {
     const st = cs.state[i];
@@ -357,17 +365,59 @@ export class IncrementalEngine extends EvalCore {
     if (changed.size) { cs.version++; this.noteRowsChanged(cs.table!, changed, cs); }
   }
   private computeOne(cs: ColState, i: number) {
+    const key = `${cs.uid}:${i}`;
+    let { v, self } = this.pass(cs, i, key);
+    this.write(cs, i, v);
+    if (!self) return;
+    // this cell read its own provisional value: iterate to a fixed point (the model opted in, or the read would have been #CYCLE)
+    const it = (cs.pivot ?? cs.table)!.model.iterate!;
+    let done = false;
+    this.provisional.set(key, v);
+    for (let n = 0; n < it.maxIterations; n++) {
+      this.stats.iterations++;
+      const t = this.tainted.get(key);
+      if (t) { for (const k of t) { const c = this.cellOf.get(k); if (c && c.cs.computing && c.cs.state[c.i] !== 4) { c.cs.state[c.i] = 0; c.cs.other.delete(c.i); } } t.clear(); }
+      const r = this.pass(cs, i, key);
+      this.write(cs, i, r.v);
+      if (converged(v, r.v, it.tolerance)) { v = r.v; done = true; break; }
+      v = r.v; this.provisional.set(key, v);
+    }
+    this.provisional.delete(key);
+    if (!done) {
+      v = err('ITER', `${cs.pivot ? `${cs.pivot.id}.${cs.measure!.id}` : `${cs.table!.id}.${cs.field!.id}`} did not converge in ${it.maxIterations} iterations (change still above ${it.tolerance})`);
+      this.write(cs, i, v);
+      const t = this.tainted.get(key); if (t) for (const k of t) { const c = this.cellOf.get(k); if (c && c.cs.computing) this.write(c.cs, c.i, v); }
+    }
+    this.tainted.delete(key);
+  }
+  /** One computation of a cell in its own frame; reports whether the frame read its own provisional value. */
+  private pass(cs: ColState, i: number, key: string): { v: Value; self: boolean } {
     cs.state[i] = 4;
     this.stats.cellsComputed++;
-    this.stack.push(cs);
+    const frame = { key, taints: new Set<string>() };
+    this.iframes.push(frame); this.stack.push(cs);
     let v: Value;
     try {
       if (cs.kind === 'measure') v = this.computeCell(cs.pivot!, cs.measure!, this.decode(cs.pivot!, i));
       else v = this.computeField(cs.table!, cs.field!, i);
     } catch (e) {
       if (e instanceof Error && 'code' in e) v = err((e as any).code, (e as any).detail ?? e.message); else throw e;
-    } finally { this.stack.pop(); }
-    this.write(cs, i, v);
+    } finally { this.stack.pop(); this.iframes.pop(); }
+    const self = frame.taints.delete(key);
+    if (frame.taints.size) {
+      const parent = this.iframes[this.iframes.length - 1];
+      this.cellOf.set(key, { cs, i });
+      for (const k of frame.taints) { parent?.taints.add(k); let t = this.tainted.get(k); if (!t) { t = new Set(); this.tainted.set(k, t); } t.add(key); }
+    }
+    return { v, self };
+  }
+  /** A cell read while it is being computed: with iteration on, hand back the provisional value and taint the frames down to it. */
+  private reentry(cs: ColState, i: number, label: string): Value {
+    const model = (cs.pivot ?? cs.table)!.model;
+    if (!model.iterate) return err('CYCLE', `${label} depends on itself`);
+    const key = `${cs.uid}:${i}`;
+    for (let f = this.iframes.length - 1; f >= 0; f--) { this.iframes[f].taints.add(key); if (this.iframes[f].key === key) break; }
+    return this.provisional.get(key) ?? 0;
   }
   private decode(p: Pivot, addr: number): Int32Array {
     const dims = p.dims;
@@ -416,7 +466,7 @@ export class IncrementalEngine extends EvalCore {
     if (addr >= cs.size) return null;
     if (cs.computing) {
       const st = cs.state[addr];
-      if (st === 4) return err('CYCLE', `${pivot.id}.${measure.id} depends on itself`);
+      if (st === 4) return this.reentry(cs, addr, `${pivot.id}.${measure.id}`);
       if (st === 0) this.computeOne(cs, addr);
     }
     return this.read(cs, addr);
@@ -433,7 +483,7 @@ export class IncrementalEngine extends EvalCore {
     if (row >= cs.size) return null;
     if (cs.computing) {
       const st = cs.state[row];
-      if (st === 4) return err('CYCLE', `${table.id}.${field.id} depends on itself`);
+      if (st === 4) return this.reentry(cs, row, `${table.id}.${field.id}`);
       if (st === 0) this.computeOne(cs, row);
     }
     return this.read(cs, row);

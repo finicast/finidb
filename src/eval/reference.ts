@@ -718,11 +718,28 @@ function keyOf(v: Value): string { if (v === null || v === undefined) return '\u
 
 
 /** Memo-per-version evaluator: full recompute after any write. */
+/** Two successive iteration values agree within `tol` (numbers), or are the same error / same value. */
+export function converged(a: Value, b: Value, tol: number): boolean {
+  if (typeof a === 'number' && typeof b === 'number') return Math.abs(a - b) <= tol;
+  if (isError(a) || isError(b)) return isError(a) && isError(b) && a.error === b.error;
+  return a === b;
+}
+
 export class ReferenceEvaluator extends EvalCore {
   private memo = new Map<string, Value>();
   private memoVersion = -1;
   private inProgress = new Set<string>();
   private bucketCache = new Map<string, Map<string, Value[]>>();
+  /**
+   * Iteration (doc 05): a cell that reads itself while it is being computed is a cycle root. With the model's
+   * `iterate` setting the read returns a provisional value (0 on the first pass), the frames between the root
+   * and the read are marked tainted by the root, and every memo entry written by a tainted frame is dropped
+   * before the next pass. Passes repeat until the root's value moves less than the tolerance.
+   */
+  private frames: { key: string; taints: Set<string> }[] = [];
+  private provisional = new Map<string, Value>();
+  private tainted = new Map<string, Set<string>>();
+  stats = { iterations: 0 };
 
   private checkVersion() {
     if (this.memoVersion !== this.db.version) { this.memo.clear(); this.bucketCache.clear(); this.memoVersion = this.db.version; }
@@ -730,27 +747,57 @@ export class ReferenceEvaluator extends EvalCore {
   cell(pivot: Pivot, measure: Measure, coord: Int32Array): Value {
     this.checkVersion();
     const key = `p${pivot.iid}:${measure.iid}:${pivot.tupleKey(coord)}`;
-    const hit = this.memo.get(key);
-    if (hit !== undefined) return hit;
-    if (this.inProgress.has(key)) return err('CYCLE', `${pivot.id}.${measure.id} depends on itself`);
-    this.inProgress.add(key);
-    let v: Value;
-    try { v = this.computeCell(pivot, measure, coord); } finally { this.inProgress.delete(key); }
-    this.memo.set(key, v);
-    return v;
+    return this.evaluate(key, pivot.model, `${pivot.id}.${measure.id}`, () => this.computeCell(pivot, measure, coord));
   }
   field(table: Table, field: Field, row: number): Value {
     if (!field.computed) return field.column.get(row);
     this.checkVersion();
     const key = `t${table.iid}:${field.iid}:${row}`;
+    return this.evaluate(key, table.model, `${table.id}.${field.id}`, () => this.computeField(table, field, row));
+  }
+  private evaluate(key: string, model: Model, label: string, compute: () => Value): Value {
     const hit = this.memo.get(key);
     if (hit !== undefined) return hit;
-    if (this.inProgress.has(key)) return err('CYCLE', `${table.id}.${field.id} depends on itself`);
-    this.inProgress.add(key);
-    let v: Value;
-    try { v = this.computeField(table, field, row); } finally { this.inProgress.delete(key); }
+    if (this.inProgress.has(key)) {
+      if (!model.iterate) return err('CYCLE', `${label} depends on itself`);
+      for (let i = this.frames.length - 1; i >= 0; i--) { this.frames[i].taints.add(key); if (this.frames[i].key === key) break; }
+      return this.provisional.get(key) ?? 0;
+    }
+    let { v, self } = this.pass(key, compute);
+    if (self) {
+      const it = model.iterate!;
+      let done = false;
+      this.provisional.set(key, v);
+      for (let n = 0; n < it.maxIterations; n++) {
+        this.stats.iterations++;
+        const t = this.tainted.get(key);
+        if (t) { for (const k of t) { this.memo.delete(k); if (k[0] === 't') this.bucketCache.clear(); } t.clear(); }
+        const r = this.pass(key, compute);
+        if (converged(v, r.v, it.tolerance)) { v = r.v; done = true; break; }
+        v = r.v; this.provisional.set(key, v);
+      }
+      this.provisional.delete(key);
+      if (!done) {
+        v = err('ITER', `${label} did not converge in ${it.maxIterations} iterations (change still above ${it.tolerance})`);
+        const t = this.tainted.get(key); if (t) for (const k of t) this.memo.set(k, v);
+      }
+      this.tainted.delete(key);
+    }
     this.memo.set(key, v);
     return v;
+  }
+  /** One computation of `key` in its own frame; reports whether the frame read its own provisional value. */
+  private pass(key: string, compute: () => Value): { v: Value; self: boolean } {
+    const frame = { key, taints: new Set<string>() };
+    this.inProgress.add(key); this.frames.push(frame);
+    let v: Value;
+    try { v = compute(); } finally { this.frames.pop(); this.inProgress.delete(key); }
+    const self = frame.taints.delete(key);
+    if (frame.taints.size) {
+      const parent = this.frames[this.frames.length - 1];
+      for (const k of frame.taints) { parent?.taints.add(k); let t = this.tainted.get(k); if (!t) { t = new Set(); this.tainted.set(k, t); } t.add(key); }
+    }
+    return { v, self };
   }
   protected aggregateRows(fn: string, res: RowsRes, ctx: Ctx): Value {
     this.checkVersion();

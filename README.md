@@ -60,6 +60,21 @@ One reference syntax: a name with an optional `[selector]`. `[period-1]`, `[peri
 `[line in (a, b)]`, `[period.year >= 2027]`, `[rep.territory = @territory]`. Every reference is
 statically classifiable, which is what lets the engine recompute only what changed.
 
+## Circular references
+
+Same-period circularities (interest on the average debt balance, a revolver that keeps cash above
+a minimum) are `#CYCLE` by default. Turn on iterative calculation per model and the engine
+iterates the cycle to a fixed point the way Excel's iterative calculation does:
+
+```js
+f.setIterate('m', true);                                   // 100 passes, tolerance 0.001 (Excel's defaults)
+f.setIterate('m', { maxIterations: 200, tolerance: 1e-6 });
+```
+
+In a model document: `"iterate": true`. Over REST: `PATCH /db/:db/models/:model { "iterate": true }`.
+Both engines iterate only the cells that actually read a provisional value, so the rest of the
+model is computed once. A cycle that does not settle within the cap returns `#ITER`.
+
 ## Build a model from a document (no server needed)
 
 ```sh

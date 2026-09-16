@@ -37,7 +37,8 @@ the rule and **resend the full batch**. When `fix` is present, apply it verbatim
 | `NUM` | Numeric domain error (`SQRT(-1)`, `LN(0)`). | Guard with `IF`. |
 | `REF` | A path could not be followed: missing referenced row, a value that is not a member, a path on a non-reference. | Check the referenced table has the row; use `PERIOD(date, periods)` for dates. |
 | `OP` | Unsupported operator/operand combination. | Use the operators in `syntax.md` §2. |
-| `CYCLE` | The cell depends on itself (`a = b`, `b = a`, or a `[row-1]` chain that loops). | Break the cycle; a running total reads the previous row/period, not the same one. |
+| `CYCLE` | The cell depends on itself within a period (`a = b`, `b = a`, interest on *average* debt when debt depends on interest). | Either drive the line off the prior period (`PREV(debt)`), or turn on iterative calculation for the model (`iterate: true` in the document, `finicast_create_model { iterate: true }`, `PATCH /db/:db/models/:m { iterate: true }`) so the cycle converges the way Excel's iterative calculation does. |
+| `ITER` | Iterative calculation ran `maxIterations` passes and the cell was still changing by more than `tolerance`. The cycle diverges (`a = 2*b + 1`, `b = a`) or oscillates. | Fix the algebra so the loop damps (a rate below 100%, a `MAX(0, …)` floor), or raise `maxIterations`. |
 
 ## Schema, data and query errors (any tool)
 

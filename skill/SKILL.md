@@ -55,6 +55,10 @@ them, so `finicast_load_table` can detect the reference columns (`refCandidate`)
 - **Always return the markdown table and the URL.** `finicast_query` output is the deliverable —
   paste it verbatim. `finicast_share` gives the URL on a hosted server; in local mode it says
   publishing is not configured — say so, never invent a link.
+- **Same-period circularities need `iterate`.** Interest on the *average* debt balance, or a revolver
+  that keeps cash above a minimum, is a cycle inside one period: `#CYCLE` unless the model was
+  created with `iterate: true` (Excel's iterative calculation: 100 passes, tolerance 0.001). Keep the
+  loop damped or it ends in `#ITER`. Cross-period references (`PREV(debt)`) never need it.
 - **Debug with `finicast_explain`** (value, governing rule, precedent line items) before rewriting rules.
 - Keep responses small: `maxRows`, `filters`, `pages`, `scale: 1000`; the server caps a result at
   ~4,000 tokens and tells you when it did.

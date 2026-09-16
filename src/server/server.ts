@@ -110,6 +110,7 @@ function pivot(f: FiniDB, model: string, table: string): Pivot {
 /** Mutations. Every one except createModel takes `(model, table, ...)`, which is what the change log relies on. */
 const MUTATIONS: Record<string, OpFn> = {
   createModel: (f, id: string, name?: string) => { const m = f.createModel(id, name); return { id: m.id, name: m.name }; },
+  setIterate: (f, model: string, iterate: boolean | { maxIterations?: number; tolerance?: number } | null) => ({ iterate: f.setIterate(model, iterate) ?? null }),
   createTable: (f, model: string, id: string, fields: FieldSpec[] = [], opts: { name?: string; rows?: Record<string, Scalar>[] } = {}) => {
     const t = f.createTable(model, id, fields, opts); return { id: t.id, rowCount: t.rowCount };
   },
@@ -260,7 +261,7 @@ export function describeTable(t: AnyTable) {
 function describeDb(db: DbEntry) {
   return {
     name: db.name, created: db.created, version: db.f.db.version, schemaVersion: db.f.db.schemaVersion,
-    models: [...db.f.db.models.values()].map(m => ({ id: m.id, name: m.name, tables: [...m.tables.values()].map(describeTable) })),
+    models: [...db.f.db.models.values()].map(m => ({ id: m.id, name: m.name, ...(m.iterate ? { iterate: m.iterate } : {}), tables: [...m.tables.values()].map(describeTable) })),
   };
 }
 function readRows(f: FiniDB, t: Table, offset: number, limit: number): Record<string, Value>[] {
@@ -473,6 +474,10 @@ export async function startServer(opts: ServerOptions = {}): Promise<ServerHandl
     return c.db!.f.explain(model.id, table.id, at, c.query.get('measure') ?? c.query.get('field') ?? undefined);
   });
   route('GET', '/db/:db/models', 'read', c => ({ models: [...c.db!.f.db.models.values()].map(m => ({ id: m.id, name: m.name, tables: [...m.tables.keys()] })) }));
+  route('PATCH', '/db/:db/models/:model', 'write', async c => {
+    if (!c.body || !('iterate' in c.body)) throw new HttpError(400, 'BAD_REQUEST', 'body needs { iterate: true | false | { maxIterations, tolerance } }');
+    return { ...(await applyOp(c.db!, { method: 'setIterate', args: [c.params.model, c.body.iterate] }, user(c)) as object), version: version(c.db!) };
+  });
   route('POST', '/db/:db/models', 'write', async c => new Reply(201, { ...(await applyOp(c.db!, { method: 'createModel', args: [c.body?.id, c.body?.name] }, user(c)) as object), version: version(c.db!) }));
 
   // tables

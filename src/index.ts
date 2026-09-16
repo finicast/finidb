@@ -1,7 +1,7 @@
 /**
  * FiniDB public facade (embedded mode).
  */
-import { Database, Model, Table, Pivot, Field, Dim, Measure, AnyTable } from './schema/schema.js';
+import { IterateSettings, Database, Model, Table, Pivot, Field, Dim, Measure, AnyTable } from './schema/schema.js';
 import type { Rule, Clause } from './schema/rules.js';
 import { parseRule, parseRules, ParseError } from './lang/parser.js';
 import type { Selector, ParsedRule } from './lang/ast.js';
@@ -67,6 +67,8 @@ export class FiniDB {
   }
 
   createModel(id: string, name?: string): Model { return this.db.createModel(id, name); }
+  /** Turn iterative calculation on (`true` or `{ maxIterations, tolerance }`) or off for a model's same-period circularities. */
+  setIterate(modelId: string, iterate: boolean | Partial<IterateSettings> | null | undefined): IterateSettings | undefined { const m = this.model(modelId); m.setIterate(iterate); return m.iterate; }
   model(id: string): Model { return this.db.model(id); }
 
   createTable(modelId: string, id: string, fields: FieldSpec[], opts: { name?: string; rows?: Record<string, Scalar>[] } = {}): Table {
@@ -486,4 +488,6 @@ export { filePersistence } from './server/persistence.js';
 // Model documents (doc 08): apply an agent-written model in-process; `finidb build model.json`.
 export { applyDocument, renderDocumentResult } from './build/document.js';
 export { modelLink, modelLinkPlain, parseModelLink, encodeModelFragment, decodeModelFragment } from './build/link.js';
+export type { IterateSettings } from './schema/schema.js';
+export { ITERATE_DEFAULTS, normalizeIterate } from './schema/schema.js';
 export type { ModelDocument, PivotDoc, TableDoc, OutputDoc, DashboardDoc, DashboardCardDoc, DocumentResult } from './build/document.js';

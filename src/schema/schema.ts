@@ -224,9 +224,23 @@ export class Pivot {
 
 export type AnyTable = Table | Pivot;
 
+/** Iterative calculation for same-period circularities (interest on average debt, a minimum-cash revolver): Excel's model. */
+export interface IterateSettings { maxIterations: number; tolerance: number }
+export const ITERATE_DEFAULTS: IterateSettings = { maxIterations: 100, tolerance: 0.001 };
+export function normalizeIterate(v: boolean | Partial<IterateSettings> | null | undefined): IterateSettings | undefined {
+  if (!v) return undefined;
+  const o = v === true ? {} : v;
+  const max = Math.max(1, Math.min(10_000, Math.floor(Number(o.maxIterations ?? ITERATE_DEFAULTS.maxIterations))));
+  const tol = Number(o.tolerance ?? ITERATE_DEFAULTS.tolerance);
+  return { maxIterations: Number.isFinite(max) ? max : ITERATE_DEFAULTS.maxIterations, tolerance: Number.isFinite(tol) && tol >= 0 ? tol : ITERATE_DEFAULTS.tolerance };
+}
+
 export class Model {
   tables = new Map<string, AnyTable>();
+  /** When set, cells that depend on themselves within a period are iterated to a fixed point instead of erroring. */
+  iterate?: IterateSettings;
   constructor(public readonly iid: number, public id: string, public name: string, public readonly db: Database) {}
+  setIterate(v: boolean | Partial<IterateSettings> | null | undefined) { this.iterate = normalizeIterate(v); this.db.touch(); }
   table(id: string): AnyTable {
     const t = this.tables.get(id) ?? [...this.tables.values()].find(t => t.name === id);
     if (!t) throw new Error(`SCHEMA_NO_TABLE: ${this.id}.${id}`);

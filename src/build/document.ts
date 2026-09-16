@@ -31,6 +31,9 @@ export interface DashboardCardDoc {
 export interface DashboardDoc { id?: string; name?: string; cards: DashboardCardDoc[] }
 export interface ModelDocument {
   model?: string; name?: string; units?: string;
+  /** Iterative calculation for same-period circularities (interest on average debt, a minimum-cash revolver):
+   *  `true` for Excel's defaults (100 iterations, 0.001), or `{ maxIterations, tolerance }`. Off by default: a cycle is #CYCLE. */
+  iterate?: boolean | { maxIterations?: number; tolerance?: number };
   periods?: PeriodsSpec;
   tables?: Record<string, TableDoc>;
   pivots?: Record<string, PivotDoc>;
@@ -60,6 +63,7 @@ export function applyDocument(f: FiniDB, doc: ModelDocument): DocumentResult {
   const log: string[] = [];
   const modelId = doc.model ?? 'model';
   if (!f.db.models.has(modelId)) { f.createModel(modelId, doc.name ?? modelId); log.push(`model ${modelId}`); }
+  if (doc.iterate !== undefined) { const it = f.setIterate(modelId, doc.iterate); log.push(it ? `iterate: up to ${it.maxIterations} passes, tolerance ${it.tolerance}` : 'iterate: off'); }
   const m = f.model(modelId);
   const has = (id: string) => m.hasTable(id);
 
