@@ -60,6 +60,23 @@ One reference syntax: a name with an optional `[selector]`. `[period-1]`, `[peri
 `[line in (a, b)]`, `[period.year >= 2027]`, `[rep.territory = @territory]`. Every reference is
 statically classifiable, which is what lets the engine recompute only what changed.
 
+## Excel export
+
+Every model exports as an .xlsx whose cells hold live formulas compiled from the rules, one sheet
+per pivot (line items down, periods across) and per table, inputs in blue and formulas in black,
+plus a Rules sheet. `PREV(x)` becomes the cell to the left, a cross-statement reference becomes a
+sheet reference, `SUM(ledger.amount)` becomes `SUMIFS` over the table sheet, `type.score` becomes
+`INDEX/MATCH`. Iterative calculation carries over as the workbook setting. Cells whose rule has no
+faithful Excel form keep their value and are listed on a Notes sheet.
+
+```sh
+npx finidb build model.json --xlsx model.xlsx      # from a document
+npx finidb export --data-dir ./data --out m.xlsx   # from a database
+```
+
+Over REST: `GET /db/:db/export.xlsx`. In code: `f.exportXlsx(model)`. The test suite evaluates the
+exported formulas with an independent spreadsheet engine and checks every cell against the engine.
+
 ## Circular references
 
 Same-period circularities (interest on the average debt balance, a revolver that keeps cash above

@@ -6,6 +6,8 @@
  * so REST routes, `POST /db/:db/batch` (§3.3), the `/changes` log (§3.2) and the persistence
  * hook (§4, written separately) all see the same stream.
  */
+import { exportWorkbook as _exportWorkbook } from '../export/workbook.js';
+function require_export() { return { exportWorkbook: _exportWorkbook }; }
 import { createServer, IncomingMessage, ServerResponse, Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { homedir } from 'node:os';
@@ -474,6 +476,15 @@ export async function startServer(opts: ServerOptions = {}): Promise<ServerHandl
     return c.db!.f.explain(model.id, table.id, at, c.query.get('measure') ?? c.query.get('field') ?? undefined);
   });
   route('GET', '/db/:db/models', 'read', c => ({ models: [...c.db!.f.db.models.values()].map(m => ({ id: m.id, name: m.name, tables: [...m.tables.keys()] })) }));
+  route('GET', '/db/:db/export.xlsx', 'read', c => {
+    const f = c.db!.f;
+    const model = c.query.get('model') ?? (f.db.models.size === 1 ? [...f.db.models.keys()][0] : undefined);
+    if (!model) throw new HttpError(400, 'BAD_REQUEST', 'pass ?model= (the database has several models)');
+    const { exportWorkbook } = require_export();
+    const r = exportWorkbook(f.db, model);
+    const name = `${c.params.db}${f.db.models.size > 1 ? `-${model}` : ''}.xlsx`.replace(/[^A-Za-z0-9._-]+/g, '_');
+    return new Reply(200, r.buffer as unknown as object, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', { 'Content-Disposition': `attachment; filename="${name}"`, 'X-Finidb-Formulas': String(r.formulas), 'X-Finidb-Values': String(r.values) });
+  });
   route('PATCH', '/db/:db/models/:model', 'write', async c => {
     if (!c.body || !('iterate' in c.body)) throw new HttpError(400, 'BAD_REQUEST', 'body needs { iterate: true | false | { maxIterations, tolerance } }');
     return { ...(await applyOp(c.db!, { method: 'setIterate', args: [c.params.model, c.body.iterate] }, user(c)) as object), version: version(c.db!) };
@@ -689,7 +700,7 @@ export async function startServer(opts: ServerOptions = {}): Promise<ServerHandl
     const t0 = performance.now();
     let engineMs = 0;
     const send = (status: number, body: string | object, contentType = 'application/json', headers: Record<string, string> = {}) => {
-      const payload = typeof body === 'string' ? body : JSON.stringify(body);
+      const payload = Buffer.isBuffer(body) ? body : typeof body === 'string' ? body : JSON.stringify(body);
       res.writeHead(status, {
         'Content-Type': contentType, 'Content-Length': Buffer.byteLength(payload),
         'Server-Timing': `engine;dur=${engineMs.toFixed(2)}, total;dur=${(performance.now() - t0).toFixed(2)}`,

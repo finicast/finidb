@@ -20,6 +20,7 @@
   "license": "PolyForm-Noncommercial-1.0.0",
   "devDependencies": {
     "@types/node": "^26.5.1",
+    "hyperformula": "^3.4.0",
     "tsx": "^4.23.13",
     "typescript": "^5.9.3"
   },

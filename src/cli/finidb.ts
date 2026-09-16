@@ -33,6 +33,7 @@ const str = (v: string | true | undefined, dflt?: string) => (typeof v === 'stri
 const USAGE = `finidb — a calculation engine for AI agents (doc 07 §5)
 
   finidb build <model.json> [--format md|json] [--data-dir <dir>]   apply a model document in-process; print the statements and a finicast.com/import#m= link that recreates the model
+  finidb export <model.json> --out model.xlsx     Excel workbook with live formulas compiled from the rules (or --data-dir <dir> [--model m])
   finidb mcp [--data-dir <dir>]      MCP server over stdio (in-memory, or persistent with --data-dir / FINIDB_DIR)
   finidb skill [--install <dir>]     print the agent skill (SKILL.md) or copy the skill folder into <dir>, e.g. ~/.claude/skills/finicast
   finidb serve [--port 5488] [--host localhost] [--data-dir ~/.finidb] [--require-auth] [--routes]
@@ -166,7 +167,7 @@ async function main() {
       return;
     }
     case 'build': {
-      const file = rest[0] ?? fail('usage: finidb build <model.json> [--format md|json] [--data-dir <dir>] [--site https://finicast.com]');
+      const file = rest[0] ?? fail('usage: finidb build <model.json> [--format md|json] [--xlsx out.xlsx] [--data-dir <dir>] [--site https://finicast.com]');
       const { readFileSync } = await import('node:fs');
       const doc = JSON.parse(file === '-' ? readFileSync(0, 'utf8') : readFileSync(file, 'utf8'));
       const { applyDocument, renderDocumentResult } = await import('../build/document.js');
@@ -178,10 +179,40 @@ async function main() {
         const r = applyDocument(f, doc);
         const { modelLink } = await import('../build/link.js');
         const link = modelLink(doc, str(flags.site));
+        if (flags.xlsx) {
+          const { writeFileSync } = await import('node:fs');
+          const { exportWorkbook } = await import('../export/workbook.js');
+          const x = exportWorkbook(f.db, r.model);
+          writeFileSync(String(flags.xlsx), x.buffer);
+          console.error(`wrote ${flags.xlsx}: ${x.sheets.length} sheets, ${x.formulas} formula cells, ${x.values} value-only cells${x.notes.length ? `, ${x.notes.length} notes` : ''}`);
+        }
         if (str(flags.format) === 'json') console.log(JSON.stringify({ ok: true, ...r, link }, null, 1));
         else console.log(renderDocumentResult(r, { link, dashboard: !!doc.dashboards }));
       } catch (e) { console.error(`Build failed: ${e instanceof Error ? e.message : String(e)}`); process.exitCode = 1; }
       finally { if (closer) await closer(); }
+      return;
+    }
+    case 'export': {
+      // finidb export model.json --out model.xlsx      (build the document in memory, then export)
+      // finidb export --data-dir ./data [--model m] --out model.xlsx
+      const out = str(flags.out) ?? fail('usage: finidb export <model.json> --out model.xlsx | finidb export --data-dir <dir> [--model <id>] --out model.xlsx');
+      const { readFileSync, writeFileSync } = await import('node:fs');
+      const { exportWorkbook } = await import('../export/workbook.js');
+      let f: InstanceType<typeof import('../index.js').FiniDB>; let closer: (() => Promise<void>) | undefined; let modelId = str(flags.model);
+      if (rest[0]) {
+        const { applyDocument } = await import('../build/document.js'); const { FiniDB } = await import('../index.js');
+        const doc = JSON.parse(rest[0] === '-' ? readFileSync(0, 'utf8') : readFileSync(rest[0], 'utf8'));
+        f = new FiniDB(); modelId = applyDocument(f, doc).model;
+      } else if (flags['data-dir']) {
+        const { openDatabase } = await import('../persist/store.js'); const o = await openDatabase(String(flags['data-dir'])); f = o.f; closer = () => o.close();
+        modelId ??= f.db.models.size === 1 ? [...f.db.models.keys()][0] : fail('pass --model (the database has several models)');
+      } else fail('give a model.json or --data-dir');
+      try {
+        const x = exportWorkbook(f!.db, modelId!);
+        writeFileSync(out, x.buffer);
+        console.error(`wrote ${out}: ${x.sheets.length} sheets, ${x.formulas} formula cells, ${x.values} value-only cells`);
+        for (const n of x.notes) console.error(`  note: ${n}`);
+      } finally { if (closer) await closer(); }
       return;
     }
     case 'mcp': {

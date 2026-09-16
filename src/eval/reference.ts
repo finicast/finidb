@@ -16,7 +16,7 @@ const AGG = new Set(['SUM', 'AVG', 'AVERAGE', 'COUNT', 'COUNTA', 'COUNTBLANK', '
 const TIME_SUGAR = new Set(['PREV', 'NEXT', 'CUMSUM', 'TRAILING']);
 
 /** A resolved reference: either a scalar location or a set to enumerate. */
-type Resolved =
+export type Resolved =
   | { k: 'cells'; pivot: Pivot; measure: Measure; sets: (number[] | 'all')[]; path: string[] }
   | { k: 'rows'; table: Table; field: Field; rows: number[] | 'all'; pinned: boolean; key: string; corr: Corr[]; filters: ((r: number) => boolean)[]; path: string[] }
   | { k: 'value'; v: Value }

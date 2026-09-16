@@ -67,6 +67,8 @@ export class FiniDB {
   }
 
   createModel(id: string, name?: string): Model { return this.db.createModel(id, name); }
+  /** Export a model as an .xlsx workbook with live formulas compiled from its rules (doc 08). */
+  exportXlsx(modelId: string, opts: ExportOptions = {}): ExportResult { return exportWorkbook(this.db, modelId, opts); }
   /** Turn iterative calculation on (`true` or `{ maxIterations, tolerance }`) or off for a model's same-period circularities. */
   setIterate(modelId: string, iterate: boolean | Partial<IterateSettings> | null | undefined): IterateSettings | undefined { const m = this.model(modelId); m.setIterate(iterate); return m.iterate; }
   model(id: string): Model { return this.db.model(id); }
@@ -487,6 +489,10 @@ export { filePersistence } from './server/persistence.js';
 
 // Model documents (doc 08): apply an agent-written model in-process; `finidb build model.json`.
 export { applyDocument, renderDocumentResult } from './build/document.js';
+import { exportWorkbook, type ExportOptions, type ExportResult } from './export/workbook.js';
+export { exportWorkbook } from './export/workbook.js';
+export type { ExportOptions, ExportResult } from './export/workbook.js';
+export { writeXlsx } from './export/xlsx.js';
 export { modelLink, modelLinkPlain, parseModelLink, encodeModelFragment, decodeModelFragment } from './build/link.js';
 export type { IterateSettings } from './schema/schema.js';
 export { ITERATE_DEFAULTS, normalizeIterate } from './schema/schema.js';
