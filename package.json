@@ -1,0 +1,59 @@
+{
+  "name": "finidb",
+  "version": "0.1.3",
+  "description": "A BI-style calculation engine for AI agents: line items x periods, conditional rules, incremental recalculation. Free for noncommercial and educational use; commercial license required.",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "node --import tsx --test test/*.test.ts",
+    "bench": "node --import tsx bench/run.ts",
+    "mcp": "node --import tsx src/mcp/main.ts",
+    "serve": "node --import tsx src/cli/finidb.ts serve",
+    "cli": "node --import tsx src/cli/finidb.ts",
+    "prepublishOnly": "npm run build"
+  },
+  "license": "PolyForm-Noncommercial-1.0.0",
+  "devDependencies": {
+    "@types/node": "^26.5.1",
+    "tsx": "^4.23.13",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "zod": "^4.6.5"
+  },
+  "bin": {
+    "finidb": "dist/cli/finidb.js"
+  },
+  "files": [
+    "dist",
+    "skill",
+    "bench",
+    "README.md",
+    "examples",
+    "LICENSE",
+    "COMMERCIAL-LICENSE.md"
+  ],
+  "keywords": [
+    "finance",
+    "financial-model",
+    "forecast",
+    "budget",
+    "planning",
+    "pivot",
+    "calculation-engine",
+    "mcp",
+    "ai-agents",
+    "bi"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/finicast/finidb.git"
+  },
+  "homepage": "https://finicast.com"
+}

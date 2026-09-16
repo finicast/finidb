@@ -1,0 +1,381 @@
+{
+  "model": "crwv",
+  "name": "CoreWeave 5-year forecast",
+  "units": "USD millions",
+  "periods": {
+    "start": "2022-01",
+    "count": 9,
+    "grain": "year",
+    "histUntil": "2025-12-31"
+  },
+  "pivots": {
+    "assumptions": {
+      "lines": [
+        {
+          "id": "revenue_growth",
+          "format": "percent"
+        },
+        {
+          "id": "gross_margin",
+          "format": "percent"
+        },
+        {
+          "id": "opex_pct",
+          "name": "Opex % of revenue",
+          "format": "percent"
+        },
+        {
+          "id": "da_pct",
+          "name": "D&A % of revenue",
+          "format": "percent"
+        },
+        {
+          "id": "interest_rate",
+          "format": "percent"
+        },
+        {
+          "id": "tax_rate",
+          "format": "percent"
+        },
+        {
+          "id": "capex_pct",
+          "name": "Capex % of revenue",
+          "format": "percent"
+        },
+        {
+          "id": "net_borrowing"
+        }
+      ],
+      "inputs": {
+        "revenue_growth": {
+          "fy2026": 0.6,
+          "fy2027": 0.45,
+          "fy2028": 0.35,
+          "fy2029": 0.28,
+          "fy2030": 0.22
+        },
+        "gross_margin": {
+          "fy2026": 0.73,
+          "fy2027": 0.74,
+          "fy2028": 0.75,
+          "fy2029": 0.75,
+          "fy2030": 0.76
+        },
+        "opex_pct": {
+          "fy2026": 0.14,
+          "fy2027": 0.12,
+          "fy2028": 0.1,
+          "fy2029": 0.09,
+          "fy2030": 0.08
+        },
+        "da_pct": {
+          "fy2026": 0.45,
+          "fy2027": 0.42,
+          "fy2028": 0.38,
+          "fy2029": 0.34,
+          "fy2030": 0.3
+        },
+        "interest_rate": {
+          "fy2026": 0.09,
+          "fy2027": 0.085,
+          "fy2028": 0.08,
+          "fy2029": 0.075,
+          "fy2030": 0.07
+        },
+        "tax_rate": {
+          "fy2026": 0.15,
+          "fy2027": 0.18,
+          "fy2028": 0.21,
+          "fy2029": 0.21,
+          "fy2030": 0.21
+        },
+        "capex_pct": {
+          "fy2026": 1.5,
+          "fy2027": 1.2,
+          "fy2028": 1.0,
+          "fy2029": 0.85,
+          "fy2030": 0.7
+        },
+        "net_borrowing": {
+          "fy2026": 9000,
+          "fy2027": 8000,
+          "fy2028": 6000,
+          "fy2029": 3000,
+          "fy2030": 0
+        }
+      }
+    },
+    "income_statement": {
+      "lines": [
+        "revenue",
+        "cogs",
+        "gross_profit",
+        {
+          "id": "gross_margin_pct",
+          "name": "Gross margin",
+          "format": "percent"
+        },
+        "opex",
+        "ebitda",
+        {
+          "id": "ebitda_margin",
+          "format": "percent"
+        },
+        "da",
+        "ebit",
+        "interest_expense",
+        "pretax_income",
+        "tax",
+        "net_income"
+      ],
+      "inputs": {
+        "revenue": {
+          "fy2022": 15.8,
+          "fy2023": 228.9,
+          "fy2024": 1915.4,
+          "fy2025": 5131
+        },
+        "cogs": {
+          "fy2022": 12.1,
+          "fy2023": 68.8,
+          "fy2024": 493.4,
+          "fy2025": 1453
+        },
+        "opex": {
+          "fy2022": 14.9,
+          "fy2023": 71.4,
+          "fy2024": 234.3,
+          "fy2025": 1270
+        },
+        "da": {
+          "fy2022": 11.7,
+          "fy2023": 103.2,
+          "fy2024": 863.4,
+          "fy2025": 2454
+        },
+        "interest_expense": {
+          "fy2022": 9.4,
+          "fy2023": 28.4,
+          "fy2024": 360.8,
+          "fy2025": 1229
+        },
+        "tax": {
+          "fy2022": -4.2,
+          "fy2023": 35.7,
+          "fy2024": 119.2,
+          "fy2025": -48
+        }
+      },
+      "rules": [
+        "revenue[frame=fcst]          = PREV(revenue) * (1 + assumptions.revenue_growth)",
+        "cogs[frame=fcst]             = revenue * (1 - assumptions.gross_margin)",
+        "opex[frame=fcst]             = revenue * assumptions.opex_pct",
+        "da[frame=fcst]               = revenue * assumptions.da_pct",
+        "interest_expense[frame=fcst] = balance_sheet.debt[period-1] * assumptions.interest_rate",
+        "tax[frame=fcst]              = IF(pretax_income > 0, pretax_income * assumptions.tax_rate, 0)",
+        "gross_profit                 = revenue - cogs",
+        "gross_margin_pct             = gross_profit / revenue",
+        "ebitda                       = gross_profit - opex",
+        "ebitda_margin                = ebitda / revenue",
+        "ebit                         = ebitda - da",
+        "pretax_income                = ebit - interest_expense",
+        "net_income                   = pretax_income - tax"
+      ]
+    },
+    "cash_flow": {
+      "lines": [
+        "net_income",
+        "da",
+        "operating_cash_flow",
+        "capex",
+        "free_cash_flow",
+        "net_borrowing",
+        "net_change_in_cash"
+      ],
+      "inputs": {
+        "operating_cash_flow": {
+          "fy2022": 0.9,
+          "fy2023": 1832.7,
+          "fy2024": 2749.2,
+          "fy2025": 3058
+        },
+        "capex": {
+          "fy2022": -72.4,
+          "fy2023": -2943.1,
+          "fy2024": -8702.1,
+          "fy2025": -10309
+        },
+        "net_borrowing": {
+          "fy2022": 81.5,
+          "fy2023": 1787.8,
+          "fy2024": 7464.6,
+          "fy2025": 9308
+        }
+      },
+      "rules": [
+        "net_income                     = income_statement.net_income",
+        "da                             = income_statement.da",
+        "operating_cash_flow[frame=fcst] = net_income + da",
+        "capex[frame=fcst]              = -income_statement.revenue * assumptions.capex_pct",
+        "net_borrowing[frame=fcst]      = assumptions.net_borrowing",
+        "free_cash_flow                 = operating_cash_flow + capex",
+        "net_change_in_cash             = free_cash_flow + net_borrowing"
+      ]
+    },
+    "balance_sheet": {
+      "lines": [
+        "cash",
+        "ppe_net",
+        "total_assets",
+        "debt",
+        "equity"
+      ],
+      "inputs": {
+        "cash": {
+          "fy2022": 45.6,
+          "fy2023": 574.6,
+          "fy2024": 1361.5,
+          "fy2025": 2400
+        },
+        "ppe_net": {
+          "fy2022": 120,
+          "fy2023": 2900,
+          "fy2024": 10800,
+          "fy2025": 18700
+        },
+        "debt": {
+          "fy2022": 220,
+          "fy2023": 2300,
+          "fy2024": 8000,
+          "fy2025": 17000
+        },
+        "equity": {
+          "fy2022": -60,
+          "fy2023": -650,
+          "fy2024": -1500,
+          "fy2025": 3000
+        }
+      },
+      "rules": [
+        "cash[frame=fcst]    = PREV(cash) + cash_flow.net_change_in_cash",
+        "ppe_net[frame=fcst] = PREV(ppe_net) - cash_flow.capex - income_statement.da",
+        "debt[frame=fcst]    = PREV(debt) + cash_flow.net_borrowing",
+        "equity[frame=fcst]  = PREV(equity) + income_statement.net_income",
+        "total_assets        = cash + ppe_net"
+      ]
+    }
+  },
+  "outputs": [
+    {
+      "pivot": "income_statement",
+      "title": "Income statement ($M)",
+      "lines": [
+        "revenue",
+        "gross_profit",
+        "gross_margin_pct",
+        "ebitda",
+        "ebit",
+        "net_income"
+      ]
+    },
+    {
+      "pivot": "cash_flow",
+      "title": "Cash flow ($M)",
+      "lines": [
+        "operating_cash_flow",
+        "capex",
+        "free_cash_flow"
+      ]
+    },
+    {
+      "pivot": "balance_sheet",
+      "title": "Balance sheet ($M)"
+    }
+  ],
+  "dashboards": [
+    {
+      "id": "overview",
+      "name": "CoreWeave forecast",
+      "cards": [
+        {
+          "kind": "table",
+          "pivot": "assumptions",
+          "title": "Assumptions \u2014 edit a cell and the forecast updates",
+          "editable": true
+        },
+        {
+          "kind": "kpi",
+          "pivot": "income_statement",
+          "line": "revenue",
+          "title": "Revenue FY2030",
+          "unit": "$M"
+        },
+        {
+          "kind": "kpi",
+          "pivot": "income_statement",
+          "line": "net_income",
+          "title": "Net income FY2030",
+          "unit": "$M"
+        },
+        {
+          "kind": "kpi",
+          "pivot": "cash_flow",
+          "line": "free_cash_flow",
+          "title": "Free cash flow FY2030",
+          "unit": "$M"
+        },
+        {
+          "kind": "kpi",
+          "pivot": "balance_sheet",
+          "line": "debt",
+          "title": "Debt FY2030",
+          "unit": "$M"
+        },
+        {
+          "kind": "chart",
+          "pivot": "income_statement",
+          "lines": [
+            "revenue",
+            "gross_profit",
+            "ebitda",
+            "net_income"
+          ],
+          "title": "Income statement",
+          "unit": "$M"
+        },
+        {
+          "kind": "chart",
+          "type": "bar",
+          "pivot": "cash_flow",
+          "lines": [
+            "operating_cash_flow",
+            "capex",
+            "free_cash_flow"
+          ],
+          "title": "Cash flow",
+          "unit": "$M"
+        },
+        {
+          "kind": "chart",
+          "pivot": "income_statement",
+          "lines": [
+            "gross_margin_pct",
+            "ebitda_margin"
+          ],
+          "title": "Margins"
+        },
+        {
+          "kind": "chart",
+          "type": "stackedBar",
+          "pivot": "balance_sheet",
+          "lines": [
+            "cash",
+            "ppe_net"
+          ],
+          "title": "Assets",
+          "unit": "$M"
+        }
+      ]
+    }
+  ]
+}

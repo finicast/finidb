@@ -1,0 +1,163 @@
+/**
+ * The model document (doc 08): what an agent writes to describe a model — periods, pivots with
+ * line items, historical inputs and rules, optional tables — and the outputs it wants back.
+ * Applied in-process here (`finidb build model.json`); finicast.com applies the same document
+ * over REST at POST /api/build.
+ */
+import { FiniDB, type FieldSpec, type PeriodsSpec, type Grid, type Scalar } from '../index.js';
+import { formatValue } from '../view/markdown.js';
+import { isError } from '../store/column.js';
+
+export interface LineSpec { id: string; name?: string; format?: string; [attr: string]: unknown }
+export interface PivotDoc {
+  name?: string;                            // display name (default: title case of the id)
+  lines?: (string | LineSpec)[];
+  lineTable?: string;
+  dims?: Record<string, string>;
+  measures?: string[];
+  inputs?: Record<string, Record<string, Scalar>>;
+  values?: { at: Record<string, string>; measure?: string; value: Scalar }[];
+  rules?: string | string[];
+}
+export interface TableDoc { name?: string; fields?: Record<string, string> | FieldSpec[]; rows?: Record<string, Scalar>[]; csv?: string; distinctOf?: { table: string; field: string } }
+export interface OutputDoc { pivot: string; title?: string; rows?: string[]; cols?: string[]; pages?: Record<string, string>; measure?: string; lines?: string[]; filters?: Record<string, string[]>; format?: 'markdown' | 'json' | 'both'; scale?: number; decimals?: number }
+/** A dashboard card (built by finicast.com when the document is imported there; ignored by the local build). */
+export interface DashboardCardDoc {
+  kind?: 'table' | 'chart' | 'kpi'; type?: 'line' | 'bar' | 'stackedBar' | 'area' | 'waterfall' | 'scatter';
+  title?: string; pivot: string; line?: string; lines?: string[]; periods?: string[];
+  rows?: string[]; cols?: string[]; pages?: Record<string, string>; measure?: string;
+  unit?: string; editable?: boolean; w?: number; h?: number;
+}
+export interface DashboardDoc { id?: string; name?: string; cards: DashboardCardDoc[] }
+export interface ModelDocument {
+  model?: string; name?: string; units?: string;
+  periods?: PeriodsSpec;
+  tables?: Record<string, TableDoc>;
+  pivots?: Record<string, PivotDoc>;
+  outputs?: OutputDoc[] | 'all';
+  /** Dashboards for the hosted workspace: an editable table of the assumptions plus charts of the outputs, so the
+   *  user changes a driver and watches the forecast move. `"auto"` derives one from the inputs and outputs. */
+  dashboards?: DashboardDoc[] | 'auto';
+}
+export interface DocumentOutput { pivot: string; title: string; markdown?: string; json?: { rows: string[][]; rowLabels: string[][]; cols: string[]; values: unknown[][] } }
+export interface DocumentResult { model: string; units?: string; outputs: DocumentOutput[]; log: string[] }
+
+const TYPES = new Set(['number', 'text', 'date', 'bool']);
+/** `operating_model` → `Operating model`: humans see names, not ids. */
+export const titleCase = (id: string) => { const t = id.replace(/[_-]+/g, ' ').trim(); return t.charAt(0).toUpperCase() + t.slice(1); };
+function fieldsOf(f: TableDoc['fields']): FieldSpec[] {
+  if (!f) return [];
+  if (Array.isArray(f)) return f;
+  return Object.entries(f).map(([id, t]) => {
+    if (t.startsWith('ref:')) return { id, ref: t.slice(4) };
+    if (t.endsWith('*')) return { id, type: (TYPES.has(t.slice(0, -1)) ? t.slice(0, -1) : 'number') as FieldSpec['type'], computed: true };
+    return { id, type: (TYPES.has(t) ? t : 'text') as FieldSpec['type'] };
+  });
+}
+
+/** Apply a model document to a FiniDB instance (creating what does not exist) and produce the requested outputs. */
+export function applyDocument(f: FiniDB, doc: ModelDocument): DocumentResult {
+  const log: string[] = [];
+  const modelId = doc.model ?? 'model';
+  if (!f.db.models.has(modelId)) { f.createModel(modelId, doc.name ?? modelId); log.push(`model ${modelId}`); }
+  const m = f.model(modelId);
+  const has = (id: string) => m.hasTable(id);
+
+  if (doc.periods && !has('periods')) { f.createPeriods(modelId, 'periods', doc.periods); log.push(`periods: ${doc.periods.count} ${doc.periods.grain}s from ${doc.periods.start}`); }
+
+  for (const [id, t] of Object.entries(doc.tables ?? {})) {
+    if (has(id)) continue;
+    if (t.distinctOf) { f.createDistinctTable(modelId, id, t.distinctOf.table, t.distinctOf.field); log.push(`table ${id} (distinct of ${t.distinctOf.table}.${t.distinctOf.field})`); continue; }
+    if (t.csv) {
+      const { parseCsv, planLoad } = require_csv();
+      const plan = planLoad(parseCsv(t.csv), { candidates: candidateIds(f, modelId) });
+      f.createTable(modelId, id, plan.fields as FieldSpec[], { rows: plan.rows });
+      log.push(`table ${id}: ${plan.rows.length} rows from CSV`);
+      continue;
+    }
+    f.createTable(modelId, id, fieldsOf(t.fields), { name: t.name ?? titleCase(id), rows: t.rows ?? [] });
+    log.push(`table ${id}: ${(t.rows ?? []).length} rows`);
+  }
+
+  for (const [id, p] of Object.entries(doc.pivots ?? {})) {
+    if (!has(id)) {
+      const dims: { id: string; table: string }[] = [];
+      let lineTable = p.lineTable;
+      if (p.lines) {
+        lineTable = `${id}_lines`;
+        const lines = p.lines.map(l => typeof l === 'string' ? { id: l } as LineSpec : l);
+        const attrs = [...new Set(lines.flatMap(l => Object.keys(l).filter(k => k !== 'id')))];
+        if (!attrs.includes('name')) attrs.unshift('name');
+        if (!attrs.includes('format')) attrs.push('format');
+        f.createTable(modelId, lineTable, attrs.map(a => ({ id: a, type: 'text' as const })), {
+          name: `${p.name ?? titleCase(id)} lines`,
+          rows: lines.map(l => ({ ...Object.fromEntries(attrs.map(a => [a, (l[a] as Scalar) ?? null])), id: l.id, name: (l.name as string) ?? l.id.replace(/_/g, ' ') })),
+        });
+      }
+      if (lineTable) dims.push({ id: 'line', table: lineTable });
+      for (const [d, table] of Object.entries(p.dims ?? {})) dims.push({ id: d, table });
+      if (has('periods') && !dims.some(d => d.id === 'period')) dims.push({ id: 'period', table: 'periods' });
+      if (!dims.length) throw new Error(`NO_DIMS: pivot ${id} needs lines, dims or periods`);
+      f.createPivot(modelId, id, { dims, measures: (p.measures ?? ['value']).map(x => ({ id: x })), lineDim: lineTable ? 'line' : undefined, timeDim: dims.some(d => d.id === 'period') ? 'period' : undefined, name: p.name ?? titleCase(id) });
+      log.push(`pivot ${id}: ${dims.map(d => d.id).join(' × ')}`);
+    }
+    let n = 0;
+    for (const [line, byPeriod] of Object.entries(p.inputs ?? {})) for (const [period, value] of Object.entries(byPeriod)) { f.setValue(modelId, id, { line, period }, value); n++; }
+    for (const v of p.values ?? []) { if (v.measure) f.setValue(modelId, id, v.at, v.measure, v.value); else f.setValue(modelId, id, v.at, v.value); n++; }
+    if (n) log.push(`${id}: ${n} inputs`);
+  }
+  for (const [id, p] of Object.entries(doc.pivots ?? {})) {
+    if (!p.rules) continue;
+    const text = Array.isArray(p.rules) ? p.rules.join('\n') : p.rules;
+    const r = f.setRules(modelId, id, text, { replace: true });
+    log.push(`${id}: ${r.length} rules`);
+  }
+
+  const outs: OutputDoc[] = doc.outputs === 'all' || !doc.outputs ? Object.keys(doc.pivots ?? {}).map(pivot => ({ pivot })) : doc.outputs;
+  const outputs: DocumentOutput[] = [];
+  for (const o of outs) {
+    const pv = m.table(o.pivot);
+    if (pv.kind !== 'pivot') throw new Error(`NO_PIVOT: output ${o.pivot} is not a pivot`);
+    const rows = o.rows ?? [pv.lineDim?.id ?? pv.dims[0].id];
+    const cols = o.cols ?? [pv.timeDim?.id ?? pv.dims[1]?.id ?? pv.dims[0].id];
+    const pages: Record<string, string> = { ...(o.pages ?? {}) };
+    for (const d of pv.dims) if (!rows.includes(d.id) && !cols.includes(d.id) && !pages[d.id]) pages[d.id] = d.table.rowId(0);
+    const filters: Record<string, string[]> = { ...(o.filters ?? {}) };
+    if (o.lines && pv.lineDim) filters[pv.lineDim.id] = o.lines;
+    const title = o.title ?? pv.name ?? o.pivot;
+    const grid = f.query(modelId, { table: o.pivot, rows, cols, pages, measure: o.measure, filters, title, format: 'grid' }) as Grid;
+    const entry: DocumentOutput = { pivot: o.pivot, title };
+    const fmt = o.format ?? 'markdown';
+    if (fmt === 'markdown' || fmt === 'both') entry.markdown = gridMarkdown(grid, title, o);
+    if (fmt === 'json' || fmt === 'both') entry.json = { rows: grid.rowIds ?? [], rowLabels: grid.rowHeaders, cols: (grid.colIds ?? []).map(c => c.join('/')), values: grid.values.map(r => r.map(v => isError(v) ? `#${v.error}` : v)) };
+    outputs.push(entry);
+  }
+  return { model: modelId, units: doc.units, outputs, log };
+}
+
+function gridMarkdown(g: Grid, title: string, o: OutputDoc): string {
+  const scale = o.scale ?? 1;
+  const head = `| ${g.rowHeaderNames.join(' / ') || 'line'} | ${g.colHeaders.join(' | ')} |`;
+  const sep = `|---|${g.colHeaders.map(() => '---:').join('|')}|`;
+  const body = g.values.map((row, r) => `| ${g.rowHeaders[r].join(' / ')} | ${row.map((v, c) => {
+    const fmt = g.formats?.[r]?.[c];
+    if (typeof v === 'number' && fmt !== 'percent' && fmt !== '%') { const x = v / scale; return formatValue(x, o.decimals !== undefined ? undefined : (Math.abs(x) >= 100 ? 'int' : undefined)); }
+    return formatValue(v, fmt);
+  }).join(' | ')} |`);
+  return `### ${title}\n\n${head}\n${sep}\n${body.join('\n')}`;
+}
+
+export function renderDocumentResult(r: DocumentResult, opts: { url?: string; link?: string; dashboard?: boolean } = {}): string {
+  const parts = r.outputs.map(o => o.markdown ?? `### ${o.title}\n\n\`\`\`json\n${JSON.stringify(o.json)}\n\`\`\``);
+  const what = opts.dashboard ? 'Open this model in Finicast — a dashboard where the user edits the assumptions and watches the forecast update' : 'Open and edit this model in Finicast';
+  const tail = [r.units ? `Units: ${r.units}.` : '', opts.url ? `Open and edit this model: ${opts.url}` : opts.link ? `${what} (include this link verbatim in your reply; it carries the model): ${opts.link}` : 'To get a live, editable workspace: paste this model document at https://finicast.com/import (or POST it to https://finicast.com/api/build).'].filter(Boolean).join(' ');
+  return `${parts.join('\n\n')}\n\n${tail}\n`;
+}
+
+function candidateIds(f: FiniDB, modelId: string): Record<string, Set<string>> {
+  const out: Record<string, Set<string>> = {};
+  for (const t of f.model(modelId).tables.values()) if (t.kind === 'tabular') out[t.id] = new Set(t.rowById.keys());
+  return out;
+}
+function require_csv() { return csvModule; }
+import * as csvModule from '../store/csv.js';
