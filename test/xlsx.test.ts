@@ -140,3 +140,43 @@ test('the ledger rollup workbook evaluates to the engine\'s values (SUMIFS, INDE
   const compared = checkAgainstEngine(f, 's', exportWorkbook(f.db, 's'));
   assert.equal(compared, 6);
 });
+
+test('dashboards export as sheets of live references with native charts', () => {
+  const f = new FiniDB();
+  const modelId = applyDocument(f, coreweave).model;
+  // the same reduction the hosted route applies to stored dashboards
+  const cards = (coreweave.dashboards[0].cards as { kind?: string; type?: string; pivot: string; title?: string; lines?: string[]; line?: string; editable?: boolean }[]).map(c => ({
+    title: c.title ?? c.pivot, kind: (c.kind ?? (c.line ? 'kpi' : 'chart')) as 'table' | 'chart' | 'kpi', chartType: c.type, series: 'rows' as const, editable: c.editable,
+    view: { table: c.pivot, rows: ['line'], cols: ['period'], filters: c.line ? { line: [c.line] } : c.lines ? { line: c.lines } : undefined },
+  }));
+  const r = exportWorkbook(f.db, modelId, { dashboards: [{ name: coreweave.dashboards[0].name, cards }] });
+  const parts = unzip(r.buffer);
+  const dashName = r.sheets[0];
+  assert.equal(dashName, coreweave.dashboards[0].name, 'the dashboard is the first sheet');
+  const dash = parts.get('xl/worksheets/sheet1.xml')!;
+  assert.match(dash, /<f>'Income statement'!/, 'dashboard cells reference the statement sheets');
+  assert.match(dash, /<drawing r:id="rId1"\/>/, 'the sheet carries a drawing');
+  const chartCards = cards.filter(c => c.kind === 'chart').length;
+  for (let i = 1; i <= chartCards; i++) {
+    const chart = parts.get(`xl/charts/chart${i}.xml`);
+    assert.ok(chart, `chart part ${i} exists`);
+    assert.match(chart!, /<c:(lineChart|barChart|areaChart)>/);
+    assert.match(chart!, /<c:f>'CoreWeave forecast'!\$[A-Z]+\$\d+:\$[A-Z]+\$\d+<\/c:f>/, 'series read ranges on the dashboard sheet');
+  }
+  assert.ok(parts.has('xl/drawings/drawing1.xml') && parts.has('xl/drawings/_rels/drawing1.xml.rels') && parts.has('xl/worksheets/_rels/sheet1.xml.rels'));
+  assert.match(parts.get('[Content_Types].xml')!, /drawingml\.chart\+xml/);
+  // every well-formed part: a strict XML parser must accept them all
+  for (const [name, xml] of parts) if (name.endsWith('.xml') || name.endsWith('.rels')) execFileSync('python3', ['-c', 'import sys, xml.dom.minidom; xml.dom.minidom.parseString(sys.stdin.buffer.read())'], { input: xml, stdio: ['pipe', 'ignore', 'pipe'] });
+  // and the second engine agrees the dashboard mirrors the statements
+  const hf = toHyperFormula(r.workbook);
+  const sid = hf.getSheetId(dashName)!;
+  let checked = 0;
+  for (const [ref, cell] of r.workbook.sheets[0].cells) {
+    if (!cell.f || typeof cell.v !== 'number') continue;
+    const m = /^([A-Z]+)(\d+)$/.exec(ref)!; let col = 0; for (const ch of m[1]) col = col * 26 + (ch.charCodeAt(0) - 64);
+    const x = hf.getCellValue({ sheet: sid, row: Number(m[2]) - 1, col: col - 1 });
+    assert.ok(typeof x === 'number' && Math.abs(x - cell.v) < 1e-6, `${dashName}!${ref}: ${JSON.stringify(x)} vs ${cell.v}`);
+    checked++;
+  }
+  assert.ok(checked > 40, `checked ${checked} dashboard cells`);
+});

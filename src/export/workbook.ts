@@ -14,7 +14,7 @@ import type { Rule } from '../schema/rules.js';
 import type { Node, Selector } from '../lang/ast.js';
 import { Value, isError } from '../store/column.js';
 import { ReferenceEvaluator, CompileError, type Ctx, type Resolved } from '../eval/reference.js';
-import { writeXlsx, a1, colLetter, sheetRef, sheetName, excelSerial, type Cell, type Sheet, type StyleKey, type NumFmt, type Font, type Workbook } from './xlsx.js';
+import { writeXlsx, a1, colLetter, sheetRef, sheetName, excelSerial, type Cell, type Sheet, type StyleKey, type NumFmt, type Font, type Workbook, type ChartSpec } from './xlsx.js';
 
 export interface ExportOptions {
   /** write formulas without cached results, so a spreadsheet must recalculate on load (tests) */
@@ -23,7 +23,19 @@ export interface ExportOptions {
   maxFormulaRows?: number;
   /** an aggregate that cannot be a range is written as a list of cells up to this many; beyond it the cell keeps its value */
   maxListRefs?: number;
+  /** dashboards to lay out as sheets: each card a block of live references into the pivot sheets, chart cards with a native chart */
+  dashboards?: DashboardExport[];
 }
+/** A dashboard as the hosted service stores it, reduced to what the sheet needs: cards in display order, each over one pivot view. */
+export interface DashboardCardExport {
+  title: string;
+  kind: 'table' | 'chart' | 'kpi';
+  chartType?: string;                 // line | bar | stackedBar | area | waterfall | scatter
+  series?: 'rows' | 'cols';           // which axis of the view is a series
+  editable?: boolean;
+  view: { table: string; rows: string[]; cols: string[]; pages?: Record<string, string>; measure?: string; filters?: Record<string, string[]> };
+}
+export interface DashboardExport { name: string; cards: DashboardCardExport[] }
 export interface ExportResult { buffer: Buffer; sheets: string[]; formulas: number; values: number; notes: string[]; /** the sheets as written, for tests and other writers */ workbook: Workbook }
 
 class NotExportable extends Error {}
@@ -61,7 +73,9 @@ class Compiler extends ReferenceEvaluator {
     for (const t of tables) this.planTable(t);
     for (const ps of this.pivotSheets.values()) this.fillPivot(ps);
     for (const ts of this.tableSheets.values()) this.fillTable(ts);
-    const sheets: Sheet[] = [...[...this.pivotSheets.values()].map(p => p.sheet), ...[...this.tableSheets.values()].map(t => t.sheet), this.rulesSheet(model)];
+    const dashSheets: Sheet[] = [];
+    for (const d of this.opts.dashboards ?? []) { try { dashSheets.push(this.dashboardSheet(model, d)); } catch (e) { this.note(`dashboard "${d.name}" skipped — ${e instanceof Error ? e.message : String(e)}`); } }
+    const sheets: Sheet[] = [...dashSheets, ...[...this.pivotSheets.values()].map(p => p.sheet), ...[...this.tableSheets.values()].map(t => t.sheet), this.rulesSheet(model)];
     const notes = [...this.notes.entries()].map(([n, k]) => (k > 1 ? `${n} (${k} cells)` : n));
     if (notes.length) sheets.push(this.notesSheet(notes));
     const workbook: Workbook = { sheets, iterate: model.iterate, cachedValues: this.opts.cachedValues };
@@ -417,6 +431,69 @@ class Compiler extends ReferenceEvaluator {
   private shifted(ref: Node, _ctx: Ctx, sel: Selector): Extract<Node, { k: 'ref' }> {
     if (ref.k !== 'ref') throw new NotExportable('time functions take a reference');
     return { ...ref, selectors: [...ref.selectors, sel] };
+  }
+
+  // ---------- dashboards ----------
+
+  /** A dashboard as a sheet: cards stacked top to bottom, each a table of live references into its pivot's sheet, chart cards followed by a native chart over that table. */
+  private dashboardSheet(model: Model, d: DashboardExport): Sheet {
+    const sheet: Sheet = { name: sheetName(d.name || 'Dashboard', this.taken), cells: new Map(), colWidths: { 1: 34 }, charts: [] };
+    let row = 1;
+    for (const card of d.cards) {
+      const t = model.table(card.view.table);
+      if (t.kind !== 'pivot') { this.note(`dashboard "${d.name}": card "${card.title}" is not over a pivot`); continue; }
+      const p = t; const m = card.view.measure ? p.measure(card.view.measure) ?? p.defaultMeasure : p.defaultMeasure;
+      const dimOf = (id: string) => { const dm = p.dim(id); if (!dm) throw new NotExportable(`'${id}' is not a dimension of ${p.id}`); return dm; };
+      const rowDims = card.view.rows.map(dimOf), colDims = card.view.cols.map(dimOf);
+      const members = (dm: Dim) => { const f = card.view.filters?.[dm.id]; const all = Array.from({ length: dm.table.rowCount }, (_, i) => i); if (!f) return all; return f.map(id => dm.table.memberIndex(id)).filter(i => i >= 0); };
+      let rowTuples = cartesian(rowDims.map(members)), colTuples = cartesian(colDims.map(members));
+      if (card.kind === 'kpi') { rowTuples = rowTuples.slice(0, 1); colTuples = colTuples.slice(-1); }
+      const base = new Int32Array(p.dims.length);
+      for (const dm of p.dims) { if (rowDims.includes(dm) || colDims.includes(dm)) continue; const id = card.view.pages?.[dm.id]; const i = id === undefined ? 0 : dm.table.memberIndex(id); base[p.dimIndex(dm)] = i < 0 ? 0 : i; }
+      const fmtCols = p.dims.map(dm => dm.table.hasField('format') ? dm.table.field('format').column : undefined);
+      // title row, then a header row, then one row per row tuple
+      sheet.cells.set(a1(row, 1), { v: card.title, style: 'general/bold' });
+      if (card.editable) { const ps = this.pivotSheets.get(`${p.iid}:${m.iid}`); sheet.cells.set(a1(row, 2), { v: `Inputs: edit the blue cells on the ${ps ? `'${ps.sheet.name}'` : p.id} sheet; this table follows them.`, style: 'general/muted' }); }
+      const head = row + 1, first = head + 1;
+      sheet.cells.set(a1(head, 1), { v: rowDims.map(dm => dm.name || dm.id).join(' / ') || ' ', style: 'general/bold' });
+      colTuples.forEach((ct, c) => { sheet.cells.set(a1(head, 2 + c), { v: ct.map((i, k) => label(colDims[k].table, i)).join(' / ') || (m.name || m.id), style: 'general/bold' }); sheet.colWidths![2 + c] = Math.max(sheet.colWidths![2 + c] ?? 0, 12); });
+      let allPct = colTuples.length > 0 && rowTuples.length > 0;
+      rowTuples.forEach((rt, r) => {
+        const rr = first + r;
+        sheet.cells.set(a1(rr, 1), { v: rt.map((i, k) => label(rowDims[k].table, i)).join(' / ') || (m.name || m.id), style: 'general/normal' });
+        let pct = false, allInt = true; const made: { col: number; cell: Cell }[] = [];
+        colTuples.forEach((ct, c) => {
+          const coord = base.slice();
+          rt.forEach((i, k) => { coord[p.dimIndex(rowDims[k])] = i; });
+          ct.forEach((i, k) => { coord[p.dimIndex(colDims[k])] = i; });
+          for (let di = 0; di < p.dims.length; di++) { const fc = fmtCols[di]; if (fc && /percent|%/i.test(String(fc.get(coord[di]) ?? ''))) pct = true; }
+          const cell: Cell = { f: this.pivotAddr(p, m, coord, sheet) };
+          this.setValue(cell, this.cell(p, m, coord));
+          if (typeof cell.v === 'number' && !Number.isInteger(cell.v)) allInt = false;
+          made.push({ col: 2 + c, cell });
+        });
+        if (!pct) allPct = false;
+        for (const x of made) { x.cell.style = style(x.cell, pct ? 'pct' : allInt ? 'int' : 'dec', 'normal'); sheet.cells.set(a1(rr, x.col), x.cell); this.counts.formulas++; }
+      });
+      let next = first + rowTuples.length + 1;
+      if (card.kind === 'chart' && rowTuples.length && colTuples.length) {
+        const type: ChartSpec['type'] = card.chartType === 'bar' || card.chartType === 'waterfall' ? 'bar' : card.chartType === 'stackedBar' ? 'stackedBar' : card.chartType === 'area' ? 'area' : 'line';
+        const ref = sheetRef(sheet.name);
+        const abs = (r: number, c: number) => `$${colLetter(c)}$${r}`;
+        const lastCol = 1 + colTuples.length, lastRow = first + rowTuples.length - 1;
+        const byRows = card.series !== 'cols';
+        const series = byRows
+          ? rowTuples.map((_, r) => ({ nameRef: `${ref}!${abs(first + r, 1)}`, valuesRef: `${ref}!${abs(first + r, 2)}:${abs(first + r, lastCol)}` }))
+          : colTuples.map((_, c) => ({ nameRef: `${ref}!${abs(head, 2 + c)}`, valuesRef: `${ref}!${abs(first, 2 + c)}:${abs(lastRow, 2 + c)}` }));
+        const categoriesRef = byRows ? `${ref}!${abs(head, 2)}:${abs(head, lastCol)}` : `${ref}!${abs(first, 1)}:${abs(lastRow, 1)}`;
+        const height = 16;
+        sheet.charts!.push({ type, title: card.title, anchor: { fromCol: 0, fromRow: next - 1, toCol: Math.max(9, lastCol + 1), toRow: next - 1 + height }, categoriesRef, series, percent: allPct });
+        next += height + 1;
+      }
+      row = next;
+    }
+    sheet.cells.set(a1(row, 1), { v: 'Every cell on this sheet refers to the statement sheets; edit inputs there (blue) and this dashboard follows.', style: 'general/muted' });
+    return sheet;
   }
 
   // ---------- documentation sheets ----------

@@ -476,15 +476,18 @@ export async function startServer(opts: ServerOptions = {}): Promise<ServerHandl
     return c.db!.f.explain(model.id, table.id, at, c.query.get('measure') ?? c.query.get('field') ?? undefined);
   });
   route('GET', '/db/:db/models', 'read', c => ({ models: [...c.db!.f.db.models.values()].map(m => ({ id: m.id, name: m.name, tables: [...m.tables.keys()] })) }));
-  route('GET', '/db/:db/export.xlsx', 'read', c => {
+  const exportRoute = (c: Ctx) => {
     const f = c.db!.f;
-    const model = c.query.get('model') ?? (f.db.models.size === 1 ? [...f.db.models.keys()][0] : undefined);
+    const model = c.query.get('model') ?? c.body?.model ?? (f.db.models.size === 1 ? [...f.db.models.keys()][0] : undefined);
     if (!model) throw new HttpError(400, 'BAD_REQUEST', 'pass ?model= (the database has several models)');
     const { exportWorkbook } = require_export();
-    const r = exportWorkbook(f.db, model);
+    const dashboards = Array.isArray(c.body?.dashboards) ? c.body.dashboards : undefined;
+    const r = exportWorkbook(f.db, model, { dashboards });
     const name = `${c.params.db}${f.db.models.size > 1 ? `-${model}` : ''}.xlsx`.replace(/[^A-Za-z0-9._-]+/g, '_');
     return new Reply(200, r.buffer as unknown as object, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', { 'Content-Disposition': `attachment; filename="${name}"`, 'X-Finidb-Formulas': String(r.formulas), 'X-Finidb-Values': String(r.values) });
-  });
+  };
+  route('GET', '/db/:db/export.xlsx', 'read', exportRoute);
+  route('POST', '/db/:db/export.xlsx', 'read', exportRoute);   // body: { model?, dashboards?: DashboardExport[] } — the hosted service adds its dashboards
   route('PATCH', '/db/:db/models/:model', 'write', async c => {
     if (!c.body || !('iterate' in c.body)) throw new HttpError(400, 'BAD_REQUEST', 'body needs { iterate: true | false | { maxIterations, tolerance } }');
     return { ...(await applyOp(c.db!, { method: 'setIterate', args: [c.params.model, c.body.iterate] }, user(c)) as object), version: version(c.db!) };

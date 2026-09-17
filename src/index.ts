@@ -491,7 +491,7 @@ export { filePersistence } from './server/persistence.js';
 export { applyDocument, renderDocumentResult } from './build/document.js';
 import { exportWorkbook, type ExportOptions, type ExportResult } from './export/workbook.js';
 export { exportWorkbook } from './export/workbook.js';
-export type { ExportOptions, ExportResult } from './export/workbook.js';
+export type { ExportOptions, ExportResult, DashboardExport, DashboardCardExport } from './export/workbook.js';
 export { writeXlsx } from './export/xlsx.js';
 export { modelLink, modelLinkPlain, parseModelLink, encodeModelFragment, decodeModelFragment } from './build/link.js';
 export type { IterateSettings } from './schema/schema.js';
