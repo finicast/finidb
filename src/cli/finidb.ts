@@ -11,7 +11,7 @@ import { dirname, resolve } from 'node:path';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
-const BOOL_FLAGS = new Set(['require-auth', 'json', 'routes', 'help', 'version', 'append', 'h', 'v']);
+const BOOL_FLAGS = new Set(['require-auth', 'json', 'routes', 'help', 'version', 'append', 'h', 'v', 'no-xlsx']);
 
 interface Args { positional: string[]; flags: Record<string, string | true> }
 function parseArgs(argv: string[]): Args {
@@ -32,7 +32,7 @@ const str = (v: string | true | undefined, dflt?: string) => (typeof v === 'stri
 
 const USAGE = `finidb — a calculation engine for AI agents (doc 07 §5)
 
-  finidb build <model.json> [--format md|json] [--data-dir <dir>]   apply a model document in-process; print the statements and a finicast.com/import#m= link that recreates the model
+  finidb build <model.json> [--format md|json] [--no-xlsx]   apply a model document in-process; print the statements, a finicast.com/import#m= link that recreates the model, and write model.xlsx (live formulas)
   finidb export <model.json> --out model.xlsx     Excel workbook with live formulas compiled from the rules (or --data-dir <dir> [--model m])
   finidb mcp [--data-dir <dir>]      MCP server over stdio (in-memory, or persistent with --data-dir / FINIDB_DIR)
   finidb skill [--install <dir>]     print the agent skill (SKILL.md) or copy the skill folder into <dir>, e.g. ~/.claude/skills/finicast
@@ -167,7 +167,7 @@ async function main() {
       return;
     }
     case 'build': {
-      const file = rest[0] ?? fail('usage: finidb build <model.json> [--format md|json] [--xlsx out.xlsx] [--data-dir <dir>] [--site https://finicast.com]');
+      const file = rest[0] ?? fail('usage: finidb build <model.json> [--format md|json] [--xlsx out.xlsx | --no-xlsx] [--data-dir <dir>] [--site https://finicast.com]');
       const { readFileSync } = await import('node:fs');
       const doc = JSON.parse(file === '-' ? readFileSync(0, 'utf8') : readFileSync(file, 'utf8'));
       const { applyDocument, renderDocumentResult } = await import('../build/document.js');
@@ -177,17 +177,24 @@ async function main() {
       else f = new FiniDB();
       try {
         const r = applyDocument(f, doc);
-        const { modelLink } = await import('../build/link.js');
+        const { modelLink, parseModelLink } = await import('../build/link.js');
         const link = modelLink(doc, str(flags.site));
-        if (flags.xlsx) {
+        let linkVerified = false;
+        try { linkVerified = JSON.stringify(parseModelLink(link)) === JSON.stringify(doc); } catch { /* not verified */ }
+        // the workbook is a deliverable by default: next to the document, or --xlsx <path>, or --no-xlsx
+        let xlsxPath: string | undefined;
+        if (flags['no-xlsx'] !== true) {
           const { writeFileSync } = await import('node:fs');
+          const { basename, dirname, join } = await import('node:path');
           const { exportWorkbook } = await import('../export/workbook.js');
+          xlsxPath = flags.xlsx ? String(flags.xlsx) : file === '-' ? 'model.xlsx' : join(dirname(file), basename(file).replace(/\.json$/i, '') + '.xlsx');
           const x = exportWorkbook(f.db, r.model);
-          writeFileSync(String(flags.xlsx), x.buffer);
-          console.error(`wrote ${flags.xlsx}: ${x.sheets.length} sheets, ${x.formulas} formula cells, ${x.values} value-only cells${x.notes.length ? `, ${x.notes.length} notes` : ''}`);
+          writeFileSync(xlsxPath, x.buffer);
+          console.error(`wrote ${xlsxPath}: ${x.sheets.length} sheets, ${x.formulas} formula cells${x.values ? `, ${x.values} value-only cells` : ''}${x.notes.length ? `, ${x.notes.length} notes` : ''}`);
         }
-        if (str(flags.format) === 'json') console.log(JSON.stringify({ ok: true, ...r, link }, null, 1));
-        else console.log(renderDocumentResult(r, { link, dashboard: !!doc.dashboards, xlsxHint: !flags.xlsx }));
+        const rules = [...f.model(r.model).tables.values()].reduce((n, t) => n + t.rules.filter(x => x.status === 'ok').length, 0);
+        if (str(flags.format) === 'json') console.log(JSON.stringify({ ok: true, ...r, link, linkVerified, xlsx: xlsxPath, rules }, null, 1));
+        else console.log(renderDocumentResult(r, { link, linkVerified, dashboard: !!doc.dashboards, xlsx: xlsxPath, xlsxHint: !xlsxPath, rules }));
       } catch (e) { console.error(`Build failed: ${e instanceof Error ? e.message : String(e)}`); process.exitCode = 1; }
       finally { if (closer) await closer(); }
       return;

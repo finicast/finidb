@@ -50,7 +50,7 @@ test('a share link carries the model document in its fragment and round-trips', 
   assert.equal(modelLink(doc, 'http://localhost:3000/').split('#')[0], 'http://localhost:3000/import');
   // the rendered CLI output tells the agent to include the link verbatim
   const r = applyDocument(new FiniDB(), doc);
-  assert.match(renderDocumentResult(r, { link }), /include this link verbatim/);
+  assert.match(renderDocumentResult(r, { link }), /link in your reply verbatim/);
 });
 
 test('the uncompressed #j= link form round-trips too', async () => {
@@ -58,4 +58,26 @@ test('the uncompressed #j= link form round-trips too', async () => {
   const link = modelLinkPlain(doc);
   assert.ok(link.startsWith('https://finicast.com/import#j='));
   assert.deepEqual(parseModelLink(link), doc);
+});
+
+test('scenarios as a dimension: one set of rules, a bear and a base case side by side', () => {
+  const f = new FiniDB();
+  const r = applyDocument(f, {
+    model: 'sc',
+    periods: { start: '2025-01', count: 3, grain: 'year', histUntil: '2025-12-31' },
+    tables: { scenarios: { rows: [{ id: 'base', name: 'Base' }, { id: 'bear', name: 'Bear' }] } },
+    pivots: {
+      history: { lines: ['revenue'], inputs: { revenue: { fy2025: 1000 } } },
+      assumptions: { lines: [{ id: 'growth', format: 'percent' }], dims: { scenario: 'scenarios' },
+        values: [{ at: { line: 'growth', scenario: 'base', period: 'fy2026' }, value: 0.3 }, { at: { line: 'growth', scenario: 'base', period: 'fy2027' }, value: 0.2 }, { at: { line: 'growth', scenario: 'bear', period: 'fy2026' }, value: 0.05 }, { at: { line: 'growth', scenario: 'bear', period: 'fy2027' }, value: 0.0 }] },
+      income_statement: { lines: ['revenue'], dims: { scenario: 'scenarios' }, rules: 'revenue[frame=hist] = history.revenue\nrevenue[frame=fcst] = PREV(revenue) * (1 + assumptions.growth)' },
+    },
+    outputs: [{ pivot: 'income_statement', pages: { scenario: 'base' }, title: 'Base' }, { pivot: 'income_statement', pages: { scenario: 'bear' }, title: 'Bear' }],
+  });
+  assert.equal(r.outputs.length, 2);
+  assert.ok(Math.abs((f.get('sc', 'income_statement', { line: 'revenue', scenario: 'base', period: 'fy2027' }) as number) - 1560) < 1e-9);
+  assert.ok(Math.abs((f.get('sc', 'income_statement', { line: 'revenue', scenario: 'bear', period: 'fy2027' }) as number) - 1050) < 1e-9);
+  assert.equal(f.get('sc', 'income_statement', { line: 'revenue', scenario: 'bear', period: 'fy2025' }), 1000, 'history flows into every scenario');
+  const text = renderDocumentResult(r, { link: 'https://finicast.com/import#m=x', linkVerified: true, xlsx: 'model.xlsx', rules: 2 });
+  assert.match(text, /Deliverables/); assert.match(text, /attach this file/); assert.match(text, /Verified: the link decodes back/); assert.match(text, /from the same 2 rules/);
 });

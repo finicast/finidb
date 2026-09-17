@@ -59,6 +59,9 @@ them, so `finicast_load_table` can detect the reference columns (`refCandidate`)
   that keeps cash above a minimum, is a cycle inside one period: `#CYCLE` unless the model was
   created with `iterate: true` (Excel's iterative calculation: 100 passes, tolerance 0.001). Keep the
   loop damped or it ends in `#ITER`. Cross-period references (`PREV(debt)`) never need it.
+- **Describe the result as three things**: a live model to steer (the link), a workbook they can audit
+  and extend (`finidb build` writes it next to the document; attach it), and the statements — all from
+  the same rules, with no hand-written cell formulas. Scenarios are a dimension, not copies of the model.
 - **Offer the Excel file when the user works in spreadsheets.** Every workspace exports as an .xlsx
   with live formulas compiled from the rules (`GET <workspace url>/export.xlsx`, or locally
   `finidb build model.json --xlsx model.xlsx`); you never write a cell formula.

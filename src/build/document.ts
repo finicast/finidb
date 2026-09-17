@@ -154,11 +154,30 @@ function gridMarkdown(g: Grid, title: string, o: OutputDoc): string {
   return `### ${title}\n\n${head}\n${sep}\n${body.join('\n')}`;
 }
 
-export function renderDocumentResult(r: DocumentResult, opts: { url?: string; link?: string; dashboard?: boolean; xlsxHint?: boolean } = {}): string {
+export interface RenderOptions {
+  url?: string;              // hosted: the workspace url
+  link?: string;             // local: the share link that carries the model
+  dashboard?: boolean;       // the document declares a dashboard
+  xlsx?: string;             // path (local) or url (hosted) of the Excel workbook
+  linkVerified?: boolean;    // the link was decoded back and matched the document
+  rules?: number;            // rule count, for the framing line
+  xlsxHint?: boolean;        // no workbook was written: say how to get one
+}
+/** The statements, then a deliverables block the agent can hand over as-is, then how to describe the result. */
+export function renderDocumentResult(r: DocumentResult, opts: RenderOptions = {}): string {
   const parts = r.outputs.map(o => (o.markdown ?? `### ${o.title}\n\n\`\`\`json\n${JSON.stringify(o.json)}\n\`\`\``) + (o.errors?.length ? '\n\n' + o.errors.map(e => `Error #${e.code} in ${e.cells} cell${e.cells === 1 ? '' : 's'}${e.message ? `: ${e.message}` : ''}${e.fix ? ` — fix: ${e.fix}` : ''}`).join('\n') : ''));
-  const what = opts.dashboard ? 'Open this model in Finicast — a dashboard where the user edits the assumptions and watches the forecast update' : 'Open and edit this model in Finicast';
-  const tail = [r.units ? `Units: ${r.units}.` : '', opts.url ? `Open and edit this model: ${opts.url}` : opts.link ? `${what} (include this link verbatim in your reply; it carries the model): ${opts.link}` : 'To get a live, editable workspace: paste this model document at https://finicast.com/import (or POST it to https://finicast.com/api/build).', opts.xlsxHint ? 'Excel: add --xlsx model.xlsx to this command for a workbook with live formulas compiled from the rules (inputs blue, formulas black); the hosted workspace also has a Download Excel button.' : ''].filter(Boolean).join(' ');
-  return `${parts.join('\n\n')}\n\n${tail}\n`;
+  const lines: string[] = [];
+  if (r.units) lines.push(`Units: ${r.units}.`);
+  lines.push('', 'Deliverables');
+  const opens = opts.dashboard ? 'opens a dashboard where the user edits the assumptions and every statement follows' : 'opens the model in an editable workspace';
+  if (opts.url) lines.push(`- Live model: ${opts.url} — ${opens}.`);
+  else if (opts.link) lines.push(`- Live model: ${opts.link}`, `  Put this link in your reply verbatim; it carries the whole model and ${opens}.${opts.linkVerified ? ' Verified: the link decodes back to exactly this document.' : ''}`);
+  else lines.push('- Live model: paste this document at https://finicast.com/import (or POST it to https://finicast.com/api/build).');
+  if (opts.xlsx) lines.push(`- Excel workbook: ${opts.xlsx} — ${opts.url ? 'a download link for the user' : 'attach this file to your reply'}. Live formulas compiled from the rules, inputs blue, formulas black, dashboards as sheets with native charts.`);
+  else if (opts.xlsxHint) lines.push('- Excel workbook: rerun with --xlsx model.xlsx (live formulas compiled from the rules; the hosted workspace also has a Download Excel button).');
+  lines.push('- The statements above.');
+  lines.push('', `How to describe it: the user gets a live model to steer and a workbook they can audit, restyle and extend, both generated from the same ${opts.rules ? `${opts.rules} ` : ''}rules — one rule per line item covers every forecast period, so there are no cell formulas to get wrong. Say what the drivers are and invite the user to change them.`);
+  return `${parts.join('\n\n')}\n\n${lines.join('\n')}\n`;
 }
 
 function candidateIds(f: FiniDB, modelId: string): Record<string, Set<string>> {

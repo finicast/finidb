@@ -70,7 +70,7 @@ sheet reference, `SUM(ledger.amount)` becomes `SUMIFS` over the table sheet, `ty
 faithful Excel form keep their value and are listed on a Notes sheet.
 
 ```sh
-npx finidb build model.json --xlsx model.xlsx      # from a document
+npx finidb build model.json                        # writes model.xlsx next to the document (--no-xlsx to skip)
 npx finidb export --data-dir ./data --out m.xlsx   # from a database
 ```
 
