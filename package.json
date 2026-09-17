@@ -1,6 +1,6 @@
 {
   "name": "finidb",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "A BI-style calculation engine for AI agents: line items x periods, conditional rules, incremental recalculation. Free for noncommercial and educational use; commercial license required.",
   "type": "module",
   "main": "dist/index.js",

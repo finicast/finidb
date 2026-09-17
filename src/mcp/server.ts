@@ -114,7 +114,7 @@ const plain = (v: Value): Scalar | { error: string } => isError(v) ? { error: v.
 // ---------- the server ----------
 
 export function createMcpServer(f: FiniDB): McpServer {
-  const server = new McpServer({ name: 'finidb', version: '0.1.4' });
+  const server = new McpServer({ name: 'finidb', version: '0.1.5' });
 
   // 1. schema ---------------------------------------------------------------
   server.registerTool('finicast_schema', {
