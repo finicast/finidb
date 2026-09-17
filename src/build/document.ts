@@ -5,7 +5,7 @@
  * over REST at POST /api/build.
  */
 import { FiniDB, type FieldSpec, type PeriodsSpec, type Grid, type Scalar } from '../index.js';
-import { formatValue } from '../view/markdown.js';
+import { formatNumber, formatValue } from '../view/markdown.js';
 import { isError } from '../store/column.js';
 
 export interface LineSpec { id: string; name?: string; format?: string; [attr: string]: unknown }
@@ -42,7 +42,7 @@ export interface ModelDocument {
    *  user changes a driver and watches the forecast move. `"auto"` derives one from the inputs and outputs. */
   dashboards?: DashboardDoc[] | 'auto';
 }
-export interface DocumentOutput { pivot: string; title: string; markdown?: string; json?: { rows: string[][]; rowLabels: string[][]; cols: string[]; values: unknown[][] } }
+export interface DocumentOutput { pivot: string; title: string; markdown?: string; json?: { rows: string[][]; rowLabels: string[][]; cols: string[]; values: unknown[][] }; /** distinct cell errors in this output, each with the engine's suggested fix */ errors?: { code: string; message?: string; fix?: string; cells: number }[] }
 export interface DocumentResult { model: string; units?: string; outputs: DocumentOutput[]; log: string[] }
 
 const TYPES = new Set(['number', 'text', 'date', 'bool']);
@@ -134,6 +134,9 @@ export function applyDocument(f: FiniDB, doc: ModelDocument): DocumentResult {
     const fmt = o.format ?? 'markdown';
     if (fmt === 'markdown' || fmt === 'both') entry.markdown = gridMarkdown(grid, title, o);
     if (fmt === 'json' || fmt === 'both') entry.json = { rows: grid.rowIds ?? [], rowLabels: grid.rowHeaders, cols: (grid.colIds ?? []).map(c => c.join('/')), values: grid.values.map(r => r.map(v => isError(v) ? `#${v.error}` : v)) };
+    const errs = new Map<string, { code: string; message?: string; fix?: string; cells: number }>();
+    grid.values.forEach(row => row.forEach(v => { if (isError(v)) { const k = `${v.error}|${v.message ?? ''}|${v.fix ?? ''}`; const e = errs.get(k); if (e) e.cells++; else errs.set(k, { code: v.error, message: v.message, fix: v.fix, cells: 1 }); } }));
+    if (errs.size) entry.errors = [...errs.values()];
     outputs.push(entry);
   }
   return { model: modelId, units: doc.units, outputs, log };
@@ -145,16 +148,16 @@ function gridMarkdown(g: Grid, title: string, o: OutputDoc): string {
   const sep = `|---|${g.colHeaders.map(() => '---:').join('|')}|`;
   const body = g.values.map((row, r) => `| ${g.rowHeaders[r].join(' / ')} | ${row.map((v, c) => {
     const fmt = g.formats?.[r]?.[c];
-    if (typeof v === 'number' && fmt !== 'percent' && fmt !== '%') { const x = v / scale; return formatValue(x, o.decimals !== undefined ? undefined : (Math.abs(x) >= 100 ? 'int' : undefined)); }
+    if (typeof v === 'number' && fmt !== 'percent' && fmt !== '%') { const x = v / scale; return o.decimals !== undefined ? formatNumber(x, o.decimals) : formatValue(x, Math.abs(x) >= 100 ? 'int' : undefined); }
     return formatValue(v, fmt);
   }).join(' | ')} |`);
   return `### ${title}\n\n${head}\n${sep}\n${body.join('\n')}`;
 }
 
-export function renderDocumentResult(r: DocumentResult, opts: { url?: string; link?: string; dashboard?: boolean } = {}): string {
-  const parts = r.outputs.map(o => o.markdown ?? `### ${o.title}\n\n\`\`\`json\n${JSON.stringify(o.json)}\n\`\`\``);
+export function renderDocumentResult(r: DocumentResult, opts: { url?: string; link?: string; dashboard?: boolean; xlsxHint?: boolean } = {}): string {
+  const parts = r.outputs.map(o => (o.markdown ?? `### ${o.title}\n\n\`\`\`json\n${JSON.stringify(o.json)}\n\`\`\``) + (o.errors?.length ? '\n\n' + o.errors.map(e => `Error #${e.code} in ${e.cells} cell${e.cells === 1 ? '' : 's'}${e.message ? `: ${e.message}` : ''}${e.fix ? ` — fix: ${e.fix}` : ''}`).join('\n') : ''));
   const what = opts.dashboard ? 'Open this model in Finicast — a dashboard where the user edits the assumptions and watches the forecast update' : 'Open and edit this model in Finicast';
-  const tail = [r.units ? `Units: ${r.units}.` : '', opts.url ? `Open and edit this model: ${opts.url}` : opts.link ? `${what} (include this link verbatim in your reply; it carries the model): ${opts.link}` : 'To get a live, editable workspace: paste this model document at https://finicast.com/import (or POST it to https://finicast.com/api/build).'].filter(Boolean).join(' ');
+  const tail = [r.units ? `Units: ${r.units}.` : '', opts.url ? `Open and edit this model: ${opts.url}` : opts.link ? `${what} (include this link verbatim in your reply; it carries the model): ${opts.link}` : 'To get a live, editable workspace: paste this model document at https://finicast.com/import (or POST it to https://finicast.com/api/build).', opts.xlsxHint ? 'Excel: add --xlsx model.xlsx to this command for a workbook with live formulas compiled from the rules (inputs blue, formulas black); the hosted workspace also has a Download Excel button.' : ''].filter(Boolean).join(' ');
   return `${parts.join('\n\n')}\n\n${tail}\n`;
 }
 

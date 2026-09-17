@@ -211,7 +211,7 @@ export interface ColumnarWindow {
   measure: string;
   values: Value[]; state: number[];              // row-major; state 0 blank · 1 computed · 2 input · 3 error
   formats: (string | undefined)[];               // per row
-  errors: Record<string, { code: string; message?: string }>;
+  errors: Record<string, { code: string; message?: string; fix?: string }>;
 }
 /** Columnar window from the facade grid (doc 05 §10). Every non-row/col dim must be paged. */
 function columnar(f: FiniDB, p: Pivot, q: QueryOptions): ColumnarWindow {
@@ -222,7 +222,7 @@ function columnar(f: FiniDB, p: Pivot, q: QueryOptions): ColumnarWindow {
   grid.values.forEach((row, r) => row.forEach((v, c) => {
     const idx = values.length;
     values.push(v); state.push(grid.state![r][c]);
-    if (isError(v)) errors[idx] = { code: v.error, message: v.message };
+    if (isError(v)) errors[idx] = { code: v.error, message: v.message, ...(v.fix ? { fix: v.fix } : {}) };
   }));
   return {
     version: f.db.version,

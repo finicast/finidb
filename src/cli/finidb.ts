@@ -187,7 +187,7 @@ async function main() {
           console.error(`wrote ${flags.xlsx}: ${x.sheets.length} sheets, ${x.formulas} formula cells, ${x.values} value-only cells${x.notes.length ? `, ${x.notes.length} notes` : ''}`);
         }
         if (str(flags.format) === 'json') console.log(JSON.stringify({ ok: true, ...r, link }, null, 1));
-        else console.log(renderDocumentResult(r, { link, dashboard: !!doc.dashboards }));
+        else console.log(renderDocumentResult(r, { link, dashboard: !!doc.dashboards, xlsxHint: !flags.xlsx }));
       } catch (e) { console.error(`Build failed: ${e instanceof Error ? e.message : String(e)}`); process.exitCode = 1; }
       finally { if (closer) await closer(); }
       return;

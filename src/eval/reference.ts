@@ -759,7 +759,7 @@ export class ReferenceEvaluator extends EvalCore {
     const hit = this.memo.get(key);
     if (hit !== undefined) return hit;
     if (this.inProgress.has(key)) {
-      if (!model.iterate) return err('CYCLE', `${label} depends on itself`);
+      if (!model.iterate) { const e = err('CYCLE', `${label} depends on itself within the period`); e.fix = 'set "iterate": true on the model (Excel-style iterative calculation, e.g. interest on average debt or a minimum-cash revolver), or read the prior period with PREV()'; return e; }
       for (let i = this.frames.length - 1; i >= 0; i--) { this.frames[i].taints.add(key); if (this.frames[i].key === key) break; }
       return this.provisional.get(key) ?? 0;
     }

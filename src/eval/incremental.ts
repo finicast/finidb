@@ -414,7 +414,7 @@ export class IncrementalEngine extends EvalCore {
   /** A cell read while it is being computed: with iteration on, hand back the provisional value and taint the frames down to it. */
   private reentry(cs: ColState, i: number, label: string): Value {
     const model = (cs.pivot ?? cs.table)!.model;
-    if (!model.iterate) return err('CYCLE', `${label} depends on itself`);
+    if (!model.iterate) { const e = err('CYCLE', `${label} depends on itself within the period`); e.fix = 'set "iterate": true on the model (Excel-style iterative calculation, e.g. interest on average debt or a minimum-cash revolver), or read the prior period with PREV()'; return e; }
     const key = `${cs.uid}:${i}`;
     for (let f = this.iframes.length - 1; f >= 0; f--) { this.iframes[f].taints.add(key); if (this.iframes[f].key === key) break; }
     return this.provisional.get(key) ?? 0;
