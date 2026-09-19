@@ -81,3 +81,38 @@ test('scenarios as a dimension: one set of rules, a bear and a base case side by
   const text = renderDocumentResult(r, { link: 'https://finicast.com/import#m=x', linkVerified: true, xlsx: 'model.xlsx', rules: 2 });
   assert.match(text, /Deliverables/); assert.match(text, /attach this file/); assert.match(text, /Verified: the link decodes back/); assert.match(text, /from the same 2 rules/);
 });
+
+test('a percent line placed on columns formats only its own column', () => {
+  const f = new FiniDB();
+  const r = applyDocument(f, {
+    model: 'colfmt',
+    tables: { co: { rows: [{ id: 'a', name: 'A' }, { id: 'b', name: 'B' }] } },
+    pivots: { m: { dims: { company: 'co' }, lines: [{ id: 'rev' }, { id: 'growth', format: 'percent' }], values: [
+      { at: { company: 'a', line: 'rev' }, value: 1000 }, { at: { company: 'a', line: 'growth' }, value: 0.25 },
+      { at: { company: 'b', line: 'rev' }, value: 2500 }, { at: { company: 'b', line: 'growth' }, value: 0.1 } ] } },
+    outputs: [{ pivot: 'm', rows: ['company'], cols: ['line'], title: 'By company' }],
+  } as never);
+  const md = r.outputs[0].markdown ?? '';
+  assert.match(md, /\| A \| 1,000 \| 25\.0% \|/, md);
+  const g = f.query(r.model, { table: 'm', rows: ['company'], cols: ['line'], format: 'grid' }) as { rowFormats?: (string | undefined)[]; colFormats?: (string | undefined)[]; formats?: (string | undefined)[][] };
+  assert.deepEqual(g.rowFormats, [undefined, undefined]);
+  assert.deepEqual(g.colFormats, [undefined, 'percent']);
+  assert.deepEqual(g.formats?.[0], [undefined, 'percent']);
+  assert.ok(f.model(r.model).table('co').hasField('name'), 'row keys become fields');
+});
+
+test('a paged percent line is the window fallback format (chart cards paged on a rate)', async () => {
+  const { runQuery } = await import('../src/server/server.js');
+  const f = new FiniDB();
+  const r = applyDocument(f, {
+    model: 'pagefmt',
+    tables: { co: { rows: [{ id: 'a' }, { id: 'b' }] }, basis: { rows: [{ id: 'ltm' }, { id: 'ntm' }] } },
+    pivots: { m: { dims: { company: 'co', basis: 'basis' }, lines: [{ id: 'rev' }, { id: 'growth', format: 'percent' }], values: [
+      { at: { company: 'a', line: 'growth', basis: 'ltm' }, value: 0.2 }, { at: { company: 'a', line: 'growth', basis: 'ntm' }, value: 0.1 } ] } },
+  } as never);
+  const win = runQuery(f, r.model, { table: 'm', rows: ['basis'], cols: ['company'], pages: { line: 'growth' }, format: 'json' } as never) as { formats: (string | undefined)[]; measureFormat?: string };
+  assert.deepEqual(win.formats, ['percent', 'percent']);
+  assert.equal(win.measureFormat, 'percent');
+  const plain = runQuery(f, r.model, { table: 'm', rows: ['basis'], cols: ['company'], pages: { line: 'rev' }, format: 'json' } as never) as { formats: (string | undefined)[] };
+  assert.deepEqual(plain.formats, [undefined, undefined]);
+});

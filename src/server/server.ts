@@ -210,7 +210,9 @@ export interface ColumnarWindow {
   rowHeaderNames: string[];                      // display names of the row dims
   measure: string;
   values: Value[]; state: number[];              // row-major; state 0 blank · 1 computed · 2 input · 3 error
-  formats: (string | undefined)[];               // per row
+  formats: (string | undefined)[];               // per row: the row's own format (member `format` attribute or query override), else the measure's
+  colFormats?: (string | undefined)[];           // per column: a column member's own format (e.g. a percent line placed on columns); a row's own format wins over it
+  measureFormat?: string;                        // the measure's default, so a reader can tell a row's own format from the fallback
   errors: Record<string, { code: string; message?: string; fix?: string }>;
 }
 /** Columnar window from the facade grid (doc 05 §10). Every non-row/col dim must be paged. */
@@ -224,12 +226,14 @@ function columnar(f: FiniDB, p: Pivot, q: QueryOptions): ColumnarWindow {
     values.push(v); state.push(grid.state![r][c]);
     if (isError(v)) errors[idx] = { code: v.error, message: v.message, ...(v.fix ? { fix: v.fix } : {}) };
   }));
+  // a paged member's own format (a percent line chosen as the page of a chart card) is the fallback before the measure's
+  const pageFormat = p.dims.map(d => { const m = q.pages?.[d.id]; if (m === undefined || q.rows.includes(d.id) || q.cols.includes(d.id) || !d.table.hasField('format')) return undefined; const i = d.table.memberIndex(m); const v = i >= 0 ? d.table.field('format').column.get(i) : null; return v ? String(v) : undefined; }).find(Boolean);
   return {
     version: f.db.version,
     rows: grid.rowIds!, cols: grid.colIds!,
     rowLabels: grid.rowHeaders, colLabels: grid.colHeaders,
     rowDims: q.rows, colDims: q.cols, rowHeaderNames: grid.rowHeaderNames, measure: measure.id,
-    values, state, formats: grid.formats!.map(fr => fr[0]), errors,
+    values, state, formats: grid.rowFormats!.map(f => f ?? pageFormat ?? measure.format), colFormats: grid.colFormats, measureFormat: pageFormat ?? measure.format, errors,
   };
 }
 function cartesian(lists: number[][]): number[][] {

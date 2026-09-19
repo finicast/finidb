@@ -461,19 +461,21 @@ class Compiler extends ReferenceEvaluator {
       rowTuples.forEach((rt, r) => {
         const rr = first + r;
         sheet.cells.set(a1(rr, 1), { v: rt.map((i, k) => label(rowDims[k].table, i)).join(' / ') || (m.name || m.id), style: 'general/normal' });
-        let pct = false, allInt = true; const made: { col: number; cell: Cell }[] = [];
+        let pct = false, allInt = true; const made: { col: number; cell: Cell; pct: boolean }[] = [];
         colTuples.forEach((ct, c) => {
           const coord = base.slice();
           rt.forEach((i, k) => { coord[p.dimIndex(rowDims[k])] = i; });
           ct.forEach((i, k) => { coord[p.dimIndex(colDims[k])] = i; });
-          for (let di = 0; di < p.dims.length; di++) { const fc = fmtCols[di]; if (fc && /percent|%/i.test(String(fc.get(coord[di]) ?? ''))) pct = true; }
+          let cellPct = false;   // a percent member on either axis makes this cell a percent; a percent line on columns must not spill over the row
+          for (let di = 0; di < p.dims.length; di++) { const fc = fmtCols[di]; if (fc && /percent|%/i.test(String(fc.get(coord[di]) ?? ''))) cellPct = true; }
+          if (cellPct) pct = true;
           const cell: Cell = { f: this.pivotAddr(p, m, coord, sheet) };
           this.setValue(cell, this.cell(p, m, coord));
-          if (typeof cell.v === 'number' && !Number.isInteger(cell.v)) allInt = false;
-          made.push({ col: 2 + c, cell });
+          if (!cellPct && typeof cell.v === 'number' && !Number.isInteger(cell.v)) allInt = false;
+          made.push({ col: 2 + c, cell, pct: cellPct });
         });
         if (!pct) allPct = false;
-        for (const x of made) { x.cell.style = style(x.cell, pct ? 'pct' : allInt ? 'int' : 'dec', 'normal'); sheet.cells.set(a1(rr, x.col), x.cell); this.counts.formulas++; }
+        for (const x of made) { x.cell.style = style(x.cell, x.pct ? 'pct' : allInt ? 'int' : 'dec', 'normal'); sheet.cells.set(a1(rr, x.col), x.cell); this.counts.formulas++; }
       });
       let next = first + rowTuples.length + 1;
       if (card.kind === 'chart' && rowTuples.length && colTuples.length) {

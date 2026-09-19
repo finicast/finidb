@@ -50,6 +50,20 @@ export interface DocumentResult { model: string; units?: string; outputs: Docume
 const TYPES = new Set(['number', 'text', 'date', 'bool']);
 /** `operating_model` → `Operating model`: humans see names, not ids. */
 export const titleCase = (id: string) => { const t = id.replace(/[_-]+/g, ' ').trim(); return t.charAt(0).toUpperCase() + t.slice(1); };
+/** Row keys that no declared field covers become fields (text, or number when every value is numeric), so `{ id, name }` rows keep their names. */
+export function withRowFields(fields: FieldSpec[], rows: Record<string, unknown>[] | undefined): FieldSpec[] {
+  if (!rows?.length) return fields;
+  const have = new Set(['id', ...fields.map(f => f.id)]);
+  const out = [...fields];
+  for (const k of rows.flatMap(r => Object.keys(r))) {
+    if (have.has(k)) continue;
+    have.add(k);
+    const vals = rows.map(r => r[k]).filter(v => v !== undefined && v !== null && v !== '');
+    out.push({ id: k, type: vals.length && vals.every(v => typeof v === 'number') ? 'number' : 'text' });
+  }
+  return out;
+}
+
 function fieldsOf(f: TableDoc['fields']): FieldSpec[] {
   if (!f) return [];
   if (Array.isArray(f)) return f;
@@ -82,7 +96,7 @@ export function applyDocument(f: FiniDB, doc: ModelDocument): DocumentResult {
       log.push(`table ${id}: ${plan.rows.length} rows from CSV`);
       continue;
     }
-    f.createTable(modelId, id, fieldsOf(t.fields), { name: t.name ?? titleCase(id), rows: t.rows ?? [] });
+    f.createTable(modelId, id, withRowFields(fieldsOf(t.fields), t.rows), { name: t.name ?? titleCase(id), rows: t.rows ?? [] });
     log.push(`table ${id}: ${(t.rows ?? []).length} rows`);
   }
 

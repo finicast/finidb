@@ -1,116 +1,1010 @@
 {
   "model": "comps",
-  "name": "Comparable companies analysis",
-  "units": "USD millions",
+  "name": "Apple \u2014 comparable companies (illustrative, Sep 2026)",
+  "units": "USD millions except per-share",
   "tables": {
     "companies": {
       "name": "Companies",
       "fields": {
         "name": "text",
-        "kind": "text",
-        "sector": "text",
-        "ev": "number",
-        "revenue": "number",
-        "revenue_ny": "number",
-        "ebitda": "number",
-        "net_income": "number",
-        "market_cap": "number",
-        "net_debt": "number",
-        "shares": "number"
+        "ticker": "text",
+        "group": "text",
+        "peer": "number"
       },
       "rows": [
         {
-          "id": "subject",
-          "name": "Subject Co",
-          "kind": "subject",
-          "sector": "software",
-          "ev": 0,
-          "revenue": 820,
-          "revenue_ny": 1010,
-          "ebitda": 246,
-          "net_income": 130,
-          "market_cap": 0,
-          "net_debt": 0,
-          "shares": 75
+          "id": "aapl",
+          "name": "Apple",
+          "ticker": "AAPL",
+          "group": "target",
+          "peer": 0
         },
         {
-          "id": "alpha",
-          "name": "AlphaSoft",
-          "kind": "peer",
-          "sector": "software",
-          "ev": 9800,
-          "revenue": 1250,
-          "revenue_ny": 1480,
-          "ebitda": 388,
-          "net_income": 215,
-          "market_cap": 8900,
-          "net_debt": 0,
-          "shares": 0
+          "id": "msft",
+          "name": "Microsoft",
+          "ticker": "MSFT",
+          "group": "platform",
+          "peer": 1
         },
         {
-          "id": "beta",
-          "name": "BetaCloud",
-          "kind": "peer",
-          "sector": "software",
-          "ev": 15400,
-          "revenue": 1900,
-          "revenue_ny": 2380,
-          "ebitda": 570,
-          "net_income": 300,
-          "market_cap": 14700,
-          "net_debt": 0,
-          "shares": 0
+          "id": "googl",
+          "name": "Alphabet",
+          "ticker": "GOOGL",
+          "group": "platform",
+          "peer": 1
         },
         {
-          "id": "gamma",
-          "name": "GammaData",
-          "kind": "peer",
-          "sector": "software",
-          "ev": 4200,
-          "revenue": 610,
-          "revenue_ny": 700,
-          "ebitda": 140,
-          "net_income": 61,
-          "market_cap": 3900,
-          "net_debt": 0,
-          "shares": 0
+          "id": "amzn",
+          "name": "Amazon",
+          "ticker": "AMZN",
+          "group": "platform",
+          "peer": 1
         },
         {
-          "id": "delta",
-          "name": "DeltaAI",
-          "kind": "peer",
-          "sector": "software",
-          "ev": 22000,
-          "revenue": 2100,
-          "revenue_ny": 2940,
-          "ebitda": 714,
-          "net_income": 380,
-          "market_cap": 21500,
-          "net_debt": 0,
-          "shares": 0
+          "id": "meta",
+          "name": "Meta Platforms",
+          "ticker": "META",
+          "group": "platform",
+          "peer": 1
         },
         {
-          "id": "eps",
-          "name": "EpsilonNet",
-          "kind": "peer",
-          "sector": "software",
-          "ev": 6100,
-          "revenue": 900,
-          "revenue_ny": 1035,
-          "ebitda": 234,
-          "net_income": 120,
-          "market_cap": 5800,
-          "net_debt": 0,
-          "shares": 0
+          "id": "nvda",
+          "name": "NVIDIA",
+          "ticker": "NVDA",
+          "group": "platform",
+          "peer": 1
+        },
+        {
+          "id": "dell",
+          "name": "Dell Technologies",
+          "ticker": "DELL",
+          "group": "hardware",
+          "peer": 1
+        },
+        {
+          "id": "hpq",
+          "name": "HP Inc.",
+          "ticker": "HPQ",
+          "group": "hardware",
+          "peer": 1
         }
       ]
     },
-    "metrics": {
-      "name": "Metrics",
+    "basis": {
+      "name": "Basis",
       "rows": [
         {
-          "id": "revenue_growth",
-          "name": "Revenue growth (NTM)",
+          "id": "ltm",
+          "name": "LTM"
+        },
+        {
+          "id": "ntm",
+          "name": "NTM"
+        }
+      ]
+    },
+    "stats": {
+      "name": "Statistics",
+      "rows": [
+        {
+          "id": "low",
+          "name": "Low"
+        },
+        {
+          "id": "mean",
+          "name": "Mean"
+        },
+        {
+          "id": "median",
+          "name": "Median"
+        },
+        {
+          "id": "high",
+          "name": "High"
+        },
+        {
+          "id": "median_platform",
+          "name": "Median: platforms"
+        },
+        {
+          "id": "median_hardware",
+          "name": "Median: hardware"
+        }
+      ]
+    }
+  },
+  "pivots": {
+    "market_data": {
+      "name": "Market data",
+      "dims": {
+        "company": "companies"
+      },
+      "lines": [
+        {
+          "id": "price",
+          "name": "Share price ($)"
+        },
+        {
+          "id": "shares",
+          "name": "Diluted shares (M)"
+        },
+        {
+          "id": "cash",
+          "name": "Cash & investments"
+        },
+        {
+          "id": "debt",
+          "name": "Total debt"
+        }
+      ],
+      "values": [
+        {
+          "at": {
+            "company": "aapl",
+            "line": "price"
+          },
+          "value": 331.34
+        },
+        {
+          "at": {
+            "company": "aapl",
+            "line": "shares"
+          },
+          "value": 14590
+        },
+        {
+          "at": {
+            "company": "aapl",
+            "line": "cash"
+          },
+          "value": 62400
+        },
+        {
+          "at": {
+            "company": "aapl",
+            "line": "debt"
+          },
+          "value": 84340
+        },
+        {
+          "at": {
+            "company": "msft",
+            "line": "price"
+          },
+          "value": 497.75
+        },
+        {
+          "at": {
+            "company": "msft",
+            "line": "shares"
+          },
+          "value": 7430
+        },
+        {
+          "at": {
+            "company": "msft",
+            "line": "cash"
+          },
+          "value": 76840
+        },
+        {
+          "at": {
+            "company": "msft",
+            "line": "debt"
+          },
+          "value": 128810
+        },
+        {
+          "at": {
+            "company": "googl",
+            "line": "price"
+          },
+          "value": 347.33
+        },
+        {
+          "at": {
+            "company": "googl",
+            "line": "shares"
+          },
+          "value": 12230
+        },
+        {
+          "at": {
+            "company": "googl",
+            "line": "cash"
+          },
+          "value": 242470
+        },
+        {
+          "at": {
+            "company": "googl",
+            "line": "debt"
+          },
+          "value": 120790
+        },
+        {
+          "at": {
+            "company": "amzn",
+            "line": "price"
+          },
+          "value": 251.19
+        },
+        {
+          "at": {
+            "company": "amzn",
+            "line": "shares"
+          },
+          "value": 10790
+        },
+        {
+          "at": {
+            "company": "amzn",
+            "line": "cash"
+          },
+          "value": 122990
+        },
+        {
+          "at": {
+            "company": "amzn",
+            "line": "debt"
+          },
+          "value": 251640
+        },
+        {
+          "at": {
+            "company": "meta",
+            "line": "price"
+          },
+          "value": 682.31
+        },
+        {
+          "at": {
+            "company": "meta",
+            "line": "shares"
+          },
+          "value": 2520
+        },
+        {
+          "at": {
+            "company": "meta",
+            "line": "cash"
+          },
+          "value": 90260
+        },
+        {
+          "at": {
+            "company": "meta",
+            "line": "debt"
+          },
+          "value": 112320
+        },
+        {
+          "at": {
+            "company": "nvda",
+            "line": "price"
+          },
+          "value": 219.34
+        },
+        {
+          "at": {
+            "company": "nvda",
+            "line": "shares"
+          },
+          "value": 24150
+        },
+        {
+          "at": {
+            "company": "nvda",
+            "line": "cash"
+          },
+          "value": 62470
+        },
+        {
+          "at": {
+            "company": "nvda",
+            "line": "debt"
+          },
+          "value": 38860
+        },
+        {
+          "at": {
+            "company": "dell",
+            "line": "price"
+          },
+          "value": 543.51
+        },
+        {
+          "at": {
+            "company": "dell",
+            "line": "shares"
+          },
+          "value": 636
+        },
+        {
+          "at": {
+            "company": "dell",
+            "line": "cash"
+          },
+          "value": 11570
+        },
+        {
+          "at": {
+            "company": "dell",
+            "line": "debt"
+          },
+          "value": 31920
+        },
+        {
+          "at": {
+            "company": "hpq",
+            "line": "price"
+          },
+          "value": 33.82
+        },
+        {
+          "at": {
+            "company": "hpq",
+            "line": "shares"
+          },
+          "value": 914.5
+        },
+        {
+          "at": {
+            "company": "hpq",
+            "line": "cash"
+          },
+          "value": 3700
+        },
+        {
+          "at": {
+            "company": "hpq",
+            "line": "debt"
+          },
+          "value": 10860
+        }
+      ]
+    },
+    "financials": {
+      "name": "Financials, LTM and NTM",
+      "dims": {
+        "company": "companies",
+        "basis": "basis"
+      },
+      "lines": [
+        {
+          "id": "revenue",
+          "name": "Revenue"
+        },
+        {
+          "id": "revenue_prior",
+          "name": "Revenue, prior year (LTM only)"
+        },
+        {
+          "id": "ebitda",
+          "name": "EBITDA"
+        },
+        {
+          "id": "net_income",
+          "name": "Net income"
+        },
+        {
+          "id": "eps",
+          "name": "Diluted EPS ($)"
+        }
+      ],
+      "values": [
+        {
+          "at": {
+            "company": "aapl",
+            "line": "revenue",
+            "basis": "ltm"
+          },
+          "value": 466820
+        },
+        {
+          "at": {
+            "company": "aapl",
+            "line": "revenue_prior",
+            "basis": "ltm"
+          },
+          "value": 401030
+        },
+        {
+          "at": {
+            "company": "aapl",
+            "line": "ebitda",
+            "basis": "ltm"
+          },
+          "value": 167960
+        },
+        {
+          "at": {
+            "company": "aapl",
+            "line": "net_income",
+            "basis": "ltm"
+          },
+          "value": 128930
+        },
+        {
+          "at": {
+            "company": "aapl",
+            "line": "eps",
+            "basis": "ltm"
+          },
+          "value": 8.73
+        },
+        {
+          "at": {
+            "company": "msft",
+            "line": "revenue",
+            "basis": "ltm"
+          },
+          "value": 331840
+        },
+        {
+          "at": {
+            "company": "msft",
+            "line": "revenue_prior",
+            "basis": "ltm"
+          },
+          "value": 281940
+        },
+        {
+          "at": {
+            "company": "msft",
+            "line": "ebitda",
+            "basis": "ltm"
+          },
+          "value": 194240
+        },
+        {
+          "at": {
+            "company": "msft",
+            "line": "net_income",
+            "basis": "ltm"
+          },
+          "value": 133750
+        },
+        {
+          "at": {
+            "company": "msft",
+            "line": "eps",
+            "basis": "ltm"
+          },
+          "value": 17.94
+        },
+        {
+          "at": {
+            "company": "googl",
+            "line": "revenue",
+            "basis": "ltm"
+          },
+          "value": 445870
+        },
+        {
+          "at": {
+            "company": "googl",
+            "line": "revenue_prior",
+            "basis": "ltm"
+          },
+          "value": 358990
+        },
+        {
+          "at": {
+            "company": "googl",
+            "line": "ebitda",
+            "basis": "ltm"
+          },
+          "value": 173160
+        },
+        {
+          "at": {
+            "company": "googl",
+            "line": "net_income",
+            "basis": "ltm"
+          },
+          "value": 244120
+        },
+        {
+          "at": {
+            "company": "googl",
+            "line": "eps",
+            "basis": "ltm"
+          },
+          "value": 19.92
+        },
+        {
+          "at": {
+            "company": "amzn",
+            "line": "revenue",
+            "basis": "ltm"
+          },
+          "value": 775680
+        },
+        {
+          "at": {
+            "company": "amzn",
+            "line": "revenue_prior",
+            "basis": "ltm"
+          },
+          "value": 648560
+        },
+        {
+          "at": {
+            "company": "amzn",
+            "line": "ebitda",
+            "basis": "ltm"
+          },
+          "value": 168910
+        },
+        {
+          "at": {
+            "company": "amzn",
+            "line": "net_income",
+            "basis": "ltm"
+          },
+          "value": 135280
+        },
+        {
+          "at": {
+            "company": "amzn",
+            "line": "eps",
+            "basis": "ltm"
+          },
+          "value": 12.43
+        },
+        {
+          "at": {
+            "company": "meta",
+            "line": "revenue",
+            "basis": "ltm"
+          },
+          "value": 228250
+        },
+        {
+          "at": {
+            "company": "meta",
+            "line": "revenue_prior",
+            "basis": "ltm"
+          },
+          "value": 178320
+        },
+        {
+          "at": {
+            "company": "meta",
+            "line": "ebitda",
+            "basis": "ltm"
+          },
+          "value": 109650
+        },
+        {
+          "at": {
+            "company": "meta",
+            "line": "net_income",
+            "basis": "ltm"
+          },
+          "value": 68100
+        },
+        {
+          "at": {
+            "company": "meta",
+            "line": "eps",
+            "basis": "ltm"
+          },
+          "value": 26.16
+        },
+        {
+          "at": {
+            "company": "nvda",
+            "line": "revenue",
+            "basis": "ltm"
+          },
+          "value": 302970
+        },
+        {
+          "at": {
+            "company": "nvda",
+            "line": "revenue_prior",
+            "basis": "ltm"
+          },
+          "value": 147140
+        },
+        {
+          "at": {
+            "company": "nvda",
+            "line": "ebitda",
+            "basis": "ltm"
+          },
+          "value": 201270
+        },
+        {
+          "at": {
+            "company": "nvda",
+            "line": "net_income",
+            "basis": "ltm"
+          },
+          "value": 192880
+        },
+        {
+          "at": {
+            "company": "nvda",
+            "line": "eps",
+            "basis": "ltm"
+          },
+          "value": 7.91
+        },
+        {
+          "at": {
+            "company": "dell",
+            "line": "revenue",
+            "basis": "ltm"
+          },
+          "value": 151200
+        },
+        {
+          "at": {
+            "company": "dell",
+            "line": "revenue_prior",
+            "basis": "ltm"
+          },
+          "value": 95700
+        },
+        {
+          "at": {
+            "company": "dell",
+            "line": "ebitda",
+            "basis": "ltm"
+          },
+          "value": 17730
+        },
+        {
+          "at": {
+            "company": "dell",
+            "line": "net_income",
+            "basis": "ltm"
+          },
+          "value": 11380
+        },
+        {
+          "at": {
+            "company": "dell",
+            "line": "eps",
+            "basis": "ltm"
+          },
+          "value": 17.2
+        },
+        {
+          "at": {
+            "company": "hpq",
+            "line": "revenue",
+            "basis": "ltm"
+          },
+          "value": 57420
+        },
+        {
+          "at": {
+            "company": "hpq",
+            "line": "revenue_prior",
+            "basis": "ltm"
+          },
+          "value": 52680
+        },
+        {
+          "at": {
+            "company": "hpq",
+            "line": "ebitda",
+            "basis": "ltm"
+          },
+          "value": 4710
+        },
+        {
+          "at": {
+            "company": "hpq",
+            "line": "net_income",
+            "basis": "ltm"
+          },
+          "value": 2550
+        },
+        {
+          "at": {
+            "company": "hpq",
+            "line": "eps",
+            "basis": "ltm"
+          },
+          "value": 2.7
+        },
+        {
+          "at": {
+            "company": "aapl",
+            "line": "revenue",
+            "basis": "ntm"
+          },
+          "value": 512000
+        },
+        {
+          "at": {
+            "company": "aapl",
+            "line": "ebitda",
+            "basis": "ntm"
+          },
+          "value": 186000
+        },
+        {
+          "at": {
+            "company": "aapl",
+            "line": "net_income",
+            "basis": "ntm"
+          },
+          "value": 142000
+        },
+        {
+          "at": {
+            "company": "aapl",
+            "line": "eps",
+            "basis": "ntm"
+          },
+          "value": 9.8
+        },
+        {
+          "at": {
+            "company": "msft",
+            "line": "revenue",
+            "basis": "ntm"
+          },
+          "value": 386000
+        },
+        {
+          "at": {
+            "company": "msft",
+            "line": "ebitda",
+            "basis": "ntm"
+          },
+          "value": 228000
+        },
+        {
+          "at": {
+            "company": "msft",
+            "line": "net_income",
+            "basis": "ntm"
+          },
+          "value": 156000
+        },
+        {
+          "at": {
+            "company": "msft",
+            "line": "eps",
+            "basis": "ntm"
+          },
+          "value": 21.1
+        },
+        {
+          "at": {
+            "company": "googl",
+            "line": "revenue",
+            "basis": "ntm"
+          },
+          "value": 512000
+        },
+        {
+          "at": {
+            "company": "googl",
+            "line": "ebitda",
+            "basis": "ntm"
+          },
+          "value": 201000
+        },
+        {
+          "at": {
+            "company": "googl",
+            "line": "net_income",
+            "basis": "ntm"
+          },
+          "value": 262000
+        },
+        {
+          "at": {
+            "company": "googl",
+            "line": "eps",
+            "basis": "ntm"
+          },
+          "value": 21.6
+        },
+        {
+          "at": {
+            "company": "amzn",
+            "line": "revenue",
+            "basis": "ntm"
+          },
+          "value": 905000
+        },
+        {
+          "at": {
+            "company": "amzn",
+            "line": "ebitda",
+            "basis": "ntm"
+          },
+          "value": 205000
+        },
+        {
+          "at": {
+            "company": "amzn",
+            "line": "net_income",
+            "basis": "ntm"
+          },
+          "value": 163000
+        },
+        {
+          "at": {
+            "company": "amzn",
+            "line": "eps",
+            "basis": "ntm"
+          },
+          "value": 15.2
+        },
+        {
+          "at": {
+            "company": "meta",
+            "line": "revenue",
+            "basis": "ntm"
+          },
+          "value": 276000
+        },
+        {
+          "at": {
+            "company": "meta",
+            "line": "ebitda",
+            "basis": "ntm"
+          },
+          "value": 134000
+        },
+        {
+          "at": {
+            "company": "meta",
+            "line": "net_income",
+            "basis": "ntm"
+          },
+          "value": 80000
+        },
+        {
+          "at": {
+            "company": "meta",
+            "line": "eps",
+            "basis": "ntm"
+          },
+          "value": 31.4
+        },
+        {
+          "at": {
+            "company": "nvda",
+            "line": "revenue",
+            "basis": "ntm"
+          },
+          "value": 423000
+        },
+        {
+          "at": {
+            "company": "nvda",
+            "line": "ebitda",
+            "basis": "ntm"
+          },
+          "value": 283000
+        },
+        {
+          "at": {
+            "company": "nvda",
+            "line": "net_income",
+            "basis": "ntm"
+          },
+          "value": 266000
+        },
+        {
+          "at": {
+            "company": "nvda",
+            "line": "eps",
+            "basis": "ntm"
+          },
+          "value": 10.95
+        },
+        {
+          "at": {
+            "company": "dell",
+            "line": "revenue",
+            "basis": "ntm"
+          },
+          "value": 172000
+        },
+        {
+          "at": {
+            "company": "dell",
+            "line": "ebitda",
+            "basis": "ntm"
+          },
+          "value": 20400
+        },
+        {
+          "at": {
+            "company": "dell",
+            "line": "net_income",
+            "basis": "ntm"
+          },
+          "value": 13100
+        },
+        {
+          "at": {
+            "company": "dell",
+            "line": "eps",
+            "basis": "ntm"
+          },
+          "value": 20.1
+        },
+        {
+          "at": {
+            "company": "hpq",
+            "line": "revenue",
+            "basis": "ntm"
+          },
+          "value": 59500
+        },
+        {
+          "at": {
+            "company": "hpq",
+            "line": "ebitda",
+            "basis": "ntm"
+          },
+          "value": 5000
+        },
+        {
+          "at": {
+            "company": "hpq",
+            "line": "net_income",
+            "basis": "ntm"
+          },
+          "value": 2750
+        },
+        {
+          "at": {
+            "company": "hpq",
+            "line": "eps",
+            "basis": "ntm"
+          },
+          "value": 2.95
+        }
+      ]
+    },
+    "comps": {
+      "name": "Trading multiples",
+      "dims": {
+        "company": "companies",
+        "basis": "basis"
+      },
+      "lines": [
+        {
+          "id": "market_cap",
+          "name": "Market cap"
+        },
+        {
+          "id": "net_debt",
+          "name": "Net debt (cash)"
+        },
+        {
+          "id": "ev",
+          "name": "Enterprise value"
+        },
+        {
+          "id": "ev_revenue",
+          "name": "EV / Revenue (x)"
+        },
+        {
+          "id": "ev_ebitda",
+          "name": "EV / EBITDA (x)"
+        },
+        {
+          "id": "pe",
+          "name": "P / E (x)"
+        },
+        {
+          "id": "rev_growth",
+          "name": "Revenue growth",
           "format": "percent"
         },
         {
@@ -119,96 +1013,97 @@
           "format": "percent"
         },
         {
-          "id": "ev_revenue",
-          "name": "EV / Revenue"
-        },
-        {
-          "id": "ev_ebitda",
-          "name": "EV / EBITDA"
-        },
-        {
-          "id": "pe",
-          "name": "P / E"
-        }
-      ]
-    },
-    "stats": {
-      "name": "Statistics",
-      "rows": [
-        {
-          "id": "median"
-        },
-        {
-          "id": "mean"
-        },
-        {
-          "id": "low"
-        },
-        {
-          "id": "high"
-        }
-      ]
-    }
-  },
-  "pivots": {
-    "comps": {
-      "name": "Comparables",
-      "lineTable": "metrics",
-      "dims": {
-        "company": "companies"
-      },
-      "rules": [
-        "revenue_growth = company.revenue_ny / company.revenue - 1",
-        "ebitda_margin  = company.ebitda / company.revenue",
-        "ev_revenue     = company.ev / company.revenue",
-        "ev_ebitda      = company.ev / company.ebitda",
-        "pe             = company.market_cap / company.net_income",
-        "value[company.kind=subject, line in (ev_revenue, ev_ebitda, pe)] = BLANK"
-      ]
-    },
-    "summary": {
-      "name": "Peer statistics",
-      "lineTable": "metrics",
-      "dims": {
-        "stat": "stats"
-      },
-      "rules": [
-        "value[stat=median] = MEDIAN(comps.value[company.kind=peer])",
-        "value[stat=mean]   = AVG(comps.value[company.kind=peer])",
-        "value[stat=low]    = MIN(comps.value[company.kind=peer])",
-        "value[stat=high]   = MAX(comps.value[company.kind=peer])"
-      ]
-    },
-    "implied": {
-      "name": "Implied valuation of the subject",
-      "lines": [
-        {
-          "id": "ev_by_revenue",
-          "name": "EV at median EV/Revenue"
-        },
-        {
-          "id": "ev_by_ebitda",
-          "name": "EV at median EV/EBITDA"
-        },
-        {
-          "id": "implied_ev",
-          "name": "Implied EV (average)"
-        },
-        {
-          "id": "implied_equity",
-          "name": "Implied equity value"
-        },
-        {
-          "id": "implied_price",
-          "name": "Implied price per share ($)"
+          "id": "net_margin",
+          "name": "Net margin",
+          "format": "percent"
         }
       ],
       "rules": [
-        "ev_by_revenue  = summary.value[stat=median, line=ev_revenue] * companies.revenue[id=subject]",
-        "ev_by_ebitda   = summary.value[stat=median, line=ev_ebitda] * companies.ebitda[id=subject]",
-        "implied_ev     = AVG(ev_by_revenue, ev_by_ebitda)",
-        "implied_equity = implied_ev - companies.net_debt[id=subject]",
-        "implied_price  = implied_equity / companies.shares[id=subject]"
+        "market_cap    = market_data.price * market_data.shares",
+        "net_debt      = market_data.debt - market_data.cash",
+        "ev            = market_cap + net_debt",
+        "ev_revenue    = ev / financials.revenue",
+        "ev_ebitda     = ev / financials.ebitda",
+        "pe            = market_data.price / financials.eps",
+        "rev_growth[basis=ltm] = financials.revenue[basis=ltm] / financials.revenue_prior[basis=ltm] - 1",
+        "rev_growth[basis=ntm] = financials.revenue[basis=ntm] / financials.revenue[basis=ltm] - 1",
+        "ebitda_margin = financials.ebitda / financials.revenue",
+        "net_margin    = financials.net_income / financials.revenue"
+      ]
+    },
+    "peer_stats": {
+      "name": "Peer statistics",
+      "lineTable": "comps_lines",
+      "dims": {
+        "stat": "stats",
+        "basis": "basis"
+      },
+      "rules": [
+        "value[stat=low]             = MIN(comps.value[company.peer=1])",
+        "value[stat=mean]            = AVG(comps.value[company.peer=1])",
+        "value[stat=median]          = MEDIAN(comps.value[company.peer=1])",
+        "value[stat=high]            = MAX(comps.value[company.peer=1])",
+        "value[stat=median_platform] = MEDIAN(comps.value[company.group=platform])",
+        "value[stat=median_hardware] = MEDIAN(comps.value[company.group=hardware])"
+      ]
+    },
+    "implied": {
+      "name": "Implied Apple valuation",
+      "dims": {
+        "stat": "stats",
+        "basis": "basis"
+      },
+      "lines": [
+        {
+          "id": "ev_from_revenue",
+          "name": "Implied EV at peer EV/Revenue"
+        },
+        {
+          "id": "ev_from_ebitda",
+          "name": "Implied EV at peer EV/EBITDA"
+        },
+        {
+          "id": "price_from_revenue",
+          "name": "Implied price: EV/Revenue ($)"
+        },
+        {
+          "id": "price_from_ebitda",
+          "name": "Implied price: EV/EBITDA ($)"
+        },
+        {
+          "id": "price_from_pe",
+          "name": "Implied price: P/E ($)"
+        },
+        {
+          "id": "current_price",
+          "name": "Current Apple price ($)"
+        },
+        {
+          "id": "upside_revenue",
+          "name": "Implied vs current: EV/Revenue",
+          "format": "percent"
+        },
+        {
+          "id": "upside_ebitda",
+          "name": "Implied vs current: EV/EBITDA",
+          "format": "percent"
+        },
+        {
+          "id": "upside_pe",
+          "name": "Implied vs current: P/E",
+          "format": "percent"
+        }
+      ],
+      "rules": [
+        "ev_from_revenue    = peer_stats.value[line=ev_revenue] * financials.revenue[company=aapl]",
+        "ev_from_ebitda     = peer_stats.value[line=ev_ebitda] * financials.ebitda[company=aapl]",
+        "price_from_revenue = (ev_from_revenue - comps.net_debt[company=aapl]) / market_data.shares[company=aapl]",
+        "price_from_ebitda  = (ev_from_ebitda - comps.net_debt[company=aapl]) / market_data.shares[company=aapl]",
+        "price_from_pe      = peer_stats.value[line=pe] * financials.eps[company=aapl]",
+        "current_price      = market_data.price[company=aapl]",
+        "upside_revenue     = price_from_revenue / current_price - 1",
+        "upside_ebitda      = price_from_ebitda / current_price - 1",
+        "upside_pe          = price_from_pe / current_price - 1"
       ]
     }
   },
@@ -221,46 +1116,161 @@
       "cols": [
         "line"
       ],
-      "title": "Comparable companies",
+      "pages": {
+        "basis": "ltm"
+      },
+      "title": "Trading multiples \u2014 LTM",
       "decimals": 2
     },
     {
-      "pivot": "summary",
+      "pivot": "comps",
       "rows": [
-        "stat"
+        "company"
       ],
       "cols": [
         "line"
       ],
-      "title": "Peer statistics",
+      "pages": {
+        "basis": "ntm"
+      },
+      "lines": [
+        "ev_revenue",
+        "ev_ebitda",
+        "pe",
+        "rev_growth",
+        "ebitda_margin"
+      ],
+      "title": "Trading multiples \u2014 NTM",
+      "decimals": 2
+    },
+    {
+      "pivot": "peer_stats",
+      "rows": [
+        "line"
+      ],
+      "cols": [
+        "stat"
+      ],
+      "pages": {
+        "basis": "ltm"
+      },
+      "lines": [
+        "ev_revenue",
+        "ev_ebitda",
+        "pe",
+        "rev_growth",
+        "ebitda_margin"
+      ],
+      "title": "Peer statistics \u2014 LTM",
+      "decimals": 2
+    },
+    {
+      "pivot": "peer_stats",
+      "rows": [
+        "line"
+      ],
+      "cols": [
+        "stat"
+      ],
+      "pages": {
+        "basis": "ntm"
+      },
+      "lines": [
+        "ev_revenue",
+        "ev_ebitda",
+        "pe",
+        "rev_growth",
+        "ebitda_margin"
+      ],
+      "title": "Peer statistics \u2014 NTM",
       "decimals": 2
     },
     {
       "pivot": "implied",
-      "title": "Implied valuation ($M)",
+      "rows": [
+        "line"
+      ],
+      "cols": [
+        "stat"
+      ],
+      "pages": {
+        "basis": "ltm"
+      },
+      "title": "Implied Apple valuation \u2014 LTM",
+      "decimals": 1
+    },
+    {
+      "pivot": "implied",
+      "rows": [
+        "line"
+      ],
+      "cols": [
+        "stat"
+      ],
+      "pages": {
+        "basis": "ntm"
+      },
+      "title": "Implied Apple valuation \u2014 NTM",
       "decimals": 1
     }
   ],
   "dashboards": [
     {
       "id": "overview",
-      "name": "Comparables",
+      "name": "Apple comps",
       "cards": [
         {
-          "kind": "kpi",
-          "pivot": "implied",
-          "line": "implied_ev",
-          "unit": "$M"
+          "kind": "table",
+          "pivot": "market_data",
+          "rows": [
+            "company"
+          ],
+          "cols": [
+            "line"
+          ],
+          "editable": true,
+          "title": "Market data (edit any cell)"
         },
         {
-          "kind": "kpi",
-          "pivot": "implied",
-          "line": "implied_price",
-          "unit": "$"
+          "kind": "table",
+          "pivot": "financials",
+          "rows": [
+            "company"
+          ],
+          "cols": [
+            "line"
+          ],
+          "pages": {
+            "basis": "ltm"
+          },
+          "editable": true,
+          "title": "Financials \u2014 LTM (edit any cell)"
         },
         {
-          "kind": "chart",
-          "type": "bar",
+          "kind": "table",
+          "pivot": "financials",
+          "rows": [
+            "company"
+          ],
+          "cols": [
+            "line"
+          ],
+          "pages": {
+            "basis": "ntm"
+          },
+          "editable": true,
+          "title": "Financials \u2014 NTM estimates (edit any cell)",
+          "filters": {
+            "line": [
+              "revenue",
+              "ebitda",
+              "net_income",
+              "eps"
+            ]
+          }
+        },
+        {
+          "kind": "table",
           "pivot": "comps",
           "rows": [
             "company"
@@ -268,14 +1278,25 @@
           "cols": [
             "line"
           ],
-          "lines": [
-            "ev_revenue"
-          ],
-          "title": "EV / Revenue by company"
+          "pages": {
+            "basis": "ltm"
+          },
+          "title": "EV & trading multiples \u2014 LTM",
+          "filters": {
+            "line": [
+              "market_cap",
+              "net_debt",
+              "ev",
+              "ev_revenue",
+              "ev_ebitda",
+              "pe",
+              "rev_growth",
+              "ebitda_margin"
+            ]
+          }
         },
         {
-          "kind": "chart",
-          "type": "bar",
+          "kind": "table",
           "pivot": "comps",
           "rows": [
             "company"
@@ -283,10 +1304,125 @@
           "cols": [
             "line"
           ],
-          "lines": [
-            "ebitda_margin"
+          "pages": {
+            "basis": "ntm"
+          },
+          "filters": {
+            "line": [
+              "ev_revenue",
+              "ev_ebitda",
+              "pe",
+              "rev_growth",
+              "ebitda_margin"
+            ]
+          },
+          "title": "Trading multiples \u2014 NTM"
+        },
+        {
+          "kind": "table",
+          "pivot": "peer_stats",
+          "rows": [
+            "line"
           ],
-          "title": "EBITDA margin by company"
+          "cols": [
+            "stat"
+          ],
+          "pages": {
+            "basis": "ltm"
+          },
+          "filters": {
+            "line": [
+              "ev_revenue",
+              "ev_ebitda",
+              "pe",
+              "rev_growth",
+              "ebitda_margin"
+            ]
+          },
+          "title": "Peer multiple statistics \u2014 LTM"
+        },
+        {
+          "kind": "table",
+          "pivot": "peer_stats",
+          "rows": [
+            "line"
+          ],
+          "cols": [
+            "stat"
+          ],
+          "pages": {
+            "basis": "ntm"
+          },
+          "filters": {
+            "line": [
+              "ev_revenue",
+              "ev_ebitda",
+              "pe",
+              "rev_growth",
+              "ebitda_margin"
+            ]
+          },
+          "title": "Peer multiple statistics \u2014 NTM"
+        },
+        {
+          "kind": "table",
+          "pivot": "implied",
+          "rows": [
+            "line"
+          ],
+          "cols": [
+            "stat"
+          ],
+          "pages": {
+            "basis": "ltm"
+          },
+          "title": "Implied Apple valuation \u2014 LTM"
+        },
+        {
+          "kind": "table",
+          "pivot": "implied",
+          "rows": [
+            "line"
+          ],
+          "cols": [
+            "stat"
+          ],
+          "pages": {
+            "basis": "ntm"
+          },
+          "title": "Implied Apple valuation \u2014 NTM"
+        },
+        {
+          "kind": "chart",
+          "type": "bar",
+          "pivot": "comps",
+          "rows": [
+            "basis"
+          ],
+          "cols": [
+            "company"
+          ],
+          "pages": {
+            "line": "ev_ebitda"
+          },
+          "title": "EV / EBITDA by company, LTM vs NTM",
+          "w": 6
+        },
+        {
+          "kind": "chart",
+          "type": "bar",
+          "pivot": "comps",
+          "rows": [
+            "basis"
+          ],
+          "cols": [
+            "company"
+          ],
+          "pages": {
+            "line": "rev_growth"
+          },
+          "title": "Revenue growth by company, LTM vs NTM",
+          "w": 6
         }
       ]
     }

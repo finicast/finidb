@@ -30,6 +30,9 @@ export interface Grid {
   colHeaders: string[];
   values: Value[][];        // rows × cols
   formats?: (string | undefined)[][];
+  /** the format each row / column contributes on its own (member `format` attributes; rows also carry the query's per-row overrides) */
+  rowFormats?: (string | undefined)[];
+  colFormats?: (string | undefined)[];
   /** member id tuples behind each row / column header (same order as rowHeaders / colHeaders) */
   rowIds?: string[][];
   colIds?: string[][];

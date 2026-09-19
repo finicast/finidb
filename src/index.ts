@@ -422,6 +422,10 @@ export class FiniDB {
       for (let k = 0; k < colDims.length; k++) { const c = fmtCols[p.dimIndex(colDims[k])]; if (c) { const v = c.get(ct[k]); if (v) return String(v); } }
       return undefined;
     };
+    const dimFormat = (dims: Dim[], t: number[]): string | undefined => {
+      for (let k = 0; k < dims.length; k++) { const c = fmtCols[p.dimIndex(dims[k])]; if (c) { const v = c.get(t[k]); if (v) return String(v); } }
+      return undefined;
+    };
     const label = (d: Dim, i: number) => { const nf = d.table.fieldById.get('name'); const n = nf ? nf.column.get(i) : null; return n === null || n === '' ? d.table.rowId(i) : String(n); };
     const grid: Grid = {
       title: q.title,
@@ -431,6 +435,8 @@ export class FiniDB {
       rowIds: rowTuples.map(t => t.map((i, k) => rowDims[k].table.rowId(i))),
       colIds: colTuples.map(t => t.map((i, k) => colDims[k].table.rowId(i))),
       values: [], formats: [], state: [],
+      rowFormats: rowTuples.map(rt => q.formats?.[rt.map((i, k) => rowDims[k].table.rowId(i)).join('/')] ?? dimFormat(rowDims, rt)),
+      colFormats: colTuples.map(ct => dimFormat(colDims, ct)),
     };
     for (const rt of rowTuples) {
       const row: Value[] = []; const fmts: (string | undefined)[] = []; const st: number[] = [];
@@ -454,8 +460,8 @@ export class FiniDB {
       const keyOf = (i: number) => colIdx < 0 ? grid.rowHeaders[i].join(' ') : grid.values[i][colIdx];
       order.sort((a, b) => { const x = keyOf(a), y = keyOf(b); const nx = typeof x === 'number' ? x : x === null ? -Infinity : NaN, ny = typeof y === 'number' ? y : y === null ? -Infinity : NaN; if (!Number.isNaN(nx) && !Number.isNaN(ny)) return (nx - ny) * dir; return String(x ?? '').localeCompare(String(y ?? '')) * dir; });
       const pick = <T,>(arr: T[]) => order.map(i => arr[i]);
-      grid.rowHeaders = pick(grid.rowHeaders); grid.rowIds = pick(grid.rowIds!); grid.values = pick(grid.values); grid.formats = pick(grid.formats!); grid.state = pick(grid.state!);
-      if (q.sort.top) { const n = q.sort.top; grid.rowHeaders = grid.rowHeaders.slice(0, n); grid.rowIds = grid.rowIds.slice(0, n); grid.values = grid.values.slice(0, n); grid.formats = grid.formats.slice(0, n); grid.state = grid.state.slice(0, n); }
+      grid.rowHeaders = pick(grid.rowHeaders); grid.rowIds = pick(grid.rowIds!); grid.values = pick(grid.values); grid.formats = pick(grid.formats!); grid.rowFormats = pick(grid.rowFormats!); grid.state = pick(grid.state!);
+      if (q.sort.top) { const n = q.sort.top; grid.rowHeaders = grid.rowHeaders.slice(0, n); grid.rowIds = grid.rowIds.slice(0, n); grid.values = grid.values.slice(0, n); grid.formats = grid.formats.slice(0, n); grid.rowFormats = grid.rowFormats!.slice(0, n); grid.state = grid.state.slice(0, n); }
     }
     return q.format === 'grid' ? grid : renderMarkdown(grid);
   }
