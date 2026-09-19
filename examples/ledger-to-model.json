@@ -1,0 +1,103 @@
+{
+  "model": "ledger",
+  "name": "Ledger to model",
+  "units": "USD",
+  "periods": {
+    "start": "2026-01",
+    "count": 12,
+    "grain": "month",
+    "histUntil": "2026-06-30"
+  },
+  "tables": {
+    "ledger": {
+      "name": "General ledger",
+      "csv": "id,date,subsidiary,department,account,amount\nl1,2026-01-15,us,sales,revenue,499200\nl2,2026-01-15,us,sales,salaries,-172800\nl3,2026-01-15,us,sales,cloud,-39600\nl4,2026-01-15,us,sales,travel,-9792\nl6,2026-01-15,us,engineering,salaries,-194400\nl7,2026-01-15,us,engineering,cloud,-36000\nl8,2026-01-15,us,engineering,travel,-8832\nl9,2026-01-15,uk,sales,revenue,339200\nl10,2026-01-15,uk,sales,salaries,-117600\nl11,2026-01-15,uk,sales,cloud,-21600\nl12,2026-01-15,uk,sales,travel,-6656\nl14,2026-01-15,uk,engineering,salaries,-132000\nl15,2026-01-15,uk,engineering,cloud,-24480\nl16,2026-01-15,uk,engineering,travel,-6016\nl17,2026-02-15,us,sales,revenue,533952\nl18,2026-02-15,us,sales,salaries,-185400\nl19,2026-02-15,us,sales,cloud,-34114\nl20,2026-02-15,us,sales,travel,-10481\nl22,2026-02-15,us,engineering,salaries,-166860\nl23,2026-02-15,us,engineering,cloud,-38563\nl24,2026-02-15,us,engineering,travel,-9492\nl25,2026-02-15,uk,sales,revenue,362560\nl26,2026-02-15,uk,sales,salaries,-126072\nl27,2026-02-15,uk,sales,cloud,-23237\nl28,2026-02-15,uk,sales,travel,-7119\nl30,2026-02-15,uk,engineering,salaries,-113712\nl31,2026-02-15,uk,engineering,cloud,-26203\nl32,2026-02-15,uk,engineering,travel,-6460\nl33,2026-03-15,us,sales,revenue,457920\nl34,2026-03-15,us,sales,salaries,-198432\nl35,2026-03-15,us,sales,cloud,-36634\nl36,2026-03-15,us,sales,travel,-11194\nl38,2026-03-15,us,engineering,salaries,-179352\nl39,2026-03-15,us,engineering,cloud,-41213\nl40,2026-03-15,us,engineering,travel,-10176\nl41,2026-03-15,uk,sales,revenue,312064\nl42,2026-03-15,uk,sales,salaries,-134832\nl43,2026-03-15,uk,sales,cloud,-24931\nl44,2026-03-15,uk,sales,travel,-6106\nl46,2026-03-15,uk,engineering,salaries,-122112\nl47,2026-03-15,uk,engineering,cloud,-27984\nl48,2026-03-15,uk,engineering,travel,-6920\nl49,2026-04-15,us,sales,revenue,491808\nl50,2026-04-15,us,sales,salaries,-211896\nl51,2026-04-15,us,sales,cloud,-39240\nl52,2026-04-15,us,sales,travel,-9627\nl54,2026-04-15,us,engineering,salaries,-192276\nl55,2026-04-15,us,engineering,cloud,-35316\nl56,2026-04-15,us,engineering,travel,-10883\nl57,2026-04-15,uk,sales,revenue,334848\nl58,2026-04-15,uk,sales,salaries,-143880\nl59,2026-04-15,uk,sales,cloud,-26683\nl60,2026-04-15,uk,sales,travel,-6557\nl62,2026-04-15,uk,engineering,salaries,-130800\nl63,2026-04-15,uk,engineering,cloud,-24067\nl64,2026-04-15,uk,engineering,travel,-7395\nl65,2026-05-15,us,sales,revenue,526848\nl66,2026-05-15,us,sales,salaries,-181440\nl67,2026-05-15,us,sales,cloud,-41933\nl68,2026-05-15,us,sales,travel,-10322\nl70,2026-05-15,us,engineering,salaries,-205632\nl71,2026-05-15,us,engineering,cloud,-37901\nl72,2026-05-15,us,engineering,travel,-11612\nl73,2026-05-15,uk,sales,revenue,358400\nl74,2026-05-15,uk,sales,salaries,-123648\nl75,2026-05-15,uk,sales,cloud,-28493\nl76,2026-05-15,uk,sales,travel,-7025\nl78,2026-05-15,uk,engineering,salaries,-139776\nl79,2026-05-15,uk,engineering,cloud,-25805\nl80,2026-05-15,uk,engineering,travel,-7885\nl81,2026-06-15,us,sales,revenue,563040\nl82,2026-06-15,us,sales,salaries,-194580\nl83,2026-06-15,us,sales,cloud,-44712\nl84,2026-06-15,us,sales,travel,-11040\nl86,2026-06-15,us,engineering,salaries,-219420\nl87,2026-06-15,us,engineering,cloud,-40572\nl88,2026-06-15,us,engineering,travel,-9936\nl89,2026-06-15,uk,sales,revenue,382720\nl90,2026-06-15,uk,sales,salaries,-132480\nl91,2026-06-15,uk,sales,cloud,-30360\nl92,2026-06-15,uk,sales,travel,-7507\nl94,2026-06-15,uk,engineering,salaries,-149040\nl95,2026-06-15,uk,engineering,cloud,-27600\nl96,2026-06-15,uk,engineering,travel,-6771",
+      "fields": {
+        "period": "ref:periods*"
+      },
+      "rules": "period = PERIOD(date, periods)"
+    },
+    "subsidiaries": {
+      "distinctOf": {
+        "table": "ledger",
+        "field": "subsidiary"
+      }
+    },
+    "departments": {
+      "distinctOf": {
+        "table": "ledger",
+        "field": "department"
+      }
+    },
+    "lines": {
+      "rows": [
+        {
+          "id": "revenue"
+        },
+        {
+          "id": "salaries"
+        },
+        {
+          "id": "cloud"
+        },
+        {
+          "id": "travel"
+        },
+        {
+          "id": "total",
+          "name": "Net"
+        }
+      ]
+    }
+  },
+  "pivots": {
+    "growth": {
+      "name": "Plan drivers",
+      "lines": [
+        {
+          "id": "monthly_growth",
+          "format": "percent"
+        }
+      ],
+      "inputs": {
+        "monthly_growth": {
+          "jul26": 0.02,
+          "aug26": 0.02,
+          "sep26": 0.02,
+          "oct26": 0.02,
+          "nov26": 0.02,
+          "dec26": 0.02
+        }
+      }
+    },
+    "model": {
+      "name": "Model",
+      "lineTable": "lines",
+      "dims": {
+        "subsidiary": "subsidiaries",
+        "department": "departments"
+      },
+      "rules": [
+        "value[frame=hist]  = SUM(ledger.amount[subsidiary=@subsidiary, department=@department, account=@line])",
+        "value[frame=fcst]  = PREV(value) * (1 + growth.monthly_growth)",
+        "value[line=total]  = SUM(value[line != total])"
+      ]
+    }
+  },
+  "outputs": [
+    {
+      "pivot": "model",
+      "rows": [
+        "subsidiary",
+        "department",
+        "line"
+      ],
+      "cols": [
+        "period"
+      ],
+      "title": "Model from the ledger, actuals then plan",
+      "decimals": 0
+    }
+  ],
+  "dashboards": "auto"
+}

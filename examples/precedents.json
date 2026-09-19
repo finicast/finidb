@@ -1,0 +1,246 @@
+{
+  "model": "precedents",
+  "name": "Precedent transactions",
+  "units": "USD millions",
+  "tables": {
+    "deals": {
+      "name": "Deals",
+      "fields": {
+        "name": "text",
+        "year": "number",
+        "sector": "text",
+        "ev": "number",
+        "target_revenue": "number",
+        "target_ebitda": "number",
+        "premium": "number"
+      },
+      "rows": [
+        {
+          "id": "d1",
+          "name": "Orion / Vega",
+          "year": 2023,
+          "sector": "software",
+          "ev": 2400,
+          "target_revenue": 300,
+          "target_ebitda": 66,
+          "premium": 0.32
+        },
+        {
+          "id": "d2",
+          "name": "Pike / Rho",
+          "year": 2024,
+          "sector": "software",
+          "ev": 5100,
+          "target_revenue": 610,
+          "target_ebitda": 158,
+          "premium": 0.41
+        },
+        {
+          "id": "d3",
+          "name": "Sigma / Tau",
+          "year": 2024,
+          "sector": "software",
+          "ev": 1900,
+          "target_revenue": 205,
+          "target_ebitda": 49,
+          "premium": 0.28
+        },
+        {
+          "id": "d4",
+          "name": "Kappa / Nu",
+          "year": 2025,
+          "sector": "software",
+          "ev": 7800,
+          "target_revenue": 880,
+          "target_ebitda": 246,
+          "premium": 0.36
+        },
+        {
+          "id": "d5",
+          "name": "Iota / Mu",
+          "year": 2025,
+          "sector": "software",
+          "ev": 3300,
+          "target_revenue": 410,
+          "target_ebitda": 98,
+          "premium": 0.3
+        }
+      ]
+    },
+    "metrics": {
+      "rows": [
+        {
+          "id": "ev_revenue",
+          "name": "EV / Revenue"
+        },
+        {
+          "id": "ev_ebitda",
+          "name": "EV / EBITDA"
+        },
+        {
+          "id": "premium",
+          "name": "Premium paid",
+          "format": "percent"
+        }
+      ]
+    },
+    "stats": {
+      "rows": [
+        {
+          "id": "median"
+        },
+        {
+          "id": "mean"
+        },
+        {
+          "id": "median_recent",
+          "name": "Median, 2024 and later"
+        }
+      ]
+    },
+    "subject": {
+      "name": "Subject",
+      "fields": {
+        "revenue": "number",
+        "ebitda": "number",
+        "net_debt": "number",
+        "shares": "number"
+      },
+      "rows": [
+        {
+          "id": "target",
+          "revenue": 520,
+          "ebitda": 140,
+          "net_debt": 200,
+          "shares": 60
+        }
+      ]
+    }
+  },
+  "pivots": {
+    "multiples": {
+      "name": "Deal multiples",
+      "lineTable": "metrics",
+      "dims": {
+        "deal": "deals"
+      },
+      "rules": [
+        "ev_revenue = deal.ev / deal.target_revenue",
+        "ev_ebitda = deal.ev / deal.target_ebitda",
+        "premium = deal.premium"
+      ]
+    },
+    "summary": {
+      "name": "Statistics",
+      "lineTable": "metrics",
+      "dims": {
+        "stat": "stats"
+      },
+      "rules": [
+        "value[stat=median] = MEDIAN(multiples.value)",
+        "value[stat=mean] = AVG(multiples.value)",
+        "value[stat=median_recent] = MEDIAN(multiples.value[deal.year >= 2024])"
+      ]
+    },
+    "implied": {
+      "name": "Implied value of the target",
+      "lines": [
+        {
+          "id": "ev_by_revenue",
+          "name": "EV at recent median EV/Revenue"
+        },
+        {
+          "id": "ev_by_ebitda",
+          "name": "EV at recent median EV/EBITDA"
+        },
+        {
+          "id": "implied_ev",
+          "name": "Implied EV (average)"
+        },
+        {
+          "id": "implied_equity"
+        },
+        {
+          "id": "implied_price",
+          "name": "Implied price per share ($)"
+        },
+        {
+          "id": "implied_premium",
+          "name": "Implied premium at median",
+          "format": "percent"
+        }
+      ],
+      "rules": [
+        "ev_by_revenue   = summary.value[stat=median_recent, line=ev_revenue] * subject.revenue[id=target]",
+        "ev_by_ebitda    = summary.value[stat=median_recent, line=ev_ebitda] * subject.ebitda[id=target]",
+        "implied_ev      = AVG(ev_by_revenue, ev_by_ebitda)",
+        "implied_equity  = implied_ev - subject.net_debt[id=target]",
+        "implied_price   = implied_equity / subject.shares[id=target]",
+        "implied_premium = summary.value[stat=median_recent, line=premium]"
+      ]
+    }
+  },
+  "outputs": [
+    {
+      "pivot": "multiples",
+      "rows": [
+        "deal"
+      ],
+      "cols": [
+        "line"
+      ],
+      "title": "Precedent transactions",
+      "decimals": 2
+    },
+    {
+      "pivot": "summary",
+      "rows": [
+        "stat"
+      ],
+      "cols": [
+        "line"
+      ],
+      "decimals": 2
+    },
+    {
+      "pivot": "implied",
+      "title": "Implied value ($M)",
+      "decimals": 1
+    }
+  ],
+  "dashboards": [
+    {
+      "id": "overview",
+      "name": "Precedents",
+      "cards": [
+        {
+          "kind": "kpi",
+          "pivot": "implied",
+          "line": "implied_ev",
+          "unit": "$M"
+        },
+        {
+          "kind": "kpi",
+          "pivot": "implied",
+          "line": "implied_price",
+          "unit": "$"
+        },
+        {
+          "kind": "chart",
+          "type": "bar",
+          "pivot": "multiples",
+          "rows": [
+            "deal"
+          ],
+          "cols": [
+            "line"
+          ],
+          "lines": [
+            "ev_ebitda"
+          ],
+          "title": "EV / EBITDA by deal"
+        }
+      ]
+    }
+  ]
+}

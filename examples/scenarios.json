@@ -1,0 +1,317 @@
+{
+  "model": "scenarios",
+  "name": "Scenario analysis",
+  "units": "USD millions",
+  "periods": {
+    "start": "2025-01",
+    "count": 4,
+    "grain": "year",
+    "histUntil": "2025-12-31"
+  },
+  "tables": {
+    "scenarios": {
+      "rows": [
+        {
+          "id": "bear"
+        },
+        {
+          "id": "base"
+        },
+        {
+          "id": "bull"
+        }
+      ]
+    }
+  },
+  "pivots": {
+    "history": {
+      "lines": [
+        "revenue",
+        "ebitda"
+      ],
+      "inputs": {
+        "revenue": {
+          "fy2025": 5131
+        },
+        "ebitda": {
+          "fy2025": 3093
+        }
+      }
+    },
+    "assumptions": {
+      "name": "Assumptions by scenario",
+      "lines": [
+        {
+          "id": "growth",
+          "format": "percent"
+        },
+        {
+          "id": "ebitda_margin",
+          "format": "percent"
+        }
+      ],
+      "dims": {
+        "scenario": "scenarios"
+      },
+      "values": [
+        {
+          "at": {
+            "line": "growth",
+            "scenario": "bear",
+            "period": "fy2026"
+          },
+          "value": 0.4
+        },
+        {
+          "at": {
+            "line": "growth",
+            "scenario": "bear",
+            "period": "fy2027"
+          },
+          "value": 0.15
+        },
+        {
+          "at": {
+            "line": "growth",
+            "scenario": "bear",
+            "period": "fy2028"
+          },
+          "value": 0.05
+        },
+        {
+          "at": {
+            "line": "growth",
+            "scenario": "base",
+            "period": "fy2026"
+          },
+          "value": 0.9
+        },
+        {
+          "at": {
+            "line": "growth",
+            "scenario": "base",
+            "period": "fy2027"
+          },
+          "value": 0.45
+        },
+        {
+          "at": {
+            "line": "growth",
+            "scenario": "base",
+            "period": "fy2028"
+          },
+          "value": 0.25
+        },
+        {
+          "at": {
+            "line": "growth",
+            "scenario": "bull",
+            "period": "fy2026"
+          },
+          "value": 1.2
+        },
+        {
+          "at": {
+            "line": "growth",
+            "scenario": "bull",
+            "period": "fy2027"
+          },
+          "value": 0.7
+        },
+        {
+          "at": {
+            "line": "growth",
+            "scenario": "bull",
+            "period": "fy2028"
+          },
+          "value": 0.4
+        },
+        {
+          "at": {
+            "line": "ebitda_margin",
+            "scenario": "bear",
+            "period": "fy2026"
+          },
+          "value": 0.5
+        },
+        {
+          "at": {
+            "line": "ebitda_margin",
+            "scenario": "bear",
+            "period": "fy2027"
+          },
+          "value": 0.5
+        },
+        {
+          "at": {
+            "line": "ebitda_margin",
+            "scenario": "bear",
+            "period": "fy2028"
+          },
+          "value": 0.5
+        },
+        {
+          "at": {
+            "line": "ebitda_margin",
+            "scenario": "base",
+            "period": "fy2026"
+          },
+          "value": 0.58
+        },
+        {
+          "at": {
+            "line": "ebitda_margin",
+            "scenario": "base",
+            "period": "fy2027"
+          },
+          "value": 0.6
+        },
+        {
+          "at": {
+            "line": "ebitda_margin",
+            "scenario": "base",
+            "period": "fy2028"
+          },
+          "value": 0.62
+        },
+        {
+          "at": {
+            "line": "ebitda_margin",
+            "scenario": "bull",
+            "period": "fy2026"
+          },
+          "value": 0.62
+        },
+        {
+          "at": {
+            "line": "ebitda_margin",
+            "scenario": "bull",
+            "period": "fy2027"
+          },
+          "value": 0.65
+        },
+        {
+          "at": {
+            "line": "ebitda_margin",
+            "scenario": "bull",
+            "period": "fy2028"
+          },
+          "value": 0.67
+        }
+      ]
+    },
+    "income_statement": {
+      "name": "Income statement",
+      "lines": [
+        "revenue",
+        "ebitda",
+        {
+          "id": "ebitda_margin",
+          "format": "percent"
+        }
+      ],
+      "dims": {
+        "scenario": "scenarios"
+      },
+      "rules": [
+        "revenue[frame=hist] = history.revenue",
+        "ebitda[frame=hist] = history.ebitda",
+        "revenue[frame=fcst] = PREV(revenue) * (1 + assumptions.growth)",
+        "ebitda[frame=fcst]  = revenue * assumptions.ebitda_margin",
+        "ebitda_margin       = ebitda / revenue"
+      ]
+    },
+    "sensitivity": {
+      "name": "FY2028 revenue by scenario",
+      "lines": [
+        "revenue_fy2028",
+        "ebitda_fy2028"
+      ],
+      "dims": {
+        "scenario": "scenarios",
+        "period": false
+      },
+      "rules": [
+        "revenue_fy2028 = income_statement.revenue[period=fy2028]",
+        "ebitda_fy2028 = income_statement.ebitda[period=fy2028]"
+      ]
+    }
+  },
+  "outputs": [
+    {
+      "pivot": "income_statement",
+      "pages": {
+        "scenario": "base"
+      },
+      "title": "Base case ($M)"
+    },
+    {
+      "pivot": "income_statement",
+      "pages": {
+        "scenario": "bear"
+      },
+      "title": "Bear case ($M)"
+    },
+    {
+      "pivot": "sensitivity",
+      "rows": [
+        "scenario"
+      ],
+      "cols": [
+        "line"
+      ],
+      "title": "FY2028 by scenario ($M)"
+    }
+  ],
+  "dashboards": [
+    {
+      "id": "overview",
+      "name": "Scenarios",
+      "cards": [
+        {
+          "kind": "table",
+          "pivot": "assumptions",
+          "rows": [
+            "scenario",
+            "line"
+          ],
+          "cols": [
+            "period"
+          ],
+          "editable": true,
+          "title": "Assumptions by scenario"
+        },
+        {
+          "kind": "chart",
+          "pivot": "income_statement",
+          "rows": [
+            "scenario"
+          ],
+          "cols": [
+            "period"
+          ],
+          "filters": {
+            "line": [
+              "revenue"
+            ]
+          },
+          "title": "Revenue by scenario",
+          "unit": "$M"
+        },
+        {
+          "kind": "chart",
+          "type": "bar",
+          "pivot": "sensitivity",
+          "rows": [
+            "scenario"
+          ],
+          "cols": [
+            "line"
+          ],
+          "title": "FY2028 revenue and EBITDA by scenario",
+          "unit": "$M"
+        }
+      ]
+    }
+  ]
+}

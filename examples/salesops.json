@@ -1,0 +1,1790 @@
+{
+  "model": "salesops",
+  "name": "Sales operations plan",
+  "units": "USD",
+  "periods": {
+    "start": "2026-01",
+    "count": 4,
+    "grain": "quarter"
+  },
+  "tables": {
+    "accounts": {
+      "name": "Accounts",
+      "fields": {
+        "name": "text",
+        "region": "text",
+        "segment": "text",
+        "employees": "number",
+        "territory": "text"
+      },
+      "rows": [
+        {
+          "id": "acct1",
+          "name": "Account 1",
+          "region": "east",
+          "segment": "enterprise",
+          "employees": 87,
+          "territory": "east-enterprise"
+        },
+        {
+          "id": "acct2",
+          "name": "Account 2",
+          "region": "west",
+          "segment": "smb",
+          "employees": 124,
+          "territory": "west-smb"
+        },
+        {
+          "id": "acct3",
+          "name": "Account 3",
+          "region": "east",
+          "segment": "smb",
+          "employees": 161,
+          "territory": "east-smb"
+        },
+        {
+          "id": "acct4",
+          "name": "Account 4",
+          "region": "west",
+          "segment": "enterprise",
+          "employees": 198,
+          "territory": "west-enterprise"
+        },
+        {
+          "id": "acct5",
+          "name": "Account 5",
+          "region": "east",
+          "segment": "enterprise",
+          "employees": 235,
+          "territory": "east-enterprise"
+        },
+        {
+          "id": "acct6",
+          "name": "Account 6",
+          "region": "west",
+          "segment": "smb",
+          "employees": 272,
+          "territory": "west-smb"
+        },
+        {
+          "id": "acct7",
+          "name": "Account 7",
+          "region": "east",
+          "segment": "smb",
+          "employees": 309,
+          "territory": "east-smb"
+        },
+        {
+          "id": "acct8",
+          "name": "Account 8",
+          "region": "west",
+          "segment": "enterprise",
+          "employees": 346,
+          "territory": "west-enterprise"
+        },
+        {
+          "id": "acct9",
+          "name": "Account 9",
+          "region": "east",
+          "segment": "enterprise",
+          "employees": 383,
+          "territory": "east-enterprise"
+        },
+        {
+          "id": "acct10",
+          "name": "Account 10",
+          "region": "west",
+          "segment": "smb",
+          "employees": 420,
+          "territory": "west-smb"
+        },
+        {
+          "id": "acct11",
+          "name": "Account 11",
+          "region": "east",
+          "segment": "smb",
+          "employees": 457,
+          "territory": "east-smb"
+        },
+        {
+          "id": "acct12",
+          "name": "Account 12",
+          "region": "west",
+          "segment": "enterprise",
+          "employees": 494,
+          "territory": "west-enterprise"
+        },
+        {
+          "id": "acct13",
+          "name": "Account 13",
+          "region": "east",
+          "segment": "enterprise",
+          "employees": 531,
+          "territory": "east-enterprise"
+        },
+        {
+          "id": "acct14",
+          "name": "Account 14",
+          "region": "west",
+          "segment": "smb",
+          "employees": 568,
+          "territory": "west-smb"
+        },
+        {
+          "id": "acct15",
+          "name": "Account 15",
+          "region": "east",
+          "segment": "smb",
+          "employees": 605,
+          "territory": "east-smb"
+        },
+        {
+          "id": "acct16",
+          "name": "Account 16",
+          "region": "west",
+          "segment": "enterprise",
+          "employees": 642,
+          "territory": "west-enterprise"
+        },
+        {
+          "id": "acct17",
+          "name": "Account 17",
+          "region": "east",
+          "segment": "enterprise",
+          "employees": 679,
+          "territory": "east-enterprise"
+        },
+        {
+          "id": "acct18",
+          "name": "Account 18",
+          "region": "west",
+          "segment": "smb",
+          "employees": 716,
+          "territory": "west-smb"
+        },
+        {
+          "id": "acct19",
+          "name": "Account 19",
+          "region": "east",
+          "segment": "smb",
+          "employees": 753,
+          "territory": "east-smb"
+        },
+        {
+          "id": "acct20",
+          "name": "Account 20",
+          "region": "west",
+          "segment": "enterprise",
+          "employees": 790,
+          "territory": "west-enterprise"
+        }
+      ]
+    },
+    "territories": {
+      "name": "Territories",
+      "distinctOf": {
+        "table": "accounts",
+        "field": "territory"
+      }
+    },
+    "reps": {
+      "name": "Reps",
+      "fields": {
+        "territory": "ref:territories",
+        "quota": "number"
+      },
+      "rows": [
+        {
+          "id": "ana",
+          "territory": "west-enterprise",
+          "quota": 900000
+        },
+        {
+          "id": "bo",
+          "territory": "west-smb",
+          "quota": 500000
+        },
+        {
+          "id": "cy",
+          "territory": "east-enterprise",
+          "quota": 900000
+        },
+        {
+          "id": "di",
+          "territory": "east-smb",
+          "quota": 500000
+        }
+      ]
+    },
+    "activity_types": {
+      "name": "Activity types",
+      "fields": {
+        "points": "number"
+      },
+      "rows": [
+        {
+          "id": "call",
+          "points": 1
+        },
+        {
+          "id": "email",
+          "points": 0.5
+        },
+        {
+          "id": "meeting",
+          "points": 3
+        },
+        {
+          "id": "demo",
+          "points": 5
+        }
+      ]
+    },
+    "activities": {
+      "name": "Activities",
+      "fields": {
+        "rep": "ref:reps",
+        "account": "ref:accounts",
+        "activity_type": "ref:activity_types",
+        "period": "ref:periods",
+        "score": "number*"
+      },
+      "rows": [
+        {
+          "id": "a1",
+          "rep": "bo",
+          "account": "acct6",
+          "activity_type": "demo",
+          "period": "q4_2026"
+        },
+        {
+          "id": "a2",
+          "rep": "cy",
+          "account": "acct9",
+          "activity_type": "meeting",
+          "period": "q3_2026"
+        },
+        {
+          "id": "a3",
+          "rep": "di",
+          "account": "acct15",
+          "activity_type": "email",
+          "period": "q2_2026"
+        },
+        {
+          "id": "a4",
+          "rep": "ana",
+          "account": "acct20",
+          "activity_type": "call",
+          "period": "q1_2026"
+        },
+        {
+          "id": "a5",
+          "rep": "bo",
+          "account": "acct2",
+          "activity_type": "demo",
+          "period": "q4_2026"
+        },
+        {
+          "id": "a6",
+          "rep": "cy",
+          "account": "acct5",
+          "activity_type": "meeting",
+          "period": "q3_2026"
+        },
+        {
+          "id": "a7",
+          "rep": "di",
+          "account": "acct11",
+          "activity_type": "email",
+          "period": "q2_2026"
+        },
+        {
+          "id": "a8",
+          "rep": "ana",
+          "account": "acct16",
+          "activity_type": "call",
+          "period": "q1_2026"
+        },
+        {
+          "id": "a9",
+          "rep": "bo",
+          "account": "acct18",
+          "activity_type": "demo",
+          "period": "q4_2026"
+        },
+        {
+          "id": "a10",
+          "rep": "cy",
+          "account": "acct1",
+          "activity_type": "meeting",
+          "period": "q3_2026"
+        },
+        {
+          "id": "a11",
+          "rep": "di",
+          "account": "acct7",
+          "activity_type": "email",
+          "period": "q2_2026"
+        },
+        {
+          "id": "a12",
+          "rep": "ana",
+          "account": "acct12",
+          "activity_type": "call",
+          "period": "q1_2026"
+        },
+        {
+          "id": "a13",
+          "rep": "bo",
+          "account": "acct14",
+          "activity_type": "demo",
+          "period": "q4_2026"
+        },
+        {
+          "id": "a14",
+          "rep": "cy",
+          "account": "acct17",
+          "activity_type": "meeting",
+          "period": "q3_2026"
+        },
+        {
+          "id": "a15",
+          "rep": "di",
+          "account": "acct3",
+          "activity_type": "email",
+          "period": "q2_2026"
+        },
+        {
+          "id": "a16",
+          "rep": "ana",
+          "account": "acct8",
+          "activity_type": "call",
+          "period": "q1_2026"
+        },
+        {
+          "id": "a17",
+          "rep": "bo",
+          "account": "acct10",
+          "activity_type": "demo",
+          "period": "q4_2026"
+        },
+        {
+          "id": "a18",
+          "rep": "cy",
+          "account": "acct13",
+          "activity_type": "meeting",
+          "period": "q3_2026"
+        },
+        {
+          "id": "a19",
+          "rep": "di",
+          "account": "acct19",
+          "activity_type": "email",
+          "period": "q2_2026"
+        },
+        {
+          "id": "a20",
+          "rep": "ana",
+          "account": "acct4",
+          "activity_type": "call",
+          "period": "q1_2026"
+        },
+        {
+          "id": "a21",
+          "rep": "bo",
+          "account": "acct6",
+          "activity_type": "demo",
+          "period": "q4_2026"
+        },
+        {
+          "id": "a22",
+          "rep": "cy",
+          "account": "acct9",
+          "activity_type": "meeting",
+          "period": "q3_2026"
+        },
+        {
+          "id": "a23",
+          "rep": "di",
+          "account": "acct15",
+          "activity_type": "email",
+          "period": "q2_2026"
+        },
+        {
+          "id": "a24",
+          "rep": "ana",
+          "account": "acct20",
+          "activity_type": "call",
+          "period": "q1_2026"
+        },
+        {
+          "id": "a25",
+          "rep": "bo",
+          "account": "acct2",
+          "activity_type": "demo",
+          "period": "q4_2026"
+        },
+        {
+          "id": "a26",
+          "rep": "cy",
+          "account": "acct5",
+          "activity_type": "meeting",
+          "period": "q3_2026"
+        },
+        {
+          "id": "a27",
+          "rep": "di",
+          "account": "acct11",
+          "activity_type": "email",
+          "period": "q2_2026"
+        },
+        {
+          "id": "a28",
+          "rep": "ana",
+          "account": "acct16",
+          "activity_type": "call",
+          "period": "q1_2026"
+        },
+        {
+          "id": "a29",
+          "rep": "bo",
+          "account": "acct18",
+          "activity_type": "demo",
+          "period": "q4_2026"
+        },
+        {
+          "id": "a30",
+          "rep": "cy",
+          "account": "acct1",
+          "activity_type": "meeting",
+          "period": "q3_2026"
+        },
+        {
+          "id": "a31",
+          "rep": "di",
+          "account": "acct7",
+          "activity_type": "email",
+          "period": "q2_2026"
+        },
+        {
+          "id": "a32",
+          "rep": "ana",
+          "account": "acct12",
+          "activity_type": "call",
+          "period": "q1_2026"
+        },
+        {
+          "id": "a33",
+          "rep": "bo",
+          "account": "acct14",
+          "activity_type": "demo",
+          "period": "q4_2026"
+        },
+        {
+          "id": "a34",
+          "rep": "cy",
+          "account": "acct17",
+          "activity_type": "meeting",
+          "period": "q3_2026"
+        },
+        {
+          "id": "a35",
+          "rep": "di",
+          "account": "acct3",
+          "activity_type": "email",
+          "period": "q2_2026"
+        },
+        {
+          "id": "a36",
+          "rep": "ana",
+          "account": "acct8",
+          "activity_type": "call",
+          "period": "q1_2026"
+        },
+        {
+          "id": "a37",
+          "rep": "bo",
+          "account": "acct10",
+          "activity_type": "demo",
+          "period": "q4_2026"
+        },
+        {
+          "id": "a38",
+          "rep": "cy",
+          "account": "acct13",
+          "activity_type": "meeting",
+          "period": "q3_2026"
+        },
+        {
+          "id": "a39",
+          "rep": "di",
+          "account": "acct19",
+          "activity_type": "email",
+          "period": "q2_2026"
+        },
+        {
+          "id": "a40",
+          "rep": "ana",
+          "account": "acct4",
+          "activity_type": "call",
+          "period": "q1_2026"
+        },
+        {
+          "id": "a41",
+          "rep": "bo",
+          "account": "acct6",
+          "activity_type": "demo",
+          "period": "q4_2026"
+        },
+        {
+          "id": "a42",
+          "rep": "cy",
+          "account": "acct9",
+          "activity_type": "meeting",
+          "period": "q3_2026"
+        },
+        {
+          "id": "a43",
+          "rep": "di",
+          "account": "acct15",
+          "activity_type": "email",
+          "period": "q2_2026"
+        },
+        {
+          "id": "a44",
+          "rep": "ana",
+          "account": "acct20",
+          "activity_type": "call",
+          "period": "q1_2026"
+        },
+        {
+          "id": "a45",
+          "rep": "bo",
+          "account": "acct2",
+          "activity_type": "demo",
+          "period": "q4_2026"
+        },
+        {
+          "id": "a46",
+          "rep": "cy",
+          "account": "acct5",
+          "activity_type": "meeting",
+          "period": "q3_2026"
+        },
+        {
+          "id": "a47",
+          "rep": "di",
+          "account": "acct11",
+          "activity_type": "email",
+          "period": "q2_2026"
+        },
+        {
+          "id": "a48",
+          "rep": "ana",
+          "account": "acct16",
+          "activity_type": "call",
+          "period": "q1_2026"
+        },
+        {
+          "id": "a49",
+          "rep": "bo",
+          "account": "acct18",
+          "activity_type": "demo",
+          "period": "q4_2026"
+        },
+        {
+          "id": "a50",
+          "rep": "cy",
+          "account": "acct1",
+          "activity_type": "meeting",
+          "period": "q3_2026"
+        },
+        {
+          "id": "a51",
+          "rep": "di",
+          "account": "acct7",
+          "activity_type": "email",
+          "period": "q2_2026"
+        },
+        {
+          "id": "a52",
+          "rep": "ana",
+          "account": "acct12",
+          "activity_type": "call",
+          "period": "q1_2026"
+        },
+        {
+          "id": "a53",
+          "rep": "bo",
+          "account": "acct14",
+          "activity_type": "demo",
+          "period": "q4_2026"
+        },
+        {
+          "id": "a54",
+          "rep": "cy",
+          "account": "acct17",
+          "activity_type": "meeting",
+          "period": "q3_2026"
+        },
+        {
+          "id": "a55",
+          "rep": "di",
+          "account": "acct3",
+          "activity_type": "email",
+          "period": "q2_2026"
+        },
+        {
+          "id": "a56",
+          "rep": "ana",
+          "account": "acct8",
+          "activity_type": "call",
+          "period": "q1_2026"
+        },
+        {
+          "id": "a57",
+          "rep": "bo",
+          "account": "acct10",
+          "activity_type": "demo",
+          "period": "q4_2026"
+        },
+        {
+          "id": "a58",
+          "rep": "cy",
+          "account": "acct13",
+          "activity_type": "meeting",
+          "period": "q3_2026"
+        },
+        {
+          "id": "a59",
+          "rep": "di",
+          "account": "acct19",
+          "activity_type": "email",
+          "period": "q2_2026"
+        },
+        {
+          "id": "a60",
+          "rep": "ana",
+          "account": "acct4",
+          "activity_type": "call",
+          "period": "q1_2026"
+        },
+        {
+          "id": "a61",
+          "rep": "bo",
+          "account": "acct6",
+          "activity_type": "demo",
+          "period": "q4_2026"
+        },
+        {
+          "id": "a62",
+          "rep": "cy",
+          "account": "acct9",
+          "activity_type": "meeting",
+          "period": "q3_2026"
+        },
+        {
+          "id": "a63",
+          "rep": "di",
+          "account": "acct15",
+          "activity_type": "email",
+          "period": "q2_2026"
+        },
+        {
+          "id": "a64",
+          "rep": "ana",
+          "account": "acct20",
+          "activity_type": "call",
+          "period": "q1_2026"
+        },
+        {
+          "id": "a65",
+          "rep": "bo",
+          "account": "acct2",
+          "activity_type": "demo",
+          "period": "q4_2026"
+        },
+        {
+          "id": "a66",
+          "rep": "cy",
+          "account": "acct5",
+          "activity_type": "meeting",
+          "period": "q3_2026"
+        },
+        {
+          "id": "a67",
+          "rep": "di",
+          "account": "acct11",
+          "activity_type": "email",
+          "period": "q2_2026"
+        },
+        {
+          "id": "a68",
+          "rep": "ana",
+          "account": "acct16",
+          "activity_type": "call",
+          "period": "q1_2026"
+        },
+        {
+          "id": "a69",
+          "rep": "bo",
+          "account": "acct18",
+          "activity_type": "demo",
+          "period": "q4_2026"
+        },
+        {
+          "id": "a70",
+          "rep": "cy",
+          "account": "acct1",
+          "activity_type": "meeting",
+          "period": "q3_2026"
+        },
+        {
+          "id": "a71",
+          "rep": "di",
+          "account": "acct7",
+          "activity_type": "email",
+          "period": "q2_2026"
+        },
+        {
+          "id": "a72",
+          "rep": "ana",
+          "account": "acct12",
+          "activity_type": "call",
+          "period": "q1_2026"
+        },
+        {
+          "id": "a73",
+          "rep": "bo",
+          "account": "acct14",
+          "activity_type": "demo",
+          "period": "q4_2026"
+        },
+        {
+          "id": "a74",
+          "rep": "cy",
+          "account": "acct17",
+          "activity_type": "meeting",
+          "period": "q3_2026"
+        },
+        {
+          "id": "a75",
+          "rep": "di",
+          "account": "acct3",
+          "activity_type": "email",
+          "period": "q2_2026"
+        },
+        {
+          "id": "a76",
+          "rep": "ana",
+          "account": "acct8",
+          "activity_type": "call",
+          "period": "q1_2026"
+        },
+        {
+          "id": "a77",
+          "rep": "bo",
+          "account": "acct10",
+          "activity_type": "demo",
+          "period": "q4_2026"
+        },
+        {
+          "id": "a78",
+          "rep": "cy",
+          "account": "acct13",
+          "activity_type": "meeting",
+          "period": "q3_2026"
+        },
+        {
+          "id": "a79",
+          "rep": "di",
+          "account": "acct19",
+          "activity_type": "email",
+          "period": "q2_2026"
+        },
+        {
+          "id": "a80",
+          "rep": "ana",
+          "account": "acct4",
+          "activity_type": "call",
+          "period": "q1_2026"
+        },
+        {
+          "id": "a81",
+          "rep": "bo",
+          "account": "acct6",
+          "activity_type": "demo",
+          "period": "q4_2026"
+        },
+        {
+          "id": "a82",
+          "rep": "cy",
+          "account": "acct9",
+          "activity_type": "meeting",
+          "period": "q3_2026"
+        },
+        {
+          "id": "a83",
+          "rep": "di",
+          "account": "acct15",
+          "activity_type": "email",
+          "period": "q2_2026"
+        },
+        {
+          "id": "a84",
+          "rep": "ana",
+          "account": "acct20",
+          "activity_type": "call",
+          "period": "q1_2026"
+        },
+        {
+          "id": "a85",
+          "rep": "bo",
+          "account": "acct2",
+          "activity_type": "demo",
+          "period": "q4_2026"
+        },
+        {
+          "id": "a86",
+          "rep": "cy",
+          "account": "acct5",
+          "activity_type": "meeting",
+          "period": "q3_2026"
+        },
+        {
+          "id": "a87",
+          "rep": "di",
+          "account": "acct11",
+          "activity_type": "email",
+          "period": "q2_2026"
+        },
+        {
+          "id": "a88",
+          "rep": "ana",
+          "account": "acct16",
+          "activity_type": "call",
+          "period": "q1_2026"
+        },
+        {
+          "id": "a89",
+          "rep": "bo",
+          "account": "acct18",
+          "activity_type": "demo",
+          "period": "q4_2026"
+        },
+        {
+          "id": "a90",
+          "rep": "cy",
+          "account": "acct1",
+          "activity_type": "meeting",
+          "period": "q3_2026"
+        },
+        {
+          "id": "a91",
+          "rep": "di",
+          "account": "acct7",
+          "activity_type": "email",
+          "period": "q2_2026"
+        },
+        {
+          "id": "a92",
+          "rep": "ana",
+          "account": "acct12",
+          "activity_type": "call",
+          "period": "q1_2026"
+        },
+        {
+          "id": "a93",
+          "rep": "bo",
+          "account": "acct14",
+          "activity_type": "demo",
+          "period": "q4_2026"
+        },
+        {
+          "id": "a94",
+          "rep": "cy",
+          "account": "acct17",
+          "activity_type": "meeting",
+          "period": "q3_2026"
+        },
+        {
+          "id": "a95",
+          "rep": "di",
+          "account": "acct3",
+          "activity_type": "email",
+          "period": "q2_2026"
+        },
+        {
+          "id": "a96",
+          "rep": "ana",
+          "account": "acct8",
+          "activity_type": "call",
+          "period": "q1_2026"
+        },
+        {
+          "id": "a97",
+          "rep": "bo",
+          "account": "acct10",
+          "activity_type": "demo",
+          "period": "q4_2026"
+        },
+        {
+          "id": "a98",
+          "rep": "cy",
+          "account": "acct13",
+          "activity_type": "meeting",
+          "period": "q3_2026"
+        },
+        {
+          "id": "a99",
+          "rep": "di",
+          "account": "acct19",
+          "activity_type": "email",
+          "period": "q2_2026"
+        },
+        {
+          "id": "a100",
+          "rep": "ana",
+          "account": "acct4",
+          "activity_type": "call",
+          "period": "q1_2026"
+        },
+        {
+          "id": "a101",
+          "rep": "bo",
+          "account": "acct6",
+          "activity_type": "demo",
+          "period": "q4_2026"
+        },
+        {
+          "id": "a102",
+          "rep": "cy",
+          "account": "acct9",
+          "activity_type": "meeting",
+          "period": "q3_2026"
+        },
+        {
+          "id": "a103",
+          "rep": "di",
+          "account": "acct15",
+          "activity_type": "email",
+          "period": "q2_2026"
+        },
+        {
+          "id": "a104",
+          "rep": "ana",
+          "account": "acct20",
+          "activity_type": "call",
+          "period": "q1_2026"
+        },
+        {
+          "id": "a105",
+          "rep": "bo",
+          "account": "acct2",
+          "activity_type": "demo",
+          "period": "q4_2026"
+        },
+        {
+          "id": "a106",
+          "rep": "cy",
+          "account": "acct5",
+          "activity_type": "meeting",
+          "period": "q3_2026"
+        },
+        {
+          "id": "a107",
+          "rep": "di",
+          "account": "acct11",
+          "activity_type": "email",
+          "period": "q2_2026"
+        },
+        {
+          "id": "a108",
+          "rep": "ana",
+          "account": "acct16",
+          "activity_type": "call",
+          "period": "q1_2026"
+        },
+        {
+          "id": "a109",
+          "rep": "bo",
+          "account": "acct18",
+          "activity_type": "demo",
+          "period": "q4_2026"
+        },
+        {
+          "id": "a110",
+          "rep": "cy",
+          "account": "acct1",
+          "activity_type": "meeting",
+          "period": "q3_2026"
+        },
+        {
+          "id": "a111",
+          "rep": "di",
+          "account": "acct7",
+          "activity_type": "email",
+          "period": "q2_2026"
+        },
+        {
+          "id": "a112",
+          "rep": "ana",
+          "account": "acct12",
+          "activity_type": "call",
+          "period": "q1_2026"
+        },
+        {
+          "id": "a113",
+          "rep": "bo",
+          "account": "acct14",
+          "activity_type": "demo",
+          "period": "q4_2026"
+        },
+        {
+          "id": "a114",
+          "rep": "cy",
+          "account": "acct17",
+          "activity_type": "meeting",
+          "period": "q3_2026"
+        },
+        {
+          "id": "a115",
+          "rep": "di",
+          "account": "acct3",
+          "activity_type": "email",
+          "period": "q2_2026"
+        },
+        {
+          "id": "a116",
+          "rep": "ana",
+          "account": "acct8",
+          "activity_type": "call",
+          "period": "q1_2026"
+        },
+        {
+          "id": "a117",
+          "rep": "bo",
+          "account": "acct10",
+          "activity_type": "demo",
+          "period": "q4_2026"
+        },
+        {
+          "id": "a118",
+          "rep": "cy",
+          "account": "acct13",
+          "activity_type": "meeting",
+          "period": "q3_2026"
+        },
+        {
+          "id": "a119",
+          "rep": "di",
+          "account": "acct19",
+          "activity_type": "email",
+          "period": "q2_2026"
+        },
+        {
+          "id": "a120",
+          "rep": "ana",
+          "account": "acct4",
+          "activity_type": "call",
+          "period": "q1_2026"
+        },
+        {
+          "id": "a121",
+          "rep": "bo",
+          "account": "acct6",
+          "activity_type": "demo",
+          "period": "q4_2026"
+        },
+        {
+          "id": "a122",
+          "rep": "cy",
+          "account": "acct9",
+          "activity_type": "meeting",
+          "period": "q3_2026"
+        },
+        {
+          "id": "a123",
+          "rep": "di",
+          "account": "acct15",
+          "activity_type": "email",
+          "period": "q2_2026"
+        },
+        {
+          "id": "a124",
+          "rep": "ana",
+          "account": "acct20",
+          "activity_type": "call",
+          "period": "q1_2026"
+        },
+        {
+          "id": "a125",
+          "rep": "bo",
+          "account": "acct2",
+          "activity_type": "demo",
+          "period": "q4_2026"
+        },
+        {
+          "id": "a126",
+          "rep": "cy",
+          "account": "acct5",
+          "activity_type": "meeting",
+          "period": "q3_2026"
+        },
+        {
+          "id": "a127",
+          "rep": "di",
+          "account": "acct11",
+          "activity_type": "email",
+          "period": "q2_2026"
+        },
+        {
+          "id": "a128",
+          "rep": "ana",
+          "account": "acct16",
+          "activity_type": "call",
+          "period": "q1_2026"
+        },
+        {
+          "id": "a129",
+          "rep": "bo",
+          "account": "acct18",
+          "activity_type": "demo",
+          "period": "q4_2026"
+        },
+        {
+          "id": "a130",
+          "rep": "cy",
+          "account": "acct1",
+          "activity_type": "meeting",
+          "period": "q3_2026"
+        },
+        {
+          "id": "a131",
+          "rep": "di",
+          "account": "acct7",
+          "activity_type": "email",
+          "period": "q2_2026"
+        },
+        {
+          "id": "a132",
+          "rep": "ana",
+          "account": "acct12",
+          "activity_type": "call",
+          "period": "q1_2026"
+        },
+        {
+          "id": "a133",
+          "rep": "bo",
+          "account": "acct14",
+          "activity_type": "demo",
+          "period": "q4_2026"
+        },
+        {
+          "id": "a134",
+          "rep": "cy",
+          "account": "acct17",
+          "activity_type": "meeting",
+          "period": "q3_2026"
+        },
+        {
+          "id": "a135",
+          "rep": "di",
+          "account": "acct3",
+          "activity_type": "email",
+          "period": "q2_2026"
+        },
+        {
+          "id": "a136",
+          "rep": "ana",
+          "account": "acct8",
+          "activity_type": "call",
+          "period": "q1_2026"
+        },
+        {
+          "id": "a137",
+          "rep": "bo",
+          "account": "acct10",
+          "activity_type": "demo",
+          "period": "q4_2026"
+        },
+        {
+          "id": "a138",
+          "rep": "cy",
+          "account": "acct13",
+          "activity_type": "meeting",
+          "period": "q3_2026"
+        },
+        {
+          "id": "a139",
+          "rep": "di",
+          "account": "acct19",
+          "activity_type": "email",
+          "period": "q2_2026"
+        },
+        {
+          "id": "a140",
+          "rep": "ana",
+          "account": "acct4",
+          "activity_type": "call",
+          "period": "q1_2026"
+        },
+        {
+          "id": "a141",
+          "rep": "bo",
+          "account": "acct6",
+          "activity_type": "demo",
+          "period": "q4_2026"
+        },
+        {
+          "id": "a142",
+          "rep": "cy",
+          "account": "acct9",
+          "activity_type": "meeting",
+          "period": "q3_2026"
+        },
+        {
+          "id": "a143",
+          "rep": "di",
+          "account": "acct15",
+          "activity_type": "email",
+          "period": "q2_2026"
+        },
+        {
+          "id": "a144",
+          "rep": "ana",
+          "account": "acct20",
+          "activity_type": "call",
+          "period": "q1_2026"
+        },
+        {
+          "id": "a145",
+          "rep": "bo",
+          "account": "acct2",
+          "activity_type": "demo",
+          "period": "q4_2026"
+        },
+        {
+          "id": "a146",
+          "rep": "cy",
+          "account": "acct5",
+          "activity_type": "meeting",
+          "period": "q3_2026"
+        },
+        {
+          "id": "a147",
+          "rep": "di",
+          "account": "acct11",
+          "activity_type": "email",
+          "period": "q2_2026"
+        },
+        {
+          "id": "a148",
+          "rep": "ana",
+          "account": "acct16",
+          "activity_type": "call",
+          "period": "q1_2026"
+        },
+        {
+          "id": "a149",
+          "rep": "bo",
+          "account": "acct18",
+          "activity_type": "demo",
+          "period": "q4_2026"
+        },
+        {
+          "id": "a150",
+          "rep": "cy",
+          "account": "acct1",
+          "activity_type": "meeting",
+          "period": "q3_2026"
+        },
+        {
+          "id": "a151",
+          "rep": "di",
+          "account": "acct7",
+          "activity_type": "email",
+          "period": "q2_2026"
+        },
+        {
+          "id": "a152",
+          "rep": "ana",
+          "account": "acct12",
+          "activity_type": "call",
+          "period": "q1_2026"
+        },
+        {
+          "id": "a153",
+          "rep": "bo",
+          "account": "acct14",
+          "activity_type": "demo",
+          "period": "q4_2026"
+        },
+        {
+          "id": "a154",
+          "rep": "cy",
+          "account": "acct17",
+          "activity_type": "meeting",
+          "period": "q3_2026"
+        },
+        {
+          "id": "a155",
+          "rep": "di",
+          "account": "acct3",
+          "activity_type": "email",
+          "period": "q2_2026"
+        },
+        {
+          "id": "a156",
+          "rep": "ana",
+          "account": "acct8",
+          "activity_type": "call",
+          "period": "q1_2026"
+        },
+        {
+          "id": "a157",
+          "rep": "bo",
+          "account": "acct10",
+          "activity_type": "demo",
+          "period": "q4_2026"
+        },
+        {
+          "id": "a158",
+          "rep": "cy",
+          "account": "acct13",
+          "activity_type": "meeting",
+          "period": "q3_2026"
+        },
+        {
+          "id": "a159",
+          "rep": "di",
+          "account": "acct19",
+          "activity_type": "email",
+          "period": "q2_2026"
+        },
+        {
+          "id": "a160",
+          "rep": "ana",
+          "account": "acct4",
+          "activity_type": "call",
+          "period": "q1_2026"
+        }
+      ],
+      "rules": "score = activity_type.points"
+    },
+    "bookings": {
+      "name": "Bookings",
+      "fields": {
+        "rep": "ref:reps",
+        "period": "ref:periods",
+        "acv": "number"
+      },
+      "rows": [
+        {
+          "id": "b1",
+          "rep": "bo",
+          "period": "q2_2026",
+          "acv": 63000
+        },
+        {
+          "id": "b2",
+          "rep": "cy",
+          "period": "q3_2026",
+          "acv": 86000
+        },
+        {
+          "id": "b3",
+          "rep": "di",
+          "period": "q4_2026",
+          "acv": 109000
+        },
+        {
+          "id": "b4",
+          "rep": "ana",
+          "period": "q1_2026",
+          "acv": 132000
+        },
+        {
+          "id": "b5",
+          "rep": "bo",
+          "period": "q2_2026",
+          "acv": 155000
+        },
+        {
+          "id": "b6",
+          "rep": "cy",
+          "period": "q3_2026",
+          "acv": 178000
+        },
+        {
+          "id": "b7",
+          "rep": "di",
+          "period": "q4_2026",
+          "acv": 51000
+        },
+        {
+          "id": "b8",
+          "rep": "ana",
+          "period": "q1_2026",
+          "acv": 74000
+        },
+        {
+          "id": "b9",
+          "rep": "bo",
+          "period": "q2_2026",
+          "acv": 97000
+        },
+        {
+          "id": "b10",
+          "rep": "cy",
+          "period": "q3_2026",
+          "acv": 120000
+        },
+        {
+          "id": "b11",
+          "rep": "di",
+          "period": "q4_2026",
+          "acv": 143000
+        },
+        {
+          "id": "b12",
+          "rep": "ana",
+          "period": "q1_2026",
+          "acv": 166000
+        },
+        {
+          "id": "b13",
+          "rep": "bo",
+          "period": "q2_2026",
+          "acv": 189000
+        },
+        {
+          "id": "b14",
+          "rep": "cy",
+          "period": "q3_2026",
+          "acv": 62000
+        },
+        {
+          "id": "b15",
+          "rep": "di",
+          "period": "q4_2026",
+          "acv": 85000
+        },
+        {
+          "id": "b16",
+          "rep": "ana",
+          "period": "q1_2026",
+          "acv": 108000
+        },
+        {
+          "id": "b17",
+          "rep": "bo",
+          "period": "q2_2026",
+          "acv": 131000
+        },
+        {
+          "id": "b18",
+          "rep": "cy",
+          "period": "q3_2026",
+          "acv": 154000
+        },
+        {
+          "id": "b19",
+          "rep": "di",
+          "period": "q4_2026",
+          "acv": 177000
+        },
+        {
+          "id": "b20",
+          "rep": "ana",
+          "period": "q1_2026",
+          "acv": 50000
+        },
+        {
+          "id": "b21",
+          "rep": "bo",
+          "period": "q2_2026",
+          "acv": 73000
+        },
+        {
+          "id": "b22",
+          "rep": "cy",
+          "period": "q3_2026",
+          "acv": 96000
+        },
+        {
+          "id": "b23",
+          "rep": "di",
+          "period": "q4_2026",
+          "acv": 119000
+        },
+        {
+          "id": "b24",
+          "rep": "ana",
+          "period": "q1_2026",
+          "acv": 142000
+        },
+        {
+          "id": "b25",
+          "rep": "bo",
+          "period": "q2_2026",
+          "acv": 165000
+        },
+        {
+          "id": "b26",
+          "rep": "cy",
+          "period": "q3_2026",
+          "acv": 188000
+        },
+        {
+          "id": "b27",
+          "rep": "di",
+          "period": "q4_2026",
+          "acv": 61000
+        },
+        {
+          "id": "b28",
+          "rep": "ana",
+          "period": "q1_2026",
+          "acv": 84000
+        },
+        {
+          "id": "b29",
+          "rep": "bo",
+          "period": "q2_2026",
+          "acv": 107000
+        },
+        {
+          "id": "b30",
+          "rep": "cy",
+          "period": "q3_2026",
+          "acv": 130000
+        },
+        {
+          "id": "b31",
+          "rep": "di",
+          "period": "q4_2026",
+          "acv": 153000
+        },
+        {
+          "id": "b32",
+          "rep": "ana",
+          "period": "q1_2026",
+          "acv": 176000
+        },
+        {
+          "id": "b33",
+          "rep": "bo",
+          "period": "q2_2026",
+          "acv": 49000
+        },
+        {
+          "id": "b34",
+          "rep": "cy",
+          "period": "q3_2026",
+          "acv": 72000
+        },
+        {
+          "id": "b35",
+          "rep": "di",
+          "period": "q4_2026",
+          "acv": 95000
+        },
+        {
+          "id": "b36",
+          "rep": "ana",
+          "period": "q1_2026",
+          "acv": 118000
+        },
+        {
+          "id": "b37",
+          "rep": "bo",
+          "period": "q2_2026",
+          "acv": 141000
+        },
+        {
+          "id": "b38",
+          "rep": "cy",
+          "period": "q3_2026",
+          "acv": 164000
+        },
+        {
+          "id": "b39",
+          "rep": "di",
+          "period": "q4_2026",
+          "acv": 187000
+        },
+        {
+          "id": "b40",
+          "rep": "ana",
+          "period": "q1_2026",
+          "acv": 60000
+        }
+      ]
+    },
+    "tranches": {
+      "name": "Commission tranches",
+      "fields": {
+        "from_pct": "number",
+        "to_pct": "number",
+        "rate": "number"
+      },
+      "rows": [
+        {
+          "id": "t1",
+          "from_pct": 0,
+          "to_pct": 1,
+          "rate": 0.08
+        },
+        {
+          "id": "t2",
+          "from_pct": 1,
+          "to_pct": 1.5,
+          "rate": 0.12
+        },
+        {
+          "id": "t3",
+          "from_pct": 1.5,
+          "to_pct": 99,
+          "rate": 0.16
+        },
+        {
+          "id": "total"
+        }
+      ]
+    }
+  },
+  "pivots": {
+    "territory_plan": {
+      "name": "Territory plan",
+      "dims": {
+        "territory": "territories"
+      },
+      "lines": [
+        {
+          "id": "account_count",
+          "name": "Accounts"
+        },
+        {
+          "id": "employees_covered",
+          "name": "Employees covered"
+        },
+        {
+          "id": "activity_points",
+          "name": "Activity points"
+        },
+        {
+          "id": "booked",
+          "name": "Bookings"
+        },
+        {
+          "id": "quota"
+        },
+        {
+          "id": "attainment",
+          "format": "percent"
+        }
+      ],
+      "rules": [
+        "account_count    = COUNT(accounts.employees[territory=@territory])",
+        "employees_covered = SUM(accounts.employees[territory=@territory])",
+        "activity_points  = SUM(activities.score[account.territory=@territory])",
+        "booked           = SUM(bookings.acv[rep.territory=@territory])",
+        "quota            = SUM(reps.quota[territory=@territory]) / 4",
+        "attainment       = IFERROR(booked / quota, 0)"
+      ]
+    },
+    "commissions": {
+      "name": "Commissions (full year)",
+      "dims": {
+        "rep": "reps",
+        "tranche": "tranches",
+        "period": false
+      },
+      "lines": [
+        {
+          "id": "attainment",
+          "format": "percent"
+        },
+        {
+          "id": "in_tranche",
+          "name": "Attainment in tranche",
+          "format": "percent"
+        },
+        {
+          "id": "commission"
+        }
+      ],
+      "rules": [
+        "attainment                = SUM(bookings.acv) / rep.quota",
+        "in_tranche                = IF(attainment <= tranche.from_pct, 0, IF(attainment >= tranche.to_pct, tranche.to_pct - tranche.from_pct, attainment - tranche.from_pct))",
+        "commission                = in_tranche * rep.quota * tranche.rate",
+        "in_tranche[tranche=total] = SUM(in_tranche[tranche != total])",
+        "commission[tranche=total] = SUM(commission[tranche != total])"
+      ]
+    }
+  },
+  "outputs": [
+    {
+      "pivot": "territory_plan",
+      "rows": [
+        "territory",
+        "line"
+      ],
+      "cols": [
+        "period"
+      ],
+      "title": "Territory plan by quarter"
+    },
+    {
+      "pivot": "commissions",
+      "rows": [
+        "rep",
+        "tranche"
+      ],
+      "cols": [
+        "line"
+      ],
+      "title": "Commissions",
+      "decimals": 0
+    }
+  ],
+  "dashboards": [
+    {
+      "id": "overview",
+      "name": "Sales ops",
+      "cards": [
+        {
+          "kind": "table",
+          "pivot": "territory_plan",
+          "rows": [
+            "territory",
+            "line"
+          ],
+          "cols": [
+            "period"
+          ],
+          "title": "Territory plan"
+        },
+        {
+          "kind": "chart",
+          "type": "bar",
+          "pivot": "territory_plan",
+          "rows": [
+            "territory"
+          ],
+          "cols": [
+            "period"
+          ],
+          "filters": {
+            "line": [
+              "booked"
+            ]
+          },
+          "title": "Bookings by territory"
+        }
+      ]
+    }
+  ]
+}

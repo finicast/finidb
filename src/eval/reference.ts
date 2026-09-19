@@ -14,6 +14,7 @@ export type Ctx =
 
 const AGG = new Set(['SUM', 'AVG', 'AVERAGE', 'COUNT', 'COUNTA', 'COUNTBLANK', 'COUNTD', 'MIN', 'MAX', 'MEDIAN', 'FIRST', 'LAST', 'LISTAGG']);
 const TIME_SUGAR = new Set(['PREV', 'NEXT', 'CUMSUM', 'TRAILING']);
+const SET_ARGS = new Set(['NPV', 'IRR']);
 
 /** A resolved reference: either a scalar location or a set to enumerate. */
 export type Resolved =
@@ -274,6 +275,16 @@ export abstract class EvalCore {
     }
     const fn = FUNCTIONS[name];
     if (!fn) throw new CompileError('UNKNOWN_FUNCTION', `Unknown function ${name}`);
+    if (SET_ARGS.has(name)) {
+      // NPV(rate, cash flows) / IRR(cash flows): a reference to many cells spreads into the argument list, in order
+      const flat: Value[] = [];
+      for (const a of n.args) {
+        if (a.k === 'ref') { const res = this.resolve(a, ctx, true); if (res.k === 'cells' || res.k === 'rows') { flat.push(...this.enumerate(res, ctx)); continue; } flat.push(this.valueOf(res, ctx)); }
+        else flat.push(this.evalNode(a, ctx));
+      }
+      for (const v of flat) if (isError(v)) return v;
+      return fn(flat);
+    }
     const args = n.args.map(a => this.evalNode(a, ctx));
     for (const v of args) if (isError(v)) return v;
     return fn(args);

@@ -1,0 +1,294 @@
+{
+  "model": "comps",
+  "name": "Comparable companies analysis",
+  "units": "USD millions",
+  "tables": {
+    "companies": {
+      "name": "Companies",
+      "fields": {
+        "name": "text",
+        "kind": "text",
+        "sector": "text",
+        "ev": "number",
+        "revenue": "number",
+        "revenue_ny": "number",
+        "ebitda": "number",
+        "net_income": "number",
+        "market_cap": "number",
+        "net_debt": "number",
+        "shares": "number"
+      },
+      "rows": [
+        {
+          "id": "subject",
+          "name": "Subject Co",
+          "kind": "subject",
+          "sector": "software",
+          "ev": 0,
+          "revenue": 820,
+          "revenue_ny": 1010,
+          "ebitda": 246,
+          "net_income": 130,
+          "market_cap": 0,
+          "net_debt": 0,
+          "shares": 75
+        },
+        {
+          "id": "alpha",
+          "name": "AlphaSoft",
+          "kind": "peer",
+          "sector": "software",
+          "ev": 9800,
+          "revenue": 1250,
+          "revenue_ny": 1480,
+          "ebitda": 388,
+          "net_income": 215,
+          "market_cap": 8900,
+          "net_debt": 0,
+          "shares": 0
+        },
+        {
+          "id": "beta",
+          "name": "BetaCloud",
+          "kind": "peer",
+          "sector": "software",
+          "ev": 15400,
+          "revenue": 1900,
+          "revenue_ny": 2380,
+          "ebitda": 570,
+          "net_income": 300,
+          "market_cap": 14700,
+          "net_debt": 0,
+          "shares": 0
+        },
+        {
+          "id": "gamma",
+          "name": "GammaData",
+          "kind": "peer",
+          "sector": "software",
+          "ev": 4200,
+          "revenue": 610,
+          "revenue_ny": 700,
+          "ebitda": 140,
+          "net_income": 61,
+          "market_cap": 3900,
+          "net_debt": 0,
+          "shares": 0
+        },
+        {
+          "id": "delta",
+          "name": "DeltaAI",
+          "kind": "peer",
+          "sector": "software",
+          "ev": 22000,
+          "revenue": 2100,
+          "revenue_ny": 2940,
+          "ebitda": 714,
+          "net_income": 380,
+          "market_cap": 21500,
+          "net_debt": 0,
+          "shares": 0
+        },
+        {
+          "id": "eps",
+          "name": "EpsilonNet",
+          "kind": "peer",
+          "sector": "software",
+          "ev": 6100,
+          "revenue": 900,
+          "revenue_ny": 1035,
+          "ebitda": 234,
+          "net_income": 120,
+          "market_cap": 5800,
+          "net_debt": 0,
+          "shares": 0
+        }
+      ]
+    },
+    "metrics": {
+      "name": "Metrics",
+      "rows": [
+        {
+          "id": "revenue_growth",
+          "name": "Revenue growth (NTM)",
+          "format": "percent"
+        },
+        {
+          "id": "ebitda_margin",
+          "name": "EBITDA margin",
+          "format": "percent"
+        },
+        {
+          "id": "ev_revenue",
+          "name": "EV / Revenue"
+        },
+        {
+          "id": "ev_ebitda",
+          "name": "EV / EBITDA"
+        },
+        {
+          "id": "pe",
+          "name": "P / E"
+        }
+      ]
+    },
+    "stats": {
+      "name": "Statistics",
+      "rows": [
+        {
+          "id": "median"
+        },
+        {
+          "id": "mean"
+        },
+        {
+          "id": "low"
+        },
+        {
+          "id": "high"
+        }
+      ]
+    }
+  },
+  "pivots": {
+    "comps": {
+      "name": "Comparables",
+      "lineTable": "metrics",
+      "dims": {
+        "company": "companies"
+      },
+      "rules": [
+        "revenue_growth = company.revenue_ny / company.revenue - 1",
+        "ebitda_margin  = company.ebitda / company.revenue",
+        "ev_revenue     = company.ev / company.revenue",
+        "ev_ebitda      = company.ev / company.ebitda",
+        "pe             = company.market_cap / company.net_income",
+        "value[company.kind=subject, line in (ev_revenue, ev_ebitda, pe)] = BLANK"
+      ]
+    },
+    "summary": {
+      "name": "Peer statistics",
+      "lineTable": "metrics",
+      "dims": {
+        "stat": "stats"
+      },
+      "rules": [
+        "value[stat=median] = MEDIAN(comps.value[company.kind=peer])",
+        "value[stat=mean]   = AVG(comps.value[company.kind=peer])",
+        "value[stat=low]    = MIN(comps.value[company.kind=peer])",
+        "value[stat=high]   = MAX(comps.value[company.kind=peer])"
+      ]
+    },
+    "implied": {
+      "name": "Implied valuation of the subject",
+      "lines": [
+        {
+          "id": "ev_by_revenue",
+          "name": "EV at median EV/Revenue"
+        },
+        {
+          "id": "ev_by_ebitda",
+          "name": "EV at median EV/EBITDA"
+        },
+        {
+          "id": "implied_ev",
+          "name": "Implied EV (average)"
+        },
+        {
+          "id": "implied_equity",
+          "name": "Implied equity value"
+        },
+        {
+          "id": "implied_price",
+          "name": "Implied price per share ($)"
+        }
+      ],
+      "rules": [
+        "ev_by_revenue  = summary.value[stat=median, line=ev_revenue] * companies.revenue[id=subject]",
+        "ev_by_ebitda   = summary.value[stat=median, line=ev_ebitda] * companies.ebitda[id=subject]",
+        "implied_ev     = AVG(ev_by_revenue, ev_by_ebitda)",
+        "implied_equity = implied_ev - companies.net_debt[id=subject]",
+        "implied_price  = implied_equity / companies.shares[id=subject]"
+      ]
+    }
+  },
+  "outputs": [
+    {
+      "pivot": "comps",
+      "rows": [
+        "company"
+      ],
+      "cols": [
+        "line"
+      ],
+      "title": "Comparable companies",
+      "decimals": 2
+    },
+    {
+      "pivot": "summary",
+      "rows": [
+        "stat"
+      ],
+      "cols": [
+        "line"
+      ],
+      "title": "Peer statistics",
+      "decimals": 2
+    },
+    {
+      "pivot": "implied",
+      "title": "Implied valuation ($M)",
+      "decimals": 1
+    }
+  ],
+  "dashboards": [
+    {
+      "id": "overview",
+      "name": "Comparables",
+      "cards": [
+        {
+          "kind": "kpi",
+          "pivot": "implied",
+          "line": "implied_ev",
+          "unit": "$M"
+        },
+        {
+          "kind": "kpi",
+          "pivot": "implied",
+          "line": "implied_price",
+          "unit": "$"
+        },
+        {
+          "kind": "chart",
+          "type": "bar",
+          "pivot": "comps",
+          "rows": [
+            "company"
+          ],
+          "cols": [
+            "line"
+          ],
+          "lines": [
+            "ev_revenue"
+          ],
+          "title": "EV / Revenue by company"
+        },
+        {
+          "kind": "chart",
+          "type": "bar",
+          "pivot": "comps",
+          "rows": [
+            "company"
+          ],
+          "cols": [
+            "line"
+          ],
+          "lines": [
+            "ebitda_margin"
+          ],
+          "title": "EBITDA margin by company"
+        }
+      ]
+    }
+  ]
+}

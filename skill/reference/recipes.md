@@ -1,3 +1,22 @@
+# Recipes
+
+Complete, tested model documents ship in the package under `examples/` (also at
+https://finicast.com/examples/<name>.json). Run one with `npx finidb build examples/<name>.json`
+and adapt it:
+
+| File | Shows |
+|---|---|
+| `dcf.json` | assumptions → free cash flow → valuation; `period.idx` discounting, terminal value, `NPV()` cross-check, a pivot without the period dim (`"dims": { "period": false }`) |
+| `comparables.json` | multiples from company attributes, `MEDIAN(comps.value[company.kind=peer])`, implied value of the subject |
+| `precedents.json` | deal multiples, `MEDIAN(multiples.value[deal.year >= 2024])` |
+| `salesops.json` | territories as `distinctOf` over an account attribute, activity scoring two references deep, quota, tiered commissions |
+| `budget-vs-actual.json` | ledger with `PERIOD(date, periods)` → subsidiary × department × line × month, a versions dimension, a `text` measure for manager commentary |
+| `ledger-to-model.json` | CSV in the document, `distinctOf` dims, actual months then plan months |
+| `scenarios.json` | scenarios as a dimension, drivers per scenario, outputs paged by scenario |
+| `coreweave.json` | three statements referencing each other, a dashboard with editable drivers |
+
+The walkthroughs below use the MCP tools for the same shapes.
+
 # FiniDB recipes
 
 Each recipe is a complete, runnable sequence of `finicast_*` tool calls. Arguments are shown as

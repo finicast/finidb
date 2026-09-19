@@ -1,0 +1,1734 @@
+{
+  "model": "bva",
+  "name": "Budget vs actual with commentary",
+  "units": "USD",
+  "periods": {
+    "start": "2026-01",
+    "count": 6,
+    "grain": "month"
+  },
+  "tables": {
+    "ledger": {
+      "name": "General ledger",
+      "fields": {
+        "date": "date",
+        "subsidiary": "text",
+        "department": "text",
+        "account": "text",
+        "amount": "number",
+        "period": "ref:periods*"
+      },
+      "rows": [
+        {
+          "id": "l1",
+          "date": "2026-01-15",
+          "subsidiary": "us",
+          "department": "sales",
+          "account": "revenue",
+          "amount": 499200.0
+        },
+        {
+          "id": "l2",
+          "date": "2026-01-15",
+          "subsidiary": "us",
+          "department": "sales",
+          "account": "salaries",
+          "amount": -172800.0
+        },
+        {
+          "id": "l3",
+          "date": "2026-01-15",
+          "subsidiary": "us",
+          "department": "sales",
+          "account": "cloud",
+          "amount": -39600.0
+        },
+        {
+          "id": "l4",
+          "date": "2026-01-15",
+          "subsidiary": "us",
+          "department": "sales",
+          "account": "travel",
+          "amount": -9792.0
+        },
+        {
+          "id": "l6",
+          "date": "2026-01-15",
+          "subsidiary": "us",
+          "department": "engineering",
+          "account": "salaries",
+          "amount": -194400.0
+        },
+        {
+          "id": "l7",
+          "date": "2026-01-15",
+          "subsidiary": "us",
+          "department": "engineering",
+          "account": "cloud",
+          "amount": -36000.0
+        },
+        {
+          "id": "l8",
+          "date": "2026-01-15",
+          "subsidiary": "us",
+          "department": "engineering",
+          "account": "travel",
+          "amount": -8832.0
+        },
+        {
+          "id": "l9",
+          "date": "2026-01-15",
+          "subsidiary": "uk",
+          "department": "sales",
+          "account": "revenue",
+          "amount": 339200.0
+        },
+        {
+          "id": "l10",
+          "date": "2026-01-15",
+          "subsidiary": "uk",
+          "department": "sales",
+          "account": "salaries",
+          "amount": -117600.0
+        },
+        {
+          "id": "l11",
+          "date": "2026-01-15",
+          "subsidiary": "uk",
+          "department": "sales",
+          "account": "cloud",
+          "amount": -21600.0
+        },
+        {
+          "id": "l12",
+          "date": "2026-01-15",
+          "subsidiary": "uk",
+          "department": "sales",
+          "account": "travel",
+          "amount": -6656.0
+        },
+        {
+          "id": "l14",
+          "date": "2026-01-15",
+          "subsidiary": "uk",
+          "department": "engineering",
+          "account": "salaries",
+          "amount": -132000.0
+        },
+        {
+          "id": "l15",
+          "date": "2026-01-15",
+          "subsidiary": "uk",
+          "department": "engineering",
+          "account": "cloud",
+          "amount": -24480.0
+        },
+        {
+          "id": "l16",
+          "date": "2026-01-15",
+          "subsidiary": "uk",
+          "department": "engineering",
+          "account": "travel",
+          "amount": -6016.0
+        },
+        {
+          "id": "l17",
+          "date": "2026-02-15",
+          "subsidiary": "us",
+          "department": "sales",
+          "account": "revenue",
+          "amount": 533952.0
+        },
+        {
+          "id": "l18",
+          "date": "2026-02-15",
+          "subsidiary": "us",
+          "department": "sales",
+          "account": "salaries",
+          "amount": -185400.0
+        },
+        {
+          "id": "l19",
+          "date": "2026-02-15",
+          "subsidiary": "us",
+          "department": "sales",
+          "account": "cloud",
+          "amount": -34114.0
+        },
+        {
+          "id": "l20",
+          "date": "2026-02-15",
+          "subsidiary": "us",
+          "department": "sales",
+          "account": "travel",
+          "amount": -10481.0
+        },
+        {
+          "id": "l22",
+          "date": "2026-02-15",
+          "subsidiary": "us",
+          "department": "engineering",
+          "account": "salaries",
+          "amount": -166860.0
+        },
+        {
+          "id": "l23",
+          "date": "2026-02-15",
+          "subsidiary": "us",
+          "department": "engineering",
+          "account": "cloud",
+          "amount": -38563.0
+        },
+        {
+          "id": "l24",
+          "date": "2026-02-15",
+          "subsidiary": "us",
+          "department": "engineering",
+          "account": "travel",
+          "amount": -9492.0
+        },
+        {
+          "id": "l25",
+          "date": "2026-02-15",
+          "subsidiary": "uk",
+          "department": "sales",
+          "account": "revenue",
+          "amount": 362560.0
+        },
+        {
+          "id": "l26",
+          "date": "2026-02-15",
+          "subsidiary": "uk",
+          "department": "sales",
+          "account": "salaries",
+          "amount": -126072.0
+        },
+        {
+          "id": "l27",
+          "date": "2026-02-15",
+          "subsidiary": "uk",
+          "department": "sales",
+          "account": "cloud",
+          "amount": -23237.0
+        },
+        {
+          "id": "l28",
+          "date": "2026-02-15",
+          "subsidiary": "uk",
+          "department": "sales",
+          "account": "travel",
+          "amount": -7119.0
+        },
+        {
+          "id": "l30",
+          "date": "2026-02-15",
+          "subsidiary": "uk",
+          "department": "engineering",
+          "account": "salaries",
+          "amount": -113712.0
+        },
+        {
+          "id": "l31",
+          "date": "2026-02-15",
+          "subsidiary": "uk",
+          "department": "engineering",
+          "account": "cloud",
+          "amount": -26203.0
+        },
+        {
+          "id": "l32",
+          "date": "2026-02-15",
+          "subsidiary": "uk",
+          "department": "engineering",
+          "account": "travel",
+          "amount": -6460.0
+        },
+        {
+          "id": "l33",
+          "date": "2026-03-15",
+          "subsidiary": "us",
+          "department": "sales",
+          "account": "revenue",
+          "amount": 457920.0
+        },
+        {
+          "id": "l34",
+          "date": "2026-03-15",
+          "subsidiary": "us",
+          "department": "sales",
+          "account": "salaries",
+          "amount": -198432.0
+        },
+        {
+          "id": "l35",
+          "date": "2026-03-15",
+          "subsidiary": "us",
+          "department": "sales",
+          "account": "cloud",
+          "amount": -36634.0
+        },
+        {
+          "id": "l36",
+          "date": "2026-03-15",
+          "subsidiary": "us",
+          "department": "sales",
+          "account": "travel",
+          "amount": -11194.0
+        },
+        {
+          "id": "l38",
+          "date": "2026-03-15",
+          "subsidiary": "us",
+          "department": "engineering",
+          "account": "salaries",
+          "amount": -179352.0
+        },
+        {
+          "id": "l39",
+          "date": "2026-03-15",
+          "subsidiary": "us",
+          "department": "engineering",
+          "account": "cloud",
+          "amount": -41213.0
+        },
+        {
+          "id": "l40",
+          "date": "2026-03-15",
+          "subsidiary": "us",
+          "department": "engineering",
+          "account": "travel",
+          "amount": -10176.0
+        },
+        {
+          "id": "l41",
+          "date": "2026-03-15",
+          "subsidiary": "uk",
+          "department": "sales",
+          "account": "revenue",
+          "amount": 312064.0
+        },
+        {
+          "id": "l42",
+          "date": "2026-03-15",
+          "subsidiary": "uk",
+          "department": "sales",
+          "account": "salaries",
+          "amount": -134832.0
+        },
+        {
+          "id": "l43",
+          "date": "2026-03-15",
+          "subsidiary": "uk",
+          "department": "sales",
+          "account": "cloud",
+          "amount": -24931.0
+        },
+        {
+          "id": "l44",
+          "date": "2026-03-15",
+          "subsidiary": "uk",
+          "department": "sales",
+          "account": "travel",
+          "amount": -6106.0
+        },
+        {
+          "id": "l46",
+          "date": "2026-03-15",
+          "subsidiary": "uk",
+          "department": "engineering",
+          "account": "salaries",
+          "amount": -122112.0
+        },
+        {
+          "id": "l47",
+          "date": "2026-03-15",
+          "subsidiary": "uk",
+          "department": "engineering",
+          "account": "cloud",
+          "amount": -27984.0
+        },
+        {
+          "id": "l48",
+          "date": "2026-03-15",
+          "subsidiary": "uk",
+          "department": "engineering",
+          "account": "travel",
+          "amount": -6920.0
+        },
+        {
+          "id": "l49",
+          "date": "2026-04-15",
+          "subsidiary": "us",
+          "department": "sales",
+          "account": "revenue",
+          "amount": 491808.0
+        },
+        {
+          "id": "l50",
+          "date": "2026-04-15",
+          "subsidiary": "us",
+          "department": "sales",
+          "account": "salaries",
+          "amount": -211896.0
+        },
+        {
+          "id": "l51",
+          "date": "2026-04-15",
+          "subsidiary": "us",
+          "department": "sales",
+          "account": "cloud",
+          "amount": -39240.0
+        },
+        {
+          "id": "l52",
+          "date": "2026-04-15",
+          "subsidiary": "us",
+          "department": "sales",
+          "account": "travel",
+          "amount": -9627.0
+        },
+        {
+          "id": "l54",
+          "date": "2026-04-15",
+          "subsidiary": "us",
+          "department": "engineering",
+          "account": "salaries",
+          "amount": -192276.0
+        },
+        {
+          "id": "l55",
+          "date": "2026-04-15",
+          "subsidiary": "us",
+          "department": "engineering",
+          "account": "cloud",
+          "amount": -35316.0
+        },
+        {
+          "id": "l56",
+          "date": "2026-04-15",
+          "subsidiary": "us",
+          "department": "engineering",
+          "account": "travel",
+          "amount": -10883.0
+        },
+        {
+          "id": "l57",
+          "date": "2026-04-15",
+          "subsidiary": "uk",
+          "department": "sales",
+          "account": "revenue",
+          "amount": 334848.0
+        },
+        {
+          "id": "l58",
+          "date": "2026-04-15",
+          "subsidiary": "uk",
+          "department": "sales",
+          "account": "salaries",
+          "amount": -143880.0
+        },
+        {
+          "id": "l59",
+          "date": "2026-04-15",
+          "subsidiary": "uk",
+          "department": "sales",
+          "account": "cloud",
+          "amount": -26683.0
+        },
+        {
+          "id": "l60",
+          "date": "2026-04-15",
+          "subsidiary": "uk",
+          "department": "sales",
+          "account": "travel",
+          "amount": -6557.0
+        },
+        {
+          "id": "l62",
+          "date": "2026-04-15",
+          "subsidiary": "uk",
+          "department": "engineering",
+          "account": "salaries",
+          "amount": -130800.0
+        },
+        {
+          "id": "l63",
+          "date": "2026-04-15",
+          "subsidiary": "uk",
+          "department": "engineering",
+          "account": "cloud",
+          "amount": -24067.0
+        },
+        {
+          "id": "l64",
+          "date": "2026-04-15",
+          "subsidiary": "uk",
+          "department": "engineering",
+          "account": "travel",
+          "amount": -7395.0
+        },
+        {
+          "id": "l65",
+          "date": "2026-05-15",
+          "subsidiary": "us",
+          "department": "sales",
+          "account": "revenue",
+          "amount": 526848.0
+        },
+        {
+          "id": "l66",
+          "date": "2026-05-15",
+          "subsidiary": "us",
+          "department": "sales",
+          "account": "salaries",
+          "amount": -181440.0
+        },
+        {
+          "id": "l67",
+          "date": "2026-05-15",
+          "subsidiary": "us",
+          "department": "sales",
+          "account": "cloud",
+          "amount": -41933.0
+        },
+        {
+          "id": "l68",
+          "date": "2026-05-15",
+          "subsidiary": "us",
+          "department": "sales",
+          "account": "travel",
+          "amount": -10322.0
+        },
+        {
+          "id": "l70",
+          "date": "2026-05-15",
+          "subsidiary": "us",
+          "department": "engineering",
+          "account": "salaries",
+          "amount": -205632.0
+        },
+        {
+          "id": "l71",
+          "date": "2026-05-15",
+          "subsidiary": "us",
+          "department": "engineering",
+          "account": "cloud",
+          "amount": -37901.0
+        },
+        {
+          "id": "l72",
+          "date": "2026-05-15",
+          "subsidiary": "us",
+          "department": "engineering",
+          "account": "travel",
+          "amount": -11612.0
+        },
+        {
+          "id": "l73",
+          "date": "2026-05-15",
+          "subsidiary": "uk",
+          "department": "sales",
+          "account": "revenue",
+          "amount": 358400.0
+        },
+        {
+          "id": "l74",
+          "date": "2026-05-15",
+          "subsidiary": "uk",
+          "department": "sales",
+          "account": "salaries",
+          "amount": -123648.0
+        },
+        {
+          "id": "l75",
+          "date": "2026-05-15",
+          "subsidiary": "uk",
+          "department": "sales",
+          "account": "cloud",
+          "amount": -28493.0
+        },
+        {
+          "id": "l76",
+          "date": "2026-05-15",
+          "subsidiary": "uk",
+          "department": "sales",
+          "account": "travel",
+          "amount": -7025.0
+        },
+        {
+          "id": "l78",
+          "date": "2026-05-15",
+          "subsidiary": "uk",
+          "department": "engineering",
+          "account": "salaries",
+          "amount": -139776.0
+        },
+        {
+          "id": "l79",
+          "date": "2026-05-15",
+          "subsidiary": "uk",
+          "department": "engineering",
+          "account": "cloud",
+          "amount": -25805.0
+        },
+        {
+          "id": "l80",
+          "date": "2026-05-15",
+          "subsidiary": "uk",
+          "department": "engineering",
+          "account": "travel",
+          "amount": -7885.0
+        },
+        {
+          "id": "l81",
+          "date": "2026-06-15",
+          "subsidiary": "us",
+          "department": "sales",
+          "account": "revenue",
+          "amount": 563040.0
+        },
+        {
+          "id": "l82",
+          "date": "2026-06-15",
+          "subsidiary": "us",
+          "department": "sales",
+          "account": "salaries",
+          "amount": -194580.0
+        },
+        {
+          "id": "l83",
+          "date": "2026-06-15",
+          "subsidiary": "us",
+          "department": "sales",
+          "account": "cloud",
+          "amount": -44712.0
+        },
+        {
+          "id": "l84",
+          "date": "2026-06-15",
+          "subsidiary": "us",
+          "department": "sales",
+          "account": "travel",
+          "amount": -11040.0
+        },
+        {
+          "id": "l86",
+          "date": "2026-06-15",
+          "subsidiary": "us",
+          "department": "engineering",
+          "account": "salaries",
+          "amount": -219420.0
+        },
+        {
+          "id": "l87",
+          "date": "2026-06-15",
+          "subsidiary": "us",
+          "department": "engineering",
+          "account": "cloud",
+          "amount": -40572.0
+        },
+        {
+          "id": "l88",
+          "date": "2026-06-15",
+          "subsidiary": "us",
+          "department": "engineering",
+          "account": "travel",
+          "amount": -9936.0
+        },
+        {
+          "id": "l89",
+          "date": "2026-06-15",
+          "subsidiary": "uk",
+          "department": "sales",
+          "account": "revenue",
+          "amount": 382720.0
+        },
+        {
+          "id": "l90",
+          "date": "2026-06-15",
+          "subsidiary": "uk",
+          "department": "sales",
+          "account": "salaries",
+          "amount": -132480.0
+        },
+        {
+          "id": "l91",
+          "date": "2026-06-15",
+          "subsidiary": "uk",
+          "department": "sales",
+          "account": "cloud",
+          "amount": -30360.0
+        },
+        {
+          "id": "l92",
+          "date": "2026-06-15",
+          "subsidiary": "uk",
+          "department": "sales",
+          "account": "travel",
+          "amount": -7507.0
+        },
+        {
+          "id": "l94",
+          "date": "2026-06-15",
+          "subsidiary": "uk",
+          "department": "engineering",
+          "account": "salaries",
+          "amount": -149040.0
+        },
+        {
+          "id": "l95",
+          "date": "2026-06-15",
+          "subsidiary": "uk",
+          "department": "engineering",
+          "account": "cloud",
+          "amount": -27600.0
+        },
+        {
+          "id": "l96",
+          "date": "2026-06-15",
+          "subsidiary": "uk",
+          "department": "engineering",
+          "account": "travel",
+          "amount": -6771.0
+        }
+      ],
+      "rules": "period = PERIOD(date, periods)"
+    },
+    "subsidiaries": {
+      "distinctOf": {
+        "table": "ledger",
+        "field": "subsidiary"
+      }
+    },
+    "departments": {
+      "distinctOf": {
+        "table": "ledger",
+        "field": "department"
+      }
+    },
+    "accounts": {
+      "name": "Lines",
+      "rows": [
+        {
+          "id": "revenue"
+        },
+        {
+          "id": "salaries"
+        },
+        {
+          "id": "cloud"
+        },
+        {
+          "id": "travel"
+        },
+        {
+          "id": "total",
+          "name": "Net"
+        }
+      ]
+    },
+    "versions": {
+      "rows": [
+        {
+          "id": "actual"
+        },
+        {
+          "id": "budget"
+        },
+        {
+          "id": "variance"
+        },
+        {
+          "id": "variance_pct",
+          "name": "Variance %",
+          "format": "percent"
+        }
+      ]
+    }
+  },
+  "pivots": {
+    "bva": {
+      "name": "Budget vs actual",
+      "lineTable": "accounts",
+      "dims": {
+        "subsidiary": "subsidiaries",
+        "department": "departments",
+        "version": "versions"
+      },
+      "measures": [
+        "value",
+        {
+          "id": "comment",
+          "type": "text",
+          "name": "Manager commentary"
+        }
+      ],
+      "values": [
+        {
+          "at": {
+            "subsidiary": "us",
+            "department": "sales",
+            "line": "revenue",
+            "version": "budget",
+            "period": "jan26"
+          },
+          "value": 489600.0
+        },
+        {
+          "at": {
+            "subsidiary": "us",
+            "department": "sales",
+            "line": "salaries",
+            "version": "budget",
+            "period": "jan26"
+          },
+          "value": -183600.0
+        },
+        {
+          "at": {
+            "subsidiary": "us",
+            "department": "sales",
+            "line": "cloud",
+            "version": "budget",
+            "period": "jan26"
+          },
+          "value": -36720.0
+        },
+        {
+          "at": {
+            "subsidiary": "us",
+            "department": "sales",
+            "line": "travel",
+            "version": "budget",
+            "period": "jan26"
+          },
+          "value": -9792.0
+        },
+        {
+          "at": {
+            "subsidiary": "us",
+            "department": "engineering",
+            "line": "salaries",
+            "version": "budget",
+            "period": "jan26"
+          },
+          "value": -183600.0
+        },
+        {
+          "at": {
+            "subsidiary": "us",
+            "department": "engineering",
+            "line": "cloud",
+            "version": "budget",
+            "period": "jan26"
+          },
+          "value": -36720.0
+        },
+        {
+          "at": {
+            "subsidiary": "us",
+            "department": "engineering",
+            "line": "travel",
+            "version": "budget",
+            "period": "jan26"
+          },
+          "value": -9792.0
+        },
+        {
+          "at": {
+            "subsidiary": "uk",
+            "department": "sales",
+            "line": "revenue",
+            "version": "budget",
+            "period": "jan26"
+          },
+          "value": 326400.0
+        },
+        {
+          "at": {
+            "subsidiary": "uk",
+            "department": "sales",
+            "line": "salaries",
+            "version": "budget",
+            "period": "jan26"
+          },
+          "value": -122400.0
+        },
+        {
+          "at": {
+            "subsidiary": "uk",
+            "department": "sales",
+            "line": "cloud",
+            "version": "budget",
+            "period": "jan26"
+          },
+          "value": -24480.0
+        },
+        {
+          "at": {
+            "subsidiary": "uk",
+            "department": "sales",
+            "line": "travel",
+            "version": "budget",
+            "period": "jan26"
+          },
+          "value": -6528.0
+        },
+        {
+          "at": {
+            "subsidiary": "uk",
+            "department": "engineering",
+            "line": "salaries",
+            "version": "budget",
+            "period": "jan26"
+          },
+          "value": -122400.0
+        },
+        {
+          "at": {
+            "subsidiary": "uk",
+            "department": "engineering",
+            "line": "cloud",
+            "version": "budget",
+            "period": "jan26"
+          },
+          "value": -24480.0
+        },
+        {
+          "at": {
+            "subsidiary": "uk",
+            "department": "engineering",
+            "line": "travel",
+            "version": "budget",
+            "period": "jan26"
+          },
+          "value": -6528.0
+        },
+        {
+          "at": {
+            "subsidiary": "us",
+            "department": "sales",
+            "line": "revenue",
+            "version": "budget",
+            "period": "feb26"
+          },
+          "value": 489600.0
+        },
+        {
+          "at": {
+            "subsidiary": "us",
+            "department": "sales",
+            "line": "salaries",
+            "version": "budget",
+            "period": "feb26"
+          },
+          "value": -183600.0
+        },
+        {
+          "at": {
+            "subsidiary": "us",
+            "department": "sales",
+            "line": "cloud",
+            "version": "budget",
+            "period": "feb26"
+          },
+          "value": -36720.0
+        },
+        {
+          "at": {
+            "subsidiary": "us",
+            "department": "sales",
+            "line": "travel",
+            "version": "budget",
+            "period": "feb26"
+          },
+          "value": -9792.0
+        },
+        {
+          "at": {
+            "subsidiary": "us",
+            "department": "engineering",
+            "line": "salaries",
+            "version": "budget",
+            "period": "feb26"
+          },
+          "value": -183600.0
+        },
+        {
+          "at": {
+            "subsidiary": "us",
+            "department": "engineering",
+            "line": "cloud",
+            "version": "budget",
+            "period": "feb26"
+          },
+          "value": -36720.0
+        },
+        {
+          "at": {
+            "subsidiary": "us",
+            "department": "engineering",
+            "line": "travel",
+            "version": "budget",
+            "period": "feb26"
+          },
+          "value": -9792.0
+        },
+        {
+          "at": {
+            "subsidiary": "uk",
+            "department": "sales",
+            "line": "revenue",
+            "version": "budget",
+            "period": "feb26"
+          },
+          "value": 326400.0
+        },
+        {
+          "at": {
+            "subsidiary": "uk",
+            "department": "sales",
+            "line": "salaries",
+            "version": "budget",
+            "period": "feb26"
+          },
+          "value": -122400.0
+        },
+        {
+          "at": {
+            "subsidiary": "uk",
+            "department": "sales",
+            "line": "cloud",
+            "version": "budget",
+            "period": "feb26"
+          },
+          "value": -24480.0
+        },
+        {
+          "at": {
+            "subsidiary": "uk",
+            "department": "sales",
+            "line": "travel",
+            "version": "budget",
+            "period": "feb26"
+          },
+          "value": -6528.0
+        },
+        {
+          "at": {
+            "subsidiary": "uk",
+            "department": "engineering",
+            "line": "salaries",
+            "version": "budget",
+            "period": "feb26"
+          },
+          "value": -122400.0
+        },
+        {
+          "at": {
+            "subsidiary": "uk",
+            "department": "engineering",
+            "line": "cloud",
+            "version": "budget",
+            "period": "feb26"
+          },
+          "value": -24480.0
+        },
+        {
+          "at": {
+            "subsidiary": "uk",
+            "department": "engineering",
+            "line": "travel",
+            "version": "budget",
+            "period": "feb26"
+          },
+          "value": -6528.0
+        },
+        {
+          "at": {
+            "subsidiary": "us",
+            "department": "sales",
+            "line": "revenue",
+            "version": "budget",
+            "period": "mar26"
+          },
+          "value": 489600.0
+        },
+        {
+          "at": {
+            "subsidiary": "us",
+            "department": "sales",
+            "line": "salaries",
+            "version": "budget",
+            "period": "mar26"
+          },
+          "value": -183600.0
+        },
+        {
+          "at": {
+            "subsidiary": "us",
+            "department": "sales",
+            "line": "cloud",
+            "version": "budget",
+            "period": "mar26"
+          },
+          "value": -36720.0
+        },
+        {
+          "at": {
+            "subsidiary": "us",
+            "department": "sales",
+            "line": "travel",
+            "version": "budget",
+            "period": "mar26"
+          },
+          "value": -9792.0
+        },
+        {
+          "at": {
+            "subsidiary": "us",
+            "department": "engineering",
+            "line": "salaries",
+            "version": "budget",
+            "period": "mar26"
+          },
+          "value": -183600.0
+        },
+        {
+          "at": {
+            "subsidiary": "us",
+            "department": "engineering",
+            "line": "cloud",
+            "version": "budget",
+            "period": "mar26"
+          },
+          "value": -36720.0
+        },
+        {
+          "at": {
+            "subsidiary": "us",
+            "department": "engineering",
+            "line": "travel",
+            "version": "budget",
+            "period": "mar26"
+          },
+          "value": -9792.0
+        },
+        {
+          "at": {
+            "subsidiary": "uk",
+            "department": "sales",
+            "line": "revenue",
+            "version": "budget",
+            "period": "mar26"
+          },
+          "value": 326400.0
+        },
+        {
+          "at": {
+            "subsidiary": "uk",
+            "department": "sales",
+            "line": "salaries",
+            "version": "budget",
+            "period": "mar26"
+          },
+          "value": -122400.0
+        },
+        {
+          "at": {
+            "subsidiary": "uk",
+            "department": "sales",
+            "line": "cloud",
+            "version": "budget",
+            "period": "mar26"
+          },
+          "value": -24480.0
+        },
+        {
+          "at": {
+            "subsidiary": "uk",
+            "department": "sales",
+            "line": "travel",
+            "version": "budget",
+            "period": "mar26"
+          },
+          "value": -6528.0
+        },
+        {
+          "at": {
+            "subsidiary": "uk",
+            "department": "engineering",
+            "line": "salaries",
+            "version": "budget",
+            "period": "mar26"
+          },
+          "value": -122400.0
+        },
+        {
+          "at": {
+            "subsidiary": "uk",
+            "department": "engineering",
+            "line": "cloud",
+            "version": "budget",
+            "period": "mar26"
+          },
+          "value": -24480.0
+        },
+        {
+          "at": {
+            "subsidiary": "uk",
+            "department": "engineering",
+            "line": "travel",
+            "version": "budget",
+            "period": "mar26"
+          },
+          "value": -6528.0
+        },
+        {
+          "at": {
+            "subsidiary": "us",
+            "department": "sales",
+            "line": "revenue",
+            "version": "budget",
+            "period": "apr26"
+          },
+          "value": 489600.0
+        },
+        {
+          "at": {
+            "subsidiary": "us",
+            "department": "sales",
+            "line": "salaries",
+            "version": "budget",
+            "period": "apr26"
+          },
+          "value": -183600.0
+        },
+        {
+          "at": {
+            "subsidiary": "us",
+            "department": "sales",
+            "line": "cloud",
+            "version": "budget",
+            "period": "apr26"
+          },
+          "value": -36720.0
+        },
+        {
+          "at": {
+            "subsidiary": "us",
+            "department": "sales",
+            "line": "travel",
+            "version": "budget",
+            "period": "apr26"
+          },
+          "value": -9792.0
+        },
+        {
+          "at": {
+            "subsidiary": "us",
+            "department": "engineering",
+            "line": "salaries",
+            "version": "budget",
+            "period": "apr26"
+          },
+          "value": -183600.0
+        },
+        {
+          "at": {
+            "subsidiary": "us",
+            "department": "engineering",
+            "line": "cloud",
+            "version": "budget",
+            "period": "apr26"
+          },
+          "value": -36720.0
+        },
+        {
+          "at": {
+            "subsidiary": "us",
+            "department": "engineering",
+            "line": "travel",
+            "version": "budget",
+            "period": "apr26"
+          },
+          "value": -9792.0
+        },
+        {
+          "at": {
+            "subsidiary": "uk",
+            "department": "sales",
+            "line": "revenue",
+            "version": "budget",
+            "period": "apr26"
+          },
+          "value": 326400.0
+        },
+        {
+          "at": {
+            "subsidiary": "uk",
+            "department": "sales",
+            "line": "salaries",
+            "version": "budget",
+            "period": "apr26"
+          },
+          "value": -122400.0
+        },
+        {
+          "at": {
+            "subsidiary": "uk",
+            "department": "sales",
+            "line": "cloud",
+            "version": "budget",
+            "period": "apr26"
+          },
+          "value": -24480.0
+        },
+        {
+          "at": {
+            "subsidiary": "uk",
+            "department": "sales",
+            "line": "travel",
+            "version": "budget",
+            "period": "apr26"
+          },
+          "value": -6528.0
+        },
+        {
+          "at": {
+            "subsidiary": "uk",
+            "department": "engineering",
+            "line": "salaries",
+            "version": "budget",
+            "period": "apr26"
+          },
+          "value": -122400.0
+        },
+        {
+          "at": {
+            "subsidiary": "uk",
+            "department": "engineering",
+            "line": "cloud",
+            "version": "budget",
+            "period": "apr26"
+          },
+          "value": -24480.0
+        },
+        {
+          "at": {
+            "subsidiary": "uk",
+            "department": "engineering",
+            "line": "travel",
+            "version": "budget",
+            "period": "apr26"
+          },
+          "value": -6528.0
+        },
+        {
+          "at": {
+            "subsidiary": "us",
+            "department": "sales",
+            "line": "revenue",
+            "version": "budget",
+            "period": "may26"
+          },
+          "value": 489600.0
+        },
+        {
+          "at": {
+            "subsidiary": "us",
+            "department": "sales",
+            "line": "salaries",
+            "version": "budget",
+            "period": "may26"
+          },
+          "value": -183600.0
+        },
+        {
+          "at": {
+            "subsidiary": "us",
+            "department": "sales",
+            "line": "cloud",
+            "version": "budget",
+            "period": "may26"
+          },
+          "value": -36720.0
+        },
+        {
+          "at": {
+            "subsidiary": "us",
+            "department": "sales",
+            "line": "travel",
+            "version": "budget",
+            "period": "may26"
+          },
+          "value": -9792.0
+        },
+        {
+          "at": {
+            "subsidiary": "us",
+            "department": "engineering",
+            "line": "salaries",
+            "version": "budget",
+            "period": "may26"
+          },
+          "value": -183600.0
+        },
+        {
+          "at": {
+            "subsidiary": "us",
+            "department": "engineering",
+            "line": "cloud",
+            "version": "budget",
+            "period": "may26"
+          },
+          "value": -36720.0
+        },
+        {
+          "at": {
+            "subsidiary": "us",
+            "department": "engineering",
+            "line": "travel",
+            "version": "budget",
+            "period": "may26"
+          },
+          "value": -9792.0
+        },
+        {
+          "at": {
+            "subsidiary": "uk",
+            "department": "sales",
+            "line": "revenue",
+            "version": "budget",
+            "period": "may26"
+          },
+          "value": 326400.0
+        },
+        {
+          "at": {
+            "subsidiary": "uk",
+            "department": "sales",
+            "line": "salaries",
+            "version": "budget",
+            "period": "may26"
+          },
+          "value": -122400.0
+        },
+        {
+          "at": {
+            "subsidiary": "uk",
+            "department": "sales",
+            "line": "cloud",
+            "version": "budget",
+            "period": "may26"
+          },
+          "value": -24480.0
+        },
+        {
+          "at": {
+            "subsidiary": "uk",
+            "department": "sales",
+            "line": "travel",
+            "version": "budget",
+            "period": "may26"
+          },
+          "value": -6528.0
+        },
+        {
+          "at": {
+            "subsidiary": "uk",
+            "department": "engineering",
+            "line": "salaries",
+            "version": "budget",
+            "period": "may26"
+          },
+          "value": -122400.0
+        },
+        {
+          "at": {
+            "subsidiary": "uk",
+            "department": "engineering",
+            "line": "cloud",
+            "version": "budget",
+            "period": "may26"
+          },
+          "value": -24480.0
+        },
+        {
+          "at": {
+            "subsidiary": "uk",
+            "department": "engineering",
+            "line": "travel",
+            "version": "budget",
+            "period": "may26"
+          },
+          "value": -6528.0
+        },
+        {
+          "at": {
+            "subsidiary": "us",
+            "department": "sales",
+            "line": "revenue",
+            "version": "budget",
+            "period": "jun26"
+          },
+          "value": 489600.0
+        },
+        {
+          "at": {
+            "subsidiary": "us",
+            "department": "sales",
+            "line": "salaries",
+            "version": "budget",
+            "period": "jun26"
+          },
+          "value": -183600.0
+        },
+        {
+          "at": {
+            "subsidiary": "us",
+            "department": "sales",
+            "line": "cloud",
+            "version": "budget",
+            "period": "jun26"
+          },
+          "value": -36720.0
+        },
+        {
+          "at": {
+            "subsidiary": "us",
+            "department": "sales",
+            "line": "travel",
+            "version": "budget",
+            "period": "jun26"
+          },
+          "value": -9792.0
+        },
+        {
+          "at": {
+            "subsidiary": "us",
+            "department": "engineering",
+            "line": "salaries",
+            "version": "budget",
+            "period": "jun26"
+          },
+          "value": -183600.0
+        },
+        {
+          "at": {
+            "subsidiary": "us",
+            "department": "engineering",
+            "line": "cloud",
+            "version": "budget",
+            "period": "jun26"
+          },
+          "value": -36720.0
+        },
+        {
+          "at": {
+            "subsidiary": "us",
+            "department": "engineering",
+            "line": "travel",
+            "version": "budget",
+            "period": "jun26"
+          },
+          "value": -9792.0
+        },
+        {
+          "at": {
+            "subsidiary": "uk",
+            "department": "sales",
+            "line": "revenue",
+            "version": "budget",
+            "period": "jun26"
+          },
+          "value": 326400.0
+        },
+        {
+          "at": {
+            "subsidiary": "uk",
+            "department": "sales",
+            "line": "salaries",
+            "version": "budget",
+            "period": "jun26"
+          },
+          "value": -122400.0
+        },
+        {
+          "at": {
+            "subsidiary": "uk",
+            "department": "sales",
+            "line": "cloud",
+            "version": "budget",
+            "period": "jun26"
+          },
+          "value": -24480.0
+        },
+        {
+          "at": {
+            "subsidiary": "uk",
+            "department": "sales",
+            "line": "travel",
+            "version": "budget",
+            "period": "jun26"
+          },
+          "value": -6528.0
+        },
+        {
+          "at": {
+            "subsidiary": "uk",
+            "department": "engineering",
+            "line": "salaries",
+            "version": "budget",
+            "period": "jun26"
+          },
+          "value": -122400.0
+        },
+        {
+          "at": {
+            "subsidiary": "uk",
+            "department": "engineering",
+            "line": "cloud",
+            "version": "budget",
+            "period": "jun26"
+          },
+          "value": -24480.0
+        },
+        {
+          "at": {
+            "subsidiary": "uk",
+            "department": "engineering",
+            "line": "travel",
+            "version": "budget",
+            "period": "jun26"
+          },
+          "value": -6528.0
+        },
+        {
+          "at": {
+            "subsidiary": "us",
+            "department": "engineering",
+            "line": "cloud",
+            "version": "variance",
+            "period": "mar26"
+          },
+          "measure": "comment",
+          "value": "GPU cluster for the Q1 training run; one-off, approved by CTO."
+        },
+        {
+          "at": {
+            "subsidiary": "uk",
+            "department": "sales",
+            "line": "travel",
+            "version": "variance",
+            "period": "feb26"
+          },
+          "measure": "comment",
+          "value": "Two trade shows moved from March into February."
+        }
+      ],
+      "rules": [
+        "value[version=actual]       = SUM(ledger.amount[subsidiary=@subsidiary, department=@department, account=@line])",
+        "value[line=total]           = SUM(value[line != total])",
+        "value[version=variance]     = value[version=actual] - value[version=budget]",
+        "value[version=variance_pct] = IFERROR(value[version=variance] / ABS(value[version=budget]), BLANK)"
+      ]
+    }
+  },
+  "outputs": [
+    {
+      "pivot": "bva",
+      "rows": [
+        "subsidiary",
+        "department",
+        "line"
+      ],
+      "cols": [
+        "version"
+      ],
+      "pages": {
+        "period": "mar26"
+      },
+      "title": "Budget vs actual \u2014 March 2026",
+      "decimals": 0
+    },
+    {
+      "pivot": "bva",
+      "rows": [
+        "subsidiary",
+        "department",
+        "line"
+      ],
+      "cols": [
+        "period"
+      ],
+      "pages": {
+        "version": "variance"
+      },
+      "title": "Variance by month",
+      "decimals": 0
+    },
+    {
+      "pivot": "bva",
+      "measure": "comment",
+      "rows": [
+        "subsidiary",
+        "department",
+        "line"
+      ],
+      "cols": [
+        "period"
+      ],
+      "pages": {
+        "version": "variance"
+      },
+      "title": "Manager commentary"
+    }
+  ],
+  "dashboards": [
+    {
+      "id": "overview",
+      "name": "Budget vs actual",
+      "cards": [
+        {
+          "kind": "table",
+          "pivot": "bva",
+          "rows": [
+            "subsidiary",
+            "department",
+            "line"
+          ],
+          "cols": [
+            "version"
+          ],
+          "pages": {
+            "period": "mar26"
+          },
+          "title": "March: actual, budget, variance"
+        },
+        {
+          "kind": "chart",
+          "type": "bar",
+          "pivot": "bva",
+          "rows": [
+            "subsidiary"
+          ],
+          "cols": [
+            "period"
+          ],
+          "pages": {
+            "version": "variance",
+            "department": "sales"
+          },
+          "filters": {
+            "line": [
+              "total"
+            ]
+          },
+          "title": "Sales net variance by month",
+          "unit": "$"
+        }
+      ]
+    }
+  ]
+}

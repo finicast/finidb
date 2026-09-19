@@ -13,19 +13,21 @@ export interface PivotDoc {
   name?: string;                            // display name (default: title case of the id)
   lines?: (string | LineSpec)[];
   lineTable?: string;
-  dims?: Record<string, string>;
-  measures?: string[];
+  /** dim id → table id; `"period": false` keeps the periods dimension off a pivot (a valuation summary, a scenario table) */
+  dims?: Record<string, string | false>;
+  /** measure ids, or { id, type, format, name }; a `text` measure holds commentary next to the numbers */
+  measures?: (string | { id: string; type?: 'number' | 'text' | 'date' | 'bool'; format?: string; name?: string })[];
   inputs?: Record<string, Record<string, Scalar>>;
   values?: { at: Record<string, string>; measure?: string; value: Scalar }[];
   rules?: string | string[];
 }
-export interface TableDoc { name?: string; fields?: Record<string, string> | FieldSpec[]; rows?: Record<string, Scalar>[]; csv?: string; distinctOf?: { table: string; field: string } }
+export interface TableDoc { name?: string; fields?: Record<string, string> | FieldSpec[]; rows?: Record<string, Scalar>[]; csv?: string; distinctOf?: { table: string; field: string }; /** rules for computed fields, e.g. `period = PERIOD(date, periods)` */ rules?: string | string[] }
 export interface OutputDoc { pivot: string; title?: string; rows?: string[]; cols?: string[]; pages?: Record<string, string>; measure?: string; lines?: string[]; filters?: Record<string, string[]>; format?: 'markdown' | 'json' | 'both'; scale?: number; decimals?: number }
 /** A dashboard card (built by finicast.com when the document is imported there; ignored by the local build). */
 export interface DashboardCardDoc {
   kind?: 'table' | 'chart' | 'kpi'; type?: 'line' | 'bar' | 'stackedBar' | 'area' | 'waterfall' | 'scatter';
   title?: string; pivot: string; line?: string; lines?: string[]; periods?: string[];
-  rows?: string[]; cols?: string[]; pages?: Record<string, string>; measure?: string;
+  rows?: string[]; cols?: string[]; pages?: Record<string, string>; measure?: string; filters?: Record<string, string[]>;
   unit?: string; editable?: boolean; w?: number; h?: number;
 }
 export interface DashboardDoc { id?: string; name?: string; cards: DashboardCardDoc[] }
@@ -52,7 +54,7 @@ function fieldsOf(f: TableDoc['fields']): FieldSpec[] {
   if (!f) return [];
   if (Array.isArray(f)) return f;
   return Object.entries(f).map(([id, t]) => {
-    if (t.startsWith('ref:')) return { id, ref: t.slice(4) };
+    if (t.startsWith('ref:')) return t.endsWith('*') ? { id, ref: t.slice(4, -1), computed: true } : { id, ref: t.slice(4) };
     if (t.endsWith('*')) return { id, type: (TYPES.has(t.slice(0, -1)) ? t.slice(0, -1) : 'number') as FieldSpec['type'], computed: true };
     return { id, type: (TYPES.has(t) ? t : 'text') as FieldSpec['type'] };
   });
@@ -75,7 +77,8 @@ export function applyDocument(f: FiniDB, doc: ModelDocument): DocumentResult {
     if (t.csv) {
       const { parseCsv, planLoad } = require_csv();
       const plan = planLoad(parseCsv(t.csv), { candidates: candidateIds(f, modelId) });
-      f.createTable(modelId, id, plan.fields as FieldSpec[], { rows: plan.rows });
+      const made = f.createTable(modelId, id, plan.fields as FieldSpec[], { name: t.name ?? titleCase(id), rows: plan.rows });
+      for (const spec of fieldsOf(t.fields)) if (!made.hasField(spec.id)) f.addField(made, spec);   // declared computed fields (e.g. period = PERIOD(date)) on top of the CSV's columns
       log.push(`table ${id}: ${plan.rows.length} rows from CSV`);
       continue;
     }
@@ -83,6 +86,12 @@ export function applyDocument(f: FiniDB, doc: ModelDocument): DocumentResult {
     log.push(`table ${id}: ${(t.rows ?? []).length} rows`);
   }
 
+  for (const [id, t] of Object.entries(doc.tables ?? {})) {
+    if (!t.rules) continue;
+    const text = Array.isArray(t.rules) ? t.rules.join('\n') : t.rules;
+    const r = f.setRules(modelId, id, text, { replace: true });
+    log.push(`${id}: ${r.length} rules`);
+  }
   for (const [id, p] of Object.entries(doc.pivots ?? {})) {
     if (!has(id)) {
       const dims: { id: string; table: string }[] = [];
@@ -99,10 +108,10 @@ export function applyDocument(f: FiniDB, doc: ModelDocument): DocumentResult {
         });
       }
       if (lineTable) dims.push({ id: 'line', table: lineTable });
-      for (const [d, table] of Object.entries(p.dims ?? {})) dims.push({ id: d, table });
-      if (has('periods') && !dims.some(d => d.id === 'period')) dims.push({ id: 'period', table: 'periods' });
+      for (const [d, table] of Object.entries(p.dims ?? {})) if (table) dims.push({ id: d, table });
+      if (has('periods') && !dims.some(d => d.id === 'period') && p.dims?.period !== false) dims.push({ id: 'period', table: 'periods' });
       if (!dims.length) throw new Error(`NO_DIMS: pivot ${id} needs lines, dims or periods`);
-      f.createPivot(modelId, id, { dims, measures: (p.measures ?? ['value']).map(x => ({ id: x })), lineDim: lineTable ? 'line' : undefined, timeDim: dims.some(d => d.id === 'period') ? 'period' : undefined, name: p.name ?? titleCase(id) });
+      f.createPivot(modelId, id, { dims, measures: (p.measures ?? ['value']).map(x => typeof x === 'string' ? { id: x } : x), lineDim: lineTable ? 'line' : undefined, timeDim: dims.some(d => d.id === 'period') ? 'period' : undefined, name: p.name ?? titleCase(id) });
       log.push(`pivot ${id}: ${dims.map(d => d.id).join(' × ')}`);
     }
     let n = 0;
@@ -123,7 +132,7 @@ export function applyDocument(f: FiniDB, doc: ModelDocument): DocumentResult {
     const pv = m.table(o.pivot);
     if (pv.kind !== 'pivot') throw new Error(`NO_PIVOT: output ${o.pivot} is not a pivot`);
     const rows = o.rows ?? [pv.lineDim?.id ?? pv.dims[0].id];
-    const cols = o.cols ?? [pv.timeDim?.id ?? pv.dims[1]?.id ?? pv.dims[0].id];
+    const cols = o.cols ?? (pv.dims.length > 1 ? [pv.timeDim?.id ?? pv.dims.find(d => d.id !== rows[0])!.id] : []);
     const pages: Record<string, string> = { ...(o.pages ?? {}) };
     for (const d of pv.dims) if (!rows.includes(d.id) && !cols.includes(d.id) && !pages[d.id]) pages[d.id] = d.table.rowId(0);
     const filters: Record<string, string[]> = { ...(o.filters ?? {}) };

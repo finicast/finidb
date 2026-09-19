@@ -95,7 +95,8 @@ model is computed once. A cycle that does not settle within the cap returns `#IT
 ## Build a model from a document (no server needed)
 
 ```sh
-npx finidb build model.json          # prints the statements; see examples/coreweave.json for the document format
+npx finidb build model.json          # prints the statements; examples/ has tested documents: dcf, comparables,
+                                     # precedents, salesops, budget-vs-actual, ledger-to-model, scenarios, coreweave
 ```
 
 The document (periods, pivots with line items, historical inputs and rules, tables, outputs, and

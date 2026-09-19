@@ -1,0 +1,291 @@
+{
+  "model": "dcf",
+  "name": "DCF valuation",
+  "units": "USD millions",
+  "iterate": false,
+  "periods": {
+    "start": "2025-01",
+    "count": 6,
+    "grain": "year",
+    "histUntil": "2025-12-31"
+  },
+  "pivots": {
+    "assumptions": {
+      "name": "Assumptions",
+      "lines": [
+        {
+          "id": "revenue_growth",
+          "format": "percent"
+        },
+        {
+          "id": "ebitda_margin",
+          "format": "percent"
+        },
+        {
+          "id": "da_pct",
+          "name": "D&A % of revenue",
+          "format": "percent"
+        },
+        {
+          "id": "capex_pct",
+          "name": "Capex % of revenue",
+          "format": "percent"
+        },
+        {
+          "id": "nwc_pct",
+          "name": "Working capital % of revenue change",
+          "format": "percent"
+        },
+        {
+          "id": "tax_rate",
+          "format": "percent"
+        },
+        {
+          "id": "wacc",
+          "name": "WACC",
+          "format": "percent"
+        },
+        {
+          "id": "terminal_growth",
+          "format": "percent"
+        },
+        {
+          "id": "net_debt"
+        },
+        {
+          "id": "shares",
+          "name": "Diluted shares (M)"
+        }
+      ],
+      "inputs": {
+        "revenue_growth": {
+          "fy2026": 0.25,
+          "fy2027": 0.2,
+          "fy2028": 0.15,
+          "fy2029": 0.1,
+          "fy2030": 0.06
+        },
+        "ebitda_margin": {
+          "fy2026": 0.3,
+          "fy2027": 0.31,
+          "fy2028": 0.32,
+          "fy2029": 0.32,
+          "fy2030": 0.32
+        },
+        "da_pct": {
+          "fy2026": 0.05,
+          "fy2027": 0.05,
+          "fy2028": 0.05,
+          "fy2029": 0.05,
+          "fy2030": 0.05
+        },
+        "capex_pct": {
+          "fy2026": 0.06,
+          "fy2027": 0.06,
+          "fy2028": 0.06,
+          "fy2029": 0.06,
+          "fy2030": 0.06
+        },
+        "nwc_pct": {
+          "fy2026": 0.1,
+          "fy2027": 0.1,
+          "fy2028": 0.1,
+          "fy2029": 0.1,
+          "fy2030": 0.1
+        },
+        "tax_rate": {
+          "fy2026": 0.21,
+          "fy2027": 0.21,
+          "fy2028": 0.21,
+          "fy2029": 0.21,
+          "fy2030": 0.21
+        },
+        "wacc": {
+          "fy2026": 0.09,
+          "fy2027": 0.09,
+          "fy2028": 0.09,
+          "fy2029": 0.09,
+          "fy2030": 0.09
+        },
+        "terminal_growth": {
+          "fy2026": 0.025,
+          "fy2027": 0.025,
+          "fy2028": 0.025,
+          "fy2029": 0.025,
+          "fy2030": 0.025
+        },
+        "net_debt": {
+          "fy2026": 1500,
+          "fy2027": 1500,
+          "fy2028": 1500,
+          "fy2029": 1500,
+          "fy2030": 1500
+        },
+        "shares": {
+          "fy2026": 420,
+          "fy2027": 420,
+          "fy2028": 420,
+          "fy2029": 420,
+          "fy2030": 420
+        }
+      }
+    },
+    "fcf": {
+      "name": "Free cash flow",
+      "lines": [
+        "revenue",
+        "ebitda",
+        {
+          "id": "da",
+          "name": "D&A"
+        },
+        "ebit",
+        "tax",
+        "nopat",
+        "capex",
+        "nwc_change",
+        "fcf",
+        {
+          "id": "discount_factor",
+          "name": "Discount factor"
+        },
+        {
+          "id": "pv_fcf",
+          "name": "PV of FCF"
+        }
+      ],
+      "inputs": {
+        "revenue": {
+          "fy2025": 4000
+        },
+        "ebitda": {
+          "fy2025": 1100
+        },
+        "da": {
+          "fy2025": 190
+        },
+        "capex": {
+          "fy2025": 250
+        }
+      },
+      "rules": [
+        "revenue[frame=fcst]  = PREV(revenue) * (1 + assumptions.revenue_growth)",
+        "ebitda[frame=fcst]   = revenue * assumptions.ebitda_margin",
+        "da[frame=fcst]       = revenue * assumptions.da_pct",
+        "ebit                 = ebitda - da",
+        "tax[frame=fcst]      = MAX(0, ebit) * assumptions.tax_rate",
+        "nopat[frame=fcst]    = ebit - tax",
+        "capex[frame=fcst]    = revenue * assumptions.capex_pct",
+        "nwc_change[frame=fcst] = (revenue - PREV(revenue)) * assumptions.nwc_pct",
+        "fcf[frame=fcst]      = nopat + da - capex - nwc_change",
+        "discount_factor[frame=fcst] = 1 / ((1 + assumptions.wacc) ^ period.idx)",
+        "pv_fcf[frame=fcst]   = fcf * discount_factor"
+      ]
+    },
+    "valuation": {
+      "name": "Valuation",
+      "lines": [
+        {
+          "id": "sum_pv_fcf",
+          "name": "PV of forecast FCF"
+        },
+        {
+          "id": "terminal_value"
+        },
+        {
+          "id": "pv_terminal",
+          "name": "PV of terminal value"
+        },
+        {
+          "id": "enterprise_value"
+        },
+        {
+          "id": "net_debt"
+        },
+        {
+          "id": "equity_value"
+        },
+        {
+          "id": "per_share",
+          "name": "Value per share ($)"
+        },
+        {
+          "id": "terminal_share",
+          "name": "Terminal value share of EV",
+          "format": "percent"
+        },
+        {
+          "id": "npv_check",
+          "name": "NPV() cross-check"
+        }
+      ],
+      "dims": {
+        "period": false
+      },
+      "rules": [
+        "sum_pv_fcf       = SUM(fcf.pv_fcf[period.frame=fcst])",
+        "terminal_value   = fcf.fcf[period=last] * (1 + assumptions.terminal_growth[period=last]) / (assumptions.wacc[period=last] - assumptions.terminal_growth[period=last])",
+        "pv_terminal      = terminal_value * fcf.discount_factor[period=last]",
+        "enterprise_value = sum_pv_fcf + pv_terminal",
+        "net_debt         = assumptions.net_debt[period=last]",
+        "equity_value     = enterprise_value - net_debt",
+        "per_share        = equity_value / assumptions.shares[period=last]",
+        "terminal_share   = pv_terminal / enterprise_value",
+        "npv_check        = NPV(assumptions.wacc[period=last], fcf.fcf[period.frame=fcst])"
+      ]
+    }
+  },
+  "outputs": [
+    {
+      "pivot": "fcf",
+      "title": "Free cash flow ($M)"
+    },
+    {
+      "pivot": "valuation",
+      "title": "Valuation ($M)",
+      "decimals": 1
+    }
+  ],
+  "dashboards": [
+    {
+      "id": "overview",
+      "name": "DCF",
+      "cards": [
+        {
+          "kind": "table",
+          "pivot": "assumptions",
+          "editable": true,
+          "title": "Assumptions \u2014 change WACC or growth and the valuation updates"
+        },
+        {
+          "kind": "kpi",
+          "pivot": "valuation",
+          "line": "enterprise_value",
+          "unit": "$M"
+        },
+        {
+          "kind": "kpi",
+          "pivot": "valuation",
+          "line": "per_share",
+          "unit": "$"
+        },
+        {
+          "kind": "kpi",
+          "pivot": "valuation",
+          "line": "terminal_share"
+        },
+        {
+          "kind": "chart",
+          "pivot": "fcf",
+          "lines": [
+            "revenue",
+            "ebitda",
+            "fcf"
+          ],
+          "title": "Revenue, EBITDA and FCF",
+          "unit": "$M"
+        }
+      ]
+    }
+  ]
+}
