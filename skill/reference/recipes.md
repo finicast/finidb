@@ -9,7 +9,7 @@ and adapt it:
 | `dcf.json` | assumptions → free cash flow → valuation; `period.idx` discounting, terminal value, `NPV()` cross-check, a pivot without the period dim (`"dims": { "period": false }`) |
 | `comparables.json` | multiples from company attributes, `MEDIAN(comps.value[company.kind=peer])`, implied value of the subject |
 | `precedents.json` | deal multiples, `MEDIAN(multiples.value[deal.year >= 2024])` |
-| `salesops.json` | territories as `distinctOf` over an account attribute, activity scoring two references deep, quota, tiered commissions |
+| `salesops.json` | a $55M ARR SaaS sales org: 2,000 opportunities, marketing funnel, BDR activity, monthly pivots rolled into quarters through `period.quarter`, commission tranches with accelerators from an editable plan, new-logo and multi-year kickers, a SPIFF, a payout cap, team/region/segment/company roll-ups, an ARR bridge, six persona dashboards |
 | `budget-vs-actual.json` | ledger with `PERIOD(date, periods)` → subsidiary × department × line × month, a versions dimension, a `text` measure for manager commentary |
 | `ledger-to-model.json` | CSV in the document, `distinctOf` dims, actual months then plan months |
 | `scenarios.json` | scenarios as a dimension, drivers per scenario, outputs paged by scenario |
