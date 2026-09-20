@@ -1689,7 +1689,68 @@
     {
       "id": "overview",
       "name": "Budget vs actual",
+      "theme": "controller",
       "cards": [
+        {
+          "kind": "kpi",
+          "pivot": "bva",
+          "line": "revenue",
+          "pages": {
+            "version": "actual",
+            "subsidiary": "us",
+            "department": "sales"
+          },
+          "periods": [
+            "feb26",
+            "mar26"
+          ],
+          "title": "US sales revenue, March (actual)"
+        },
+        {
+          "kind": "kpi",
+          "pivot": "bva",
+          "line": "revenue",
+          "pages": {
+            "version": "variance",
+            "subsidiary": "us",
+            "department": "sales"
+          },
+          "periods": [
+            "feb26",
+            "mar26"
+          ],
+          "title": "US sales revenue variance, March"
+        },
+        {
+          "kind": "kpi",
+          "pivot": "bva",
+          "line": "total",
+          "pages": {
+            "version": "variance",
+            "subsidiary": "us",
+            "department": "sales"
+          },
+          "periods": [
+            "feb26",
+            "mar26"
+          ],
+          "title": "US sales net variance, March"
+        },
+        {
+          "kind": "kpi",
+          "pivot": "bva",
+          "line": "total",
+          "pages": {
+            "version": "variance_pct",
+            "subsidiary": "us",
+            "department": "sales"
+          },
+          "periods": [
+            "feb26",
+            "mar26"
+          ],
+          "title": "US sales net variance %, March"
+        },
         {
           "kind": "table",
           "pivot": "bva",
@@ -1711,6 +1772,35 @@
           "type": "bar",
           "pivot": "bva",
           "rows": [
+            "version"
+          ],
+          "cols": [
+            "period"
+          ],
+          "pages": {
+            "subsidiary": "us",
+            "department": "sales",
+            "line": "total"
+          },
+          "filters": {
+            "version": [
+              "actual",
+              "budget"
+            ]
+          },
+          "periods": [
+            "jan26",
+            "feb26",
+            "mar26"
+          ],
+          "title": "US sales net: actual vs budget by month",
+          "w": 6
+        },
+        {
+          "kind": "chart",
+          "type": "bar",
+          "pivot": "bva",
+          "rows": [
             "subsidiary"
           ],
           "cols": [
@@ -1725,8 +1815,56 @@
               "total"
             ]
           },
+          "periods": [
+            "jan26",
+            "feb26",
+            "mar26"
+          ],
           "title": "Sales net variance by month",
-          "unit": "$"
+          "w": 6
+        },
+        {
+          "kind": "table",
+          "pivot": "bva",
+          "rows": [
+            "subsidiary",
+            "department",
+            "line"
+          ],
+          "cols": [
+            "period"
+          ],
+          "pages": {
+            "version": "variance"
+          },
+          "periods": [
+            "jan26",
+            "feb26",
+            "mar26"
+          ],
+          "title": "Variance by month (actual \u2212 budget)"
+        },
+        {
+          "kind": "table",
+          "pivot": "bva",
+          "measure": "comment",
+          "rows": [
+            "subsidiary",
+            "department",
+            "line"
+          ],
+          "cols": [
+            "period"
+          ],
+          "pages": {
+            "version": "variance"
+          },
+          "periods": [
+            "jan26",
+            "feb26",
+            "mar26"
+          ],
+          "title": "Manager commentary"
         }
       ]
     }
