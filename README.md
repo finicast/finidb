@@ -100,8 +100,9 @@ npx finidb build model.json          # prints the statements; examples/ has test
 ```
 
 The document (periods, pivots with line items, historical inputs and rules, tables, outputs, and
-optionally `dashboards`: an editable assumptions table plus charts, built when the document is
-imported on finicast.com; bars for amounts, lines for rates, chosen from each line's `format` when a
+optionally `dashboards`: an editable assumptions table plus KPIs and charts, built when the document is
+opened on finicast.com; a `theme` for the audience (research, banking, revenue, controller, boardroom, print), a `links` card
+for navigation across several dashboards, and a table card's `extra` columns for a text commentary measure beside the numbers.
 card gives no `type`) is the same one finicast.com accepts at `POST https://finicast.com/api/build`. `finidb build` also
 prints a link of the form `https://finicast.com/import#m=…` with the model deflate-compressed in
 the URL fragment: opening it builds a live, editable workspace from the browser, so an agent in a
