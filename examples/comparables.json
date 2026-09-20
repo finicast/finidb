@@ -1154,6 +1154,7 @@
     {
       "id": "overview",
       "name": "Apple comps",
+      "theme": "banking",
       "cards": [
         {
           "kind": "table",

@@ -81,7 +81,7 @@ doc = {
     {'pivot': 'peer_stats', 'rows': ['line'], 'cols': ['stat'], 'lines': MULTIPLES + RATIOS, 'title': 'Peer statistics', 'decimals': 2},
     {'pivot': 'implied', 'rows': ['line'], 'cols': ['stat'], 'title': 'Implied Apple valuation', 'decimals': 1},
   ],
-  'dashboards': [{'id': 'overview', 'name': 'Apple comps', 'cards': [
+  'dashboards': [{'id': 'overview', 'name': 'Apple comps', 'theme': 'banking', 'cards': [
     {'kind': 'table', 'pivot': 'market_data', 'rows': ['company'], 'cols': ['line'], 'editable': True, 'title': 'Market data (edit any cell)'},
     {'kind': 'table', 'pivot': 'comps', 'rows': ['company'], 'cols': ['line'], 'lines': PERFORMANCE, 'editable': True, 'title': 'Financial performance, LTM and NTM (edit any input)'},
     {'kind': 'table', 'pivot': 'comps', 'rows': ['company'], 'cols': ['line'], 'lines': VALUATION, 'title': 'Valuation and trading multiples, LTM and NTM'},

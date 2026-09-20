@@ -30,7 +30,7 @@ export interface DashboardCardDoc {
   rows?: string[]; cols?: string[]; pages?: Record<string, string>; measure?: string; filters?: Record<string, string[]>;
   unit?: string; editable?: boolean; w?: number; h?: number;
 }
-export interface DashboardDoc { id?: string; name?: string; cards: DashboardCardDoc[] }
+export interface DashboardDoc { id?: string; name?: string; /** a look for the dashboard on finicast.com: default | banking (a pitch-book page) | boardroom (dark) | print */ theme?: string; cards: DashboardCardDoc[] }
 export interface ModelDocument {
   model?: string; name?: string; units?: string;
   /** Iterative calculation for same-period circularities (interest on average debt, a minimum-cash revolver):
