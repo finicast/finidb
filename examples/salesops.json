@@ -4891,6 +4891,7 @@
     {
       "id": "cro",
       "name": "CRO: revenue overview",
+      "theme": "revenue",
       "cards": [
         {
           "kind": "kpi",
@@ -5043,6 +5044,7 @@
     {
       "id": "vp",
       "name": "VP Sales: teams and forecast",
+      "theme": "revenue",
       "cards": [
         {
           "kind": "kpi",
@@ -5192,6 +5194,7 @@
     {
       "id": "ops",
       "name": "Sales ops: plan, quotas and commissions",
+      "theme": "revenue",
       "cards": [
         {
           "kind": "table",
@@ -5301,6 +5304,7 @@
     {
       "id": "rep",
       "name": "Rep scorecard: Hugo Lindqvist",
+      "theme": "revenue",
       "cards": [
         {
           "kind": "kpi",
@@ -5470,6 +5474,7 @@
     {
       "id": "sdr",
       "name": "SDR and BDR: pipeline generation",
+      "theme": "revenue",
       "cards": [
         {
           "kind": "table",
@@ -5563,6 +5568,7 @@
     {
       "id": "marketing",
       "name": "Marketing: funnel and pipeline",
+      "theme": "revenue",
       "cards": [
         {
           "kind": "table",
