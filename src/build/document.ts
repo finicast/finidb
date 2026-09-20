@@ -26,7 +26,9 @@ export interface OutputDoc { pivot: string; title?: string; rows?: string[]; col
 /** A dashboard card (built by finicast.com when the document is imported there; ignored by the local build). */
 export interface DashboardCardDoc {
   /** `links`: navigation to the workspace's other dashboards, on the dashboard itself; `dashboards` lists their ids (omit for all) */
-  kind?: 'table' | 'chart' | 'kpi' | 'links'; dashboards?: string[]; type?: 'line' | 'bar' | 'stackedBar' | 'area' | 'waterfall' | 'scatter';
+  kind?: 'table' | 'chart' | 'kpi' | 'links'; dashboards?: string[];
+  /** table cards: extra columns after the view's columns, each another measure (a text commentary measure, say) at one pinned point */
+  extra?: { measure?: string; label?: string; pages?: Record<string, string> }[]; type?: 'line' | 'bar' | 'stackedBar' | 'area' | 'waterfall' | 'scatter';
   title?: string; pivot: string; line?: string; lines?: string[]; periods?: string[];
   rows?: string[]; cols?: string[]; pages?: Record<string, string>; measure?: string; filters?: Record<string, string[]>;
   unit?: string; editable?: boolean; w?: number; h?: number;

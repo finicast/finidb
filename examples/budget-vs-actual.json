@@ -1606,6 +1606,94 @@
         },
         {
           "at": {
+            "subsidiary": "uk",
+            "department": "sales",
+            "line": "travel",
+            "version": "variance",
+            "period": "feb26"
+          },
+          "measure": "comment",
+          "value": "Two trade shows moved from March into February."
+        },
+        {
+          "at": {
+            "subsidiary": "us",
+            "department": "sales",
+            "line": "revenue",
+            "version": "variance",
+            "period": "mar26"
+          },
+          "measure": "comment",
+          "value": "Two enterprise renewals slipped to April; both signed in the first week."
+        },
+        {
+          "at": {
+            "subsidiary": "us",
+            "department": "sales",
+            "line": "salaries",
+            "version": "variance",
+            "period": "mar26"
+          },
+          "measure": "comment",
+          "value": "Two AEs hired in February ahead of plan; ramp quota starts in Q2."
+        },
+        {
+          "at": {
+            "subsidiary": "us",
+            "department": "sales",
+            "line": "cloud",
+            "version": "variance",
+            "period": "mar26"
+          },
+          "measure": "comment",
+          "value": "On plan."
+        },
+        {
+          "at": {
+            "subsidiary": "us",
+            "department": "sales",
+            "line": "travel",
+            "version": "variance",
+            "period": "mar26"
+          },
+          "measure": "comment",
+          "value": "SKO travel booked late; the rest of the quarter is on plan."
+        },
+        {
+          "at": {
+            "subsidiary": "us",
+            "department": "sales",
+            "line": "total",
+            "version": "variance",
+            "period": "mar26"
+          },
+          "measure": "comment",
+          "value": "Timing: April revenue will absorb the March slip."
+        },
+        {
+          "at": {
+            "subsidiary": "us",
+            "department": "engineering",
+            "line": "revenue",
+            "version": "variance",
+            "period": "mar26"
+          },
+          "measure": "comment",
+          "value": "No revenue budgeted for engineering."
+        },
+        {
+          "at": {
+            "subsidiary": "us",
+            "department": "engineering",
+            "line": "salaries",
+            "version": "variance",
+            "period": "mar26"
+          },
+          "measure": "comment",
+          "value": "One open requisition unfilled; backfill starts in May."
+        },
+        {
+          "at": {
             "subsidiary": "us",
             "department": "engineering",
             "line": "cloud",
@@ -1617,14 +1705,135 @@
         },
         {
           "at": {
+            "subsidiary": "us",
+            "department": "engineering",
+            "line": "travel",
+            "version": "variance",
+            "period": "mar26"
+          },
+          "measure": "comment",
+          "value": "Conference travel for two engineers."
+        },
+        {
+          "at": {
+            "subsidiary": "us",
+            "department": "engineering",
+            "line": "total",
+            "version": "variance",
+            "period": "mar26"
+          },
+          "measure": "comment",
+          "value": "Cloud overage offset by the unfilled role."
+        },
+        {
+          "at": {
+            "subsidiary": "uk",
+            "department": "sales",
+            "line": "revenue",
+            "version": "variance",
+            "period": "mar26"
+          },
+          "measure": "comment",
+          "value": "One mid-market deal lost to a competitor; pipeline covers Q2."
+        },
+        {
+          "at": {
+            "subsidiary": "uk",
+            "department": "sales",
+            "line": "salaries",
+            "version": "variance",
+            "period": "mar26"
+          },
+          "measure": "comment",
+          "value": "Commission accrual on the February over-attainment."
+        },
+        {
+          "at": {
+            "subsidiary": "uk",
+            "department": "sales",
+            "line": "cloud",
+            "version": "variance",
+            "period": "mar26"
+          },
+          "measure": "comment",
+          "value": "On plan."
+        },
+        {
+          "at": {
             "subsidiary": "uk",
             "department": "sales",
             "line": "travel",
             "version": "variance",
-            "period": "feb26"
+            "period": "mar26"
           },
           "measure": "comment",
-          "value": "Two trade shows moved from March into February."
+          "value": "Trade shows moved into February; March travel below plan."
+        },
+        {
+          "at": {
+            "subsidiary": "uk",
+            "department": "sales",
+            "line": "total",
+            "version": "variance",
+            "period": "mar26"
+          },
+          "measure": "comment",
+          "value": "Revenue miss plus commission accrual; Q2 pipeline covers it."
+        },
+        {
+          "at": {
+            "subsidiary": "uk",
+            "department": "engineering",
+            "line": "revenue",
+            "version": "variance",
+            "period": "mar26"
+          },
+          "measure": "comment",
+          "value": "No revenue budgeted for engineering."
+        },
+        {
+          "at": {
+            "subsidiary": "uk",
+            "department": "engineering",
+            "line": "salaries",
+            "version": "variance",
+            "period": "mar26"
+          },
+          "measure": "comment",
+          "value": "On plan."
+        },
+        {
+          "at": {
+            "subsidiary": "uk",
+            "department": "engineering",
+            "line": "cloud",
+            "version": "variance",
+            "period": "mar26"
+          },
+          "measure": "comment",
+          "value": "Data transfer for the EU region migration; recurs through May."
+        },
+        {
+          "at": {
+            "subsidiary": "uk",
+            "department": "engineering",
+            "line": "travel",
+            "version": "variance",
+            "period": "mar26"
+          },
+          "measure": "comment",
+          "value": "On plan."
+        },
+        {
+          "at": {
+            "subsidiary": "uk",
+            "department": "engineering",
+            "line": "total",
+            "version": "variance",
+            "period": "mar26"
+          },
+          "measure": "comment",
+          "value": "Migration cloud costs; approved in the Q1 forecast."
         }
       ],
       "rules": [
@@ -1765,7 +1974,17 @@
           "pages": {
             "period": "mar26"
           },
-          "title": "March: actual, budget, variance"
+          "title": "March: actual, budget, variance and commentary (commentary editable)",
+          "editable": true,
+          "extra": [
+            {
+              "measure": "comment",
+              "label": "Commentary",
+              "pages": {
+                "version": "variance"
+              }
+            }
+          ]
         },
         {
           "kind": "chart",
@@ -1843,28 +2062,6 @@
             "mar26"
           ],
           "title": "Variance by month (actual \u2212 budget)"
-        },
-        {
-          "kind": "table",
-          "pivot": "bva",
-          "measure": "comment",
-          "rows": [
-            "subsidiary",
-            "department",
-            "line"
-          ],
-          "cols": [
-            "period"
-          ],
-          "pages": {
-            "version": "variance"
-          },
-          "periods": [
-            "jan26",
-            "feb26",
-            "mar26"
-          ],
-          "title": "Manager commentary"
         }
       ]
     }
