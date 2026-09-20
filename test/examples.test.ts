@@ -25,26 +25,25 @@ test('dcf: discounting, terminal value and the NPV cross-check agree', () => {
   assert.ok(num('valuation', { line: 'per_share' }) > 0 && num('valuation', { line: 'terminal_share' }) > 0.5);
 });
 
-test('comparables: LTM and NTM multiples, peer statistics excluding the subject, implied value from the median', () => {
+test('comparables: one table with LTM and NTM side by side, peer statistics excluding the subject, implied value from the median', () => {
   const { f, r, num } = build('comparables');
   const doc = load('comparables');
   const md = (c: string, l: string) => doc.pivots.market_data.values.find((v: { at: { company: string; line: string } }) => v.at.company === c && v.at.line === l).value as number;
-  const fin = (c: string, l: string, b: string) => doc.pivots.financials.values.find((v: { at: { company: string; line: string; basis: string } }) => v.at.company === c && v.at.line === l && v.at.basis === b).value as number;
+  const fin = (c: string, l: string) => doc.pivots.comps.values.find((v: { at: { company: string; line: string } }) => v.at.company === c && v.at.line === l).value as number;
   const evOf = (c: string) => md(c, 'price') * md(c, 'shares') + md(c, 'debt') - md(c, 'cash');
-  assert.ok(Math.abs(num('comps', { company: 'msft', line: 'ev_ebitda', basis: 'ltm' }) - evOf('msft') / fin('msft', 'ebitda', 'ltm')) < 1e-9);
-  assert.ok(Math.abs(num('comps', { company: 'msft', line: 'ev_ebitda', basis: 'ntm' }) - evOf('msft') / fin('msft', 'ebitda', 'ntm')) < 1e-9, 'NTM multiple uses NTM EBITDA');
-  assert.ok(Math.abs(num('comps', { company: 'nvda', line: 'rev_growth', basis: 'ntm' }) - (fin('nvda', 'revenue', 'ntm') / fin('nvda', 'revenue', 'ltm') - 1)) < 1e-9);
+  assert.ok(Math.abs(num('comps', { company: 'msft', line: 'ev_ebitda_ltm' }) - evOf('msft') / fin('msft', 'ebitda_ltm')) < 1e-9);
+  assert.ok(Math.abs(num('comps', { company: 'msft', line: 'ev_ebitda_ntm' }) - evOf('msft') / fin('msft', 'ebitda_ntm')) < 1e-9, 'the NTM multiple uses NTM EBITDA');
+  assert.ok(Math.abs(num('comps', { company: 'nvda', line: 'rev_growth_ntm' }) - (fin('nvda', 'revenue_ntm') / fin('nvda', 'revenue_ltm') - 1)) < 1e-9);
   const peers = ['msft', 'googl', 'amzn', 'meta', 'nvda', 'dell', 'hpq'];
-  const pes = peers.map(c => md(c, 'price') / fin(c, 'eps', 'ltm')).sort((a, b) => a - b);
-  assert.ok(Math.abs(num('peer_stats', { line: 'pe', stat: 'median', basis: 'ltm' }) - pes[3]) < 1e-9, 'median P/E over the seven peers, Apple excluded');
-  assert.ok(Math.abs(num('peer_stats', { line: 'ev_revenue', stat: 'median_hardware', basis: 'ltm' }) - (evOf('dell') / fin('dell', 'revenue', 'ltm') + evOf('hpq') / fin('hpq', 'revenue', 'ltm')) / 2) < 1e-9);
-  const implied = num('implied', { line: 'price_from_pe', stat: 'median', basis: 'ltm' });
-  assert.ok(Math.abs(implied - pes[3] * fin('aapl', 'eps', 'ltm')) < 1e-9);
-  assert.ok(Math.abs(num('implied', { line: 'upside_pe', stat: 'median', basis: 'ltm' }) - (implied / md('aapl', 'price') - 1)) < 1e-9);
-  const stats = f.model(r.model).table('stats');
-  assert.ok(stats.hasField('name') && stats.rowCount === 6, 'undeclared row keys such as name become fields');
-  const g = r.outputs.find(o => o.title === 'Peer statistics — LTM');
-  assert.match(g?.markdown ?? '', /Median: platforms/, 'column headers use the member names');
+  const pes = peers.map(c => md(c, 'price') / fin(c, 'eps_ltm')).sort((a, b) => a - b);
+  assert.ok(Math.abs(num('peer_stats', { line: 'pe_ltm', stat: 'median' }) - pes[3]) < 1e-9, 'median P/E over the seven peers, Apple excluded');
+  assert.ok(Math.abs(num('peer_stats', { line: 'ev_revenue_ltm', stat: 'median_hardware' }) - (evOf('dell') / fin('dell', 'revenue_ltm') + evOf('hpq') / fin('hpq', 'revenue_ltm')) / 2) < 1e-9);
+  const implied = num('implied', { line: 'price_pe_ltm', stat: 'median' });
+  assert.ok(Math.abs(implied - pes[3] * fin('aapl', 'eps_ltm')) < 1e-9);
+  assert.ok(Math.abs(num('implied', { line: 'upside_pe_ltm', stat: 'median' }) - (implied / md('aapl', 'price') - 1)) < 1e-9);
+  const g = r.outputs.find(o => o.title === 'Comparable companies');
+  assert.match(g?.markdown ?? '', /Revenue LTM \| Revenue NTM/, 'LTM and NTM sit side by side as columns of one table');
+  assert.ok(f.model(r.model).table('stats').hasField('name'));
 });
 
 test('precedents: an attribute filter picks recent deals for the median', () => {
