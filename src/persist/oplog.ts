@@ -159,7 +159,7 @@ export function withOplog<F extends FiniDB>(f: F, dir: string, opts: OplogOption
     createModel: f.createModel, createTable: f.createTable, addField: f.addField, insertRows: f.insertRows,
     createDistinctTable: f.createDistinctTable, createPeriods: f.createPeriods, createPivot: f.createPivot,
     setRules: f.setRules, setValue: f.setValue, setCell: f.setCell,
-    deleteRows: f.deleteRows, dropField: f.dropField, dropTable: f.dropTable, dropModel: f.dropModel, addFieldTo: f.addFieldTo,
+    upsertRows: f.upsertRows, deleteRows: f.deleteRows, dropField: f.dropField, dropTable: f.dropTable, dropModel: f.dropModel, addFieldTo: f.addFieldTo,
     setIterate: f.setIterate,
   };
   // Run `call` under the recording guard and, if it is the outermost call, log `args`.
@@ -180,6 +180,11 @@ export function withOplog<F extends FiniDB>(f: F, dir: string, opts: OplogOption
   };
   f.addField = (t, spec) => record('addField', () => orig.addField.call(f, t, spec), () => ({ model: t.model.id, table: t.id, field: spec }));
   f.insertRows = (t, rows) => record('insertRows', () => orig.insertRows.call(f, t, rows), () => {
+    const base = { model: t.model.id, table: t.id };
+    if (rows.length <= log.blobThreshold) return { ...base, rows };
+    return { ...base, blob: log.writeBlob(JSON.stringify(rows)), count: rows.length };
+  });
+  f.upsertRows = (t, rows) => record('upsertRows', () => orig.upsertRows.call(f, t, rows), () => {
     const base = { model: t.model.id, table: t.id };
     if (rows.length <= log.blobThreshold) return { ...base, rows };
     return { ...base, blob: log.writeBlob(JSON.stringify(rows)), count: rows.length };
@@ -231,6 +236,11 @@ function applyOpRaw(f: FiniDB, rec: OpRecord, dir: string) {
     case 'insertRows': {
       const rows: Record<string, Scalar>[] = a.blob ? JSON.parse(fs.readFileSync(path.join(dir, BLOB_DIR, `${a.blob}.json`), 'utf8')) : a.rows;
       f.insertRows(table(), rows);
+      break;
+    }
+    case 'upsertRows': {
+      const rows: Record<string, Scalar>[] = a.blob ? JSON.parse(fs.readFileSync(path.join(dir, BLOB_DIR, `${a.blob}.json`), 'utf8')) : a.rows;
+      f.upsertRows(table(), rows);
       break;
     }
     case 'createDistinctTable': f.createDistinctTable(a.model, a.id, a.sourceTable, a.sourceField); break;

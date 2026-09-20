@@ -269,6 +269,67 @@ test('CSV load creates a table with a profile, detects refs, and appends via mul
   assert.equal(await cell('nvda', 'income_statement', { line: 'cum_ni', period: 'fy2026' }), 70);
 });
 
+test('CSV load into an existing table: dry run, append clashes, upsert, replace, addFields, bad values, header names', async () => {
+  const hdr = { 'Content-Type': 'text/csv' };
+  // dry run plans without writing; append refuses ids that exist and says which mode would take them
+  const dry = await ok('/db/nvda/tables/expenses/load?dryRun=1', { body: 'id,period,dept,amount\n3,fy2026,eng,31\n5,fy2026,eng,50\n', headers: hdr });
+  assert.equal(dry.body.dryRun, true);
+  assert.equal(dry.body.ok, false);
+  assert.equal(dry.body.errors[0].code, 'LOAD_DUPLICATE_ID');
+  assert.match(dry.body.errors[0].fix, /mode=upsert/);
+  assert.equal((await ok('/db/nvda/tables/expenses/rows')).body.rowCount, 4);
+  const dryUp = await ok('/db/nvda/tables/expenses/load?dryRun=1&mode=upsert', { body: 'id,period,dept,amount\n3,fy2026,eng,31\n5,fy2026,eng,50\n', headers: hdr });
+  assert.equal(dryUp.body.ok, true);
+  assert.equal(dryUp.body.toInsert, 1);
+  assert.equal(dryUp.body.toUpdate, 1);
+  assert.deepEqual(dryUp.body.columns.map((c: any) => c.action), ['id', 'match', 'match', 'match']);
+  const clash = await api('/db/nvda/tables/expenses/load', { body: 'id,period,dept,amount\n3,fy2026,eng,31\n', headers: hdr });
+  assert.equal(clash.status, 400);
+  assert.equal(clash.body.error.code, 'LOAD_DUPLICATE_ID');
+
+  // upsert: row 3 updated in place, row 5 inserted; a column the table lacks is ignored with a warning
+  const up = await ok('/db/nvda/tables/expenses/load?mode=upsert', { body: 'id,period,dept,amount,note\n3,fy2026,eng,31,x\n5,fy2026,eng,50,y\n', headers: hdr }, 201);
+  assert.equal(up.body.inserted, 1);
+  assert.equal(up.body.updated, 1);
+  assert.equal(up.body.rowCount, 5);
+  assert.match(up.body.warnings.join(' '), /ignored: note/);
+  assert.equal((await ok('/db/nvda/cells?table=expenses&row=3&field=amount')).body.value, 31);
+  assert.equal(await cell('nvda', 'income_statement', { line: 'cum_ni', period: 'fy2026' }), 121);
+
+  // addFields adds the unknown column; header names match fields case-insensitively
+  const add = await ok('/db/nvda/tables/expenses/load?mode=upsert&addFields=1', { body: 'ID,Period,Dept,Amount,Note\n5,fy2026,eng,55,hello\n', headers: hdr }, 201);
+  assert.equal(add.body.updated, 1);
+  assert.equal(add.body.columns.find((c: any) => c.header === 'Note').action, 'add');
+  assert.equal((await ok('/db/nvda/cells?table=expenses&row=5&field=note')).body.value, 'hello');
+  assert.equal((await ok('/db/nvda/cells?table=expenses&row=3&field=note')).body.value, null);   // a field added to a populated table starts blank
+  assert.equal((await ok('/db/nvda/cells?table=expenses&row=5&field=amount')).body.value, 55);
+
+  // bad values and unknown refs are reported before anything is written
+  const bad = await api('/db/nvda/tables/expenses/load?mode=upsert', { body: 'id,period,amount\n5,fy2026,lots\n6,fy2099,7\n', headers: hdr });
+  assert.equal(bad.status, 400);
+  assert.deepEqual(bad.body.error.errors.map((e: any) => e.code).sort(), ['LOAD_BAD_VALUE', 'LOAD_UNKNOWN_REF']);
+  assert.equal((await ok('/db/nvda/tables/expenses/rows')).body.rowCount, 5);
+
+  // replace: the file becomes the table (rows not in it are deleted), fields missing from the file keep their values
+  const rep = await ok('/db/nvda/tables/expenses/load?mode=replace', { body: 'id,period,amount\n1,fy2024,100\n9,fy2026,9\n', headers: hdr }, 201);
+  assert.equal(rep.body.deleted, 4);
+  assert.equal(rep.body.updated, 1);
+  assert.equal(rep.body.inserted, 1);
+  assert.equal(rep.body.rowCount, 2);
+  assert.equal((await ok('/db/nvda/cells?table=expenses&row=1&field=dept')).body.value, 'eng');
+  assert.equal((await ok('/db/nvda/cells?table=expenses&row=1&field=amount')).body.value, 100);
+  assert.equal(await cell('nvda', 'income_statement', { line: 'cum_ni', period: 'fy2026' }), 9);
+
+  // append without an id column generates ids past the existing ones
+  const gen = await ok('/db/nvda/tables/expenses/load', { body: 'period,amount\nfy2025,1\nfy2025,2\n', headers: hdr }, 201);
+  assert.equal(gen.body.inserted, 2);
+  assert.equal(gen.body.rowCount, 4);
+  const ids = (await ok('/db/nvda/tables/expenses/rows')).body.rows.map((r: any) => r.id);
+  assert.equal(new Set(ids).size, 4);
+  const noId = await api('/db/nvda/tables/expenses/load?mode=replace', { body: 'period,amount\nfy2025,1\n', headers: hdr });
+  assert.equal(noId.body.error.code, 'LOAD_NO_ID');
+});
+
 test('auth: 401 when required, grants gate writes, bearer tokens, auth.json persists', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'finidb-auth-'));
   const s = await startServer({ port: 0, host: '127.0.0.1', dataDir: dir, requireAuth: true });

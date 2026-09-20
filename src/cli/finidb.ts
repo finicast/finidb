@@ -11,7 +11,7 @@ import { dirname, resolve } from 'node:path';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
-const BOOL_FLAGS = new Set(['require-auth', 'json', 'routes', 'help', 'version', 'append', 'h', 'v', 'no-xlsx']);
+const BOOL_FLAGS = new Set(['require-auth', 'json', 'routes', 'help', 'version', 'append', 'h', 'v', 'no-xlsx', 'dry-run', 'add-fields']);
 
 interface Args { positional: string[]; flags: Record<string, string | true> }
 function parseArgs(argv: string[]): Args {
@@ -154,14 +154,19 @@ async function main() {
     }
     case 'load': {
       const [db, table, file] = rest;
-      if (!db || !table || !file) fail('usage: finidb load <db> <table> file.csv [--model m]');
+      if (!db || !table || !file) fail('usage: finidb load <db> <table> file.csv [--model m] [--mode append|upsert|replace] [--dry-run] [--add-fields] [--id-column c] [--delimiter d]');
       const q = new URLSearchParams();
       if (str(flags.model)) q.set('model', str(flags.model)!);
+      if (str(flags.mode)) q.set('mode', str(flags.mode)!);
+      if (flags['dry-run']) q.set('dryRun', '1');
+      if (flags['add-fields']) q.set('addFields', '1');
       if (str(flags['id-column'])) q.set('idColumn', str(flags['id-column'])!);
       if (str(flags.delimiter)) q.set('delimiter', str(flags.delimiter)!);
       const r = await api(conn, 'POST', `/db/${enc(db)}/tables/${enc(table)}/load${q.size ? '?' + q : ''}`, readFileSync(file, 'utf8'), 'text/csv');
       if (flags.json) return out(r);
-      console.log(`${r.created ? 'created' : 'loaded into'} ${r.table}: ${r.inserted} rows (total ${r.rowCount}), id column: ${r.idColumn ?? 'generated'}`);
+      if (r.dryRun) console.log(`dry run of ${r.mode} into ${r.table}: ${r.ok ? `would add ${r.toInsert}, update ${r.toUpdate}, delete ${r.toDelete}` : 'would fail'}`);
+      else console.log(`${r.created ? 'created' : r.mode + ' into'} ${r.table}: ${r.inserted} rows added${r.updated ? `, ${r.updated} updated` : ''}${r.deleted ? `, ${r.deleted} deleted` : ''} (total ${r.rowCount}), id column: ${r.idColumn ?? 'generated'}`);
+      for (const e of r.errors ?? []) console.log(`  error: ${e.code} ${e.message}${e.fix ? '  fix: ' + e.fix : ''}`);
       for (const f of r.profile) console.log(`  ${String(f.id).padEnd(24)} ${String(f.type).padEnd(7)} distinct=${f.distinct} nulls=${f.nullCount}${r.fields.find((x: any) => x.id === f.id)?.ref ? '  -> ' + r.fields.find((x: any) => x.id === f.id).ref : ''}`);
       for (const w of r.warnings) console.log(`  warning: ${w}`);
       return;

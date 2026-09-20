@@ -122,7 +122,7 @@ Design in `../docs/design`. Implemented (first cut of milestones M1–M5):
 - **Persistence**: JSONL oplog with content-addressed blobs for bulk loads, binary snapshots of
   inputs only, `openDatabase(dir)` (snapshot + log tail).
 - **Server + CLI**: `finidb serve` (node:http, multi-database, users/grants with scrypt, Basic
-  and bearer auth, the REST routes of doc 07, long-poll `/changes`, CSV load, batch), `finidb
+  and bearer auth, the REST routes of doc 07, long-poll `/changes`, CSV load with append / upsert / replace and a dry run, batch), `finidb
   createdb | createuser | grant | query | rules | load | bench | build`.
 - **MCP + skill**: nine tools (`src/mcp`), `finidb mcp` for stdio, `finidb skill` prints
   `skill/SKILL.md` (syntax, recipes and error references); `finidb skill --install <dir>` copies

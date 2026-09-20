@@ -104,7 +104,7 @@ export class BoolColumn extends Column {
 /** Dictionary-encoded text. */
 export class TextColumn extends Column {
   readonly type = 'text' as const;
-  codes = new Int32Array(INITIAL); // -1 = null
+  codes = new Int32Array(INITIAL).fill(-1); // -1 = null
   dict: string[] = [];
   index = new Map<string, number>();
   ensure(n: number) { const old = this.codes.length; this.codes = grow(this.codes, n, Int32Array); if (this.codes.length > old) this.codes.fill(-1, old); }

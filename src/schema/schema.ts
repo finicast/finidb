@@ -38,6 +38,7 @@ export class Table {
     const col = makeColumn(type, refTable?.iid);
     col.ensure(this.rowCount);
     col.length = this.rowCount;
+    for (let i = 0; i < this.rowCount; i++) col.set(i, null);   // a field added to a populated table starts blank, whatever the column's zero value is
     const f = new Field(this.model.db.nextIid(), id, name, type, col, refTable);
     this.fields.push(f);
     this.fieldById.set(id, f);

@@ -15,7 +15,7 @@ import { join } from 'node:path';
 import { FiniDB, CompileError, ParseError, isError } from '../index.js';
 import type { QueryOptions, FieldSpec, PeriodsSpec, Scalar, Value, Grid, Clause } from '../index.js';
 import type { AnyTable, Table, Pivot, Dim, Measure, Model } from '../schema/schema.js';
-import { parseCsv, planLoad } from '../store/csv.js';
+import { parseCsv, planLoad, slug, coerce } from '../store/csv.js';
 import type { FieldType } from '../store/column.js';
 import { AuthStore, AuthError, Principal, Role, ROLES } from './auth.js';
 
@@ -129,6 +129,7 @@ const MUTATIONS: Record<string, OpFn> = {
     const p = pivot(f, model, table); const m = p.addMeasure(spec.id, spec.type ?? 'number', spec.name); m.format = spec.format; f.db.touch(); return { id: m.id };
   },
   insertRows: (f, model: string, table: string, rows: Record<string, Scalar>[]) => ({ rowCount: f.insertRows(tabular(f, model, table), rows), inserted: rows.length }),
+  upsertRows: (f, model: string, table: string, rows: Record<string, Scalar>[]) => f.upsertRows(tabular(f, model, table), rows),
   deleteRows: (f, model: string, table: string, ids: string[]) => ({ deleted: f.deleteRows(model, table, ids), rowCount: tabular(f, model, table).rowCount }),
   dropField: (f, model: string, table: string, field: string) => { f.dropField(model, table, field); return { ok: true }; },
   dropTable: (f, model: string, table: string) => { f.dropTable(model, table); return { ok: true }; },
@@ -572,16 +573,24 @@ export async function startServer(opts: ServerOptions = {}): Promise<ServerHandl
     return { ...(await applyOp(c.db!, { method: 'deleteRows', args: [model.id, table.id, ids] }, user(c)) as object), version: version(c.db!) };
   });
 
-  // CSV load: raw text/csv body, multipart file part, or { csv: "..." } (§3 `/load`); returns the profile
+  // CSV load: raw text/csv body, multipart file part, or { csv: "..." } (§3 `/load`); returns the profile.
+  // Into an existing table: ?mode=append (default) | upsert (ids that exist are updated in place) | replace (the file
+  // becomes the table: rows not in it are deleted); ?dryRun=1 plans and validates without writing; ?addFields=1 adds
+  // file columns that match no field. Columns match fields by id or name; computed columns are skipped.
   route('POST', '/db/:db/tables/:table/load', 'write', async c => {
     const ct = String(c.req.headers['content-type'] ?? '');
     const text = ct.startsWith('multipart/form-data') ? multipartFile(c.raw, ct).toString('utf8') : typeof c.body?.csv === 'string' ? c.body.csv : c.raw.toString('utf8');
     if (!text.trim()) throw new HttpError(400, 'LOAD_EMPTY', 'no CSV content');
     const db = c.db!;
-    const modelId = c.query.get('model') ?? c.body?.model ?? (db.f.db.models.size === 1 ? [...db.f.db.models.keys()][0] : undefined);
+    const opt = (k: string): string | undefined => { const v = c.query.get(k) ?? c.body?.[k]; return v === undefined || v === null ? undefined : String(v); };
+    const flag = (k: string) => { const v = opt(k); return v === '1' || v === 'true'; };
+    const modelId = opt('model') ?? (db.f.db.models.size === 1 ? [...db.f.db.models.keys()][0] : undefined);
     if (!modelId) throw new HttpError(400, 'BAD_REQUEST', 'pass ?model= (the database has several models)');
     const model = db.f.model(modelId);
-    const csv = parseCsv(text, c.query.get('delimiter') ?? c.body?.delimiter ?? ',');
+    const mode = opt('mode') ?? 'append';
+    if (mode !== 'append' && mode !== 'upsert' && mode !== 'replace') throw new HttpError(400, 'BAD_REQUEST', 'mode is append, upsert or replace');
+    const dryRun = flag('dryRun'), addFields = flag('addFields');
+    const csv = parseCsv(text, opt('delimiter') ?? ',');
     const exists = model.hasTable(c.params.table);
     const existing = exists ? model.table(c.params.table) : undefined;
     if (existing && existing.kind !== 'tabular') throw new HttpError(400, 'SCHEMA_NOT_TABULAR', 'cannot load rows into a pivot');
@@ -589,12 +598,84 @@ export async function startServer(opts: ServerOptions = {}): Promise<ServerHandl
     for (const t of model.tables.values()) if (t.kind === 'tabular' && t !== existing) candidates[t.id] = new Set(t.rowById.keys());
     const types: Record<string, FieldType> = {}, refs: Record<string, string> = {};
     for (const fl of existing?.fields ?? []) { if (fl.type === 'ref') { refs[fl.id] = fl.refTable!.id; types[fl.id] = 'text'; } else types[fl.id] = fl.type; }
-    const plan = planLoad(csv, { idColumn: c.query.get('idColumn') ?? c.body?.idColumn ?? undefined, candidates, types, refs });
-    const op: Op = existing
-      ? { method: 'insertRows', args: [modelId, c.params.table, plan.rows] }
-      : { method: 'createTable', args: [modelId, c.params.table, plan.fields.map(f => ({ id: f.id, name: f.name, type: f.type === 'ref' ? undefined : f.type, ref: f.ref })), { rows: plan.rows, name: c.query.get('name') ?? c.body?.name ?? undefined }] };
-    const r = await applyOp(db, op, user(c)) as { rowCount: number };
-    return new Reply(201, { table: c.params.table, model: modelId, created: !existing, inserted: plan.rows.length, rowCount: r.rowCount, idColumn: plan.idColumn, fields: plan.fields, profile: plan.profile, warnings: plan.warnings, version: version(db) });
+    const sample = (xs: string[]) => xs.slice(0, 5).join(', ') + (xs.length > 5 ? ', …' : '');
+    const warnings: string[] = [];
+    const errors: { code: string; message: string; fix?: string }[] = [];
+    const columns: { header: string; field?: string; action: 'id' | 'match' | 'add' | 'ignore' | 'computed' }[] = [];
+    let idColumn = opt('idColumn');
+    if (existing) {
+      // resolve file columns to fields; drop what cannot be loaded
+      const resolve = (h: string) => { const s = slug(h), l = h.trim().toLowerCase(); return existing.fields.find(f => f.id === s || f.id === l || f.name.toLowerCase() === l || slug(f.name) === s); };
+      const keep: number[] = [];
+      csv.header.forEach((h, i) => {
+        const f = resolve(h);
+        if (!f) { columns.push({ header: h, action: addFields ? 'add' : 'ignore' }); if (addFields) keep.push(i); return; }
+        if (f.id === 'id') { columns.push({ header: h, field: 'id', action: 'id' }); csv.header[i] = 'id'; keep.push(i); idColumn = 'id'; return; }
+        if (f.computed) { columns.push({ header: h, field: f.id, action: 'computed' }); return; }
+        columns.push({ header: h, field: f.id, action: 'match' }); csv.header[i] = f.id; keep.push(i);
+      });
+      if (keep.length !== csv.header.length) { csv.header = keep.map(i => csv.header[i]); csv.rows = csv.rows.map(r => keep.map(i => r[i] ?? '')); }
+      const ignored = columns.filter(x => x.action === 'ignore').map(x => x.header);
+      if (ignored.length) warnings.push(`columns not in the table were ignored: ${ignored.join(', ')} (addFields=1 adds them as new fields)`);
+      const computed = columns.filter(x => x.action === 'computed').map(x => x.header);
+      if (computed.length) warnings.push(`columns computed by rules were skipped: ${computed.join(', ')}`);
+      if (!csv.header.length) throw new HttpError(400, 'LOAD_NO_COLUMNS', 'no column of the file matches a field of the table', { columns, fields: existing.fields.map(f => f.id) });
+      if (idColumn !== 'id' && mode !== 'append') errors.push({ code: 'LOAD_NO_ID', message: `mode=${mode} needs an id column to match rows`, fix: 'add an id column, or use mode=append' });
+    }
+    const plan = planLoad(csv, { idColumn, candidates, types, refs });
+    if (existing && !plan.idColumn) {
+      // generated ids must not collide with the rows already there
+      let n = existing.rowCount;
+      for (const r of plan.rows) { do n++; while (existing.rowById.has(String(n))); r.id = String(n); }
+      plan.warnings = plan.warnings.map(w => w.startsWith('no unique id column') ? `no id column: ids ${plan.rows[0]?.id}…${plan.rows[plan.rows.length - 1]?.id} were generated` : w);
+    }
+    warnings.push(...plan.warnings);
+    const ids = plan.rows.map(r => String(r.id));
+    const seen = new Set<string>(), dups: string[] = [];
+    for (const id of ids) { if (seen.has(id)) dups.push(id); seen.add(id); }
+    if (dups.length) errors.push({ code: 'LOAD_DUPLICATE_ID', message: `${dups.length} ids appear more than once in the file: ${sample(dups)}`, fix: 'make the ids unique' });
+    let toInsert = ids.length, toUpdate = 0, toDelete: string[] = [];
+    if (existing) {
+      const clashes = [...seen].filter(id => existing.rowById.has(id));
+      if (mode === 'append') { if (clashes.length) errors.push({ code: 'LOAD_DUPLICATE_ID', message: `${clashes.length} ids already exist in ${existing.id}: ${sample(clashes)}`, fix: 'mode=upsert updates those rows in place; mode=replace makes the file the whole table' }); }
+      else { toUpdate = clashes.length; toInsert = ids.length - clashes.length; }
+      if (mode === 'replace') toDelete = [...existing.rowById.keys()].filter(id => !seen.has(id));
+      for (const f of existing.fields) {
+        const col = csv.header.indexOf(f.id);
+        if (col < 0 || f.id === 'id') continue;
+        if (f.type === 'ref') {
+          const target = f.refTable!, bad = new Set<string>();
+          for (const r of plan.rows) { const v = r[f.id]; if (v !== null && v !== undefined && !target.rowById.has(String(v))) bad.add(String(v)); }
+          if (bad.size) errors.push({ code: 'LOAD_UNKNOWN_REF', message: `${f.id}: ${bad.size} values are not ids of ${target.id}: ${sample([...bad])}`, fix: `load the missing ${target.id} rows first, or fix the values` });
+        } else if (f.type === 'number' || f.type === 'date') {
+          let bad = 0; const ex: string[] = [];
+          for (const r of csv.rows) { const s = (r[col] ?? '').trim(); if (s && coerce(s, f.type) === null) { bad++; if (ex.length < 3) ex.push(s); } }
+          if (bad) errors.push({ code: 'LOAD_BAD_VALUE', message: `${f.id}: ${bad} values are not ${f.type === 'date' ? 'dates' : 'numbers'}: ${ex.join(', ')}`, fix: f.type === 'date' ? 'write dates as YYYY-MM-DD' : 'numbers only' });
+        }
+      }
+      const missing = existing.fields.filter(f => f.id !== 'id' && !f.computed && !csv.header.includes(f.id)).map(f => f.id);
+      if (missing.length) warnings.push(`fields not in the file keep their values; new rows get blanks: ${missing.join(', ')}`);
+      if (toDelete.length) warnings.push(`${toDelete.length} rows not in the file will be deleted; references to them from other tables become blank`);
+    }
+    const summary = { table: c.params.table, model: modelId, created: !existing, mode: existing ? mode : 'create', dryRun, ok: errors.length === 0, toInsert, toUpdate, toDelete: toDelete.length, idColumn: plan.idColumn ?? null, columns, fields: plan.fields, profile: plan.profile, warnings, errors };
+    if (dryRun) return { ...summary, rowCount: existing?.rowCount ?? 0, version: version(db) };
+    if (errors.length) throw new HttpError(400, errors[0].code, errors[0].message, { fix: errors[0].fix, errors, columns });
+    let inserted = 0, updated = 0, deleted = 0, rowCount = 0;
+    if (!existing) {
+      const r = await applyOp(db, { method: 'createTable', args: [modelId, c.params.table, plan.fields.map(f => ({ id: f.id, name: f.name, type: f.type === 'ref' ? undefined : f.type, ref: f.ref })), { rows: plan.rows, name: opt('name') }] }, user(c)) as { rowCount: number };
+      inserted = plan.rows.length; rowCount = r.rowCount;
+    } else {
+      for (const col of columns) if (col.action === 'add') {
+        const pf = plan.fields.find(f => f.name === col.header);
+        if (!pf) continue;
+        await applyOp(db, { method: 'addField', args: [modelId, c.params.table, { id: pf.id, name: pf.name, type: pf.type === 'ref' ? undefined : pf.type, ref: pf.ref }] }, user(c));
+        col.field = pf.id;
+      }
+      if (toDelete.length) deleted = (await applyOp(db, { method: 'deleteRows', args: [modelId, c.params.table, toDelete] }, user(c)) as { deleted: number }).deleted;
+      if (mode === 'append') { const r = await applyOp(db, { method: 'insertRows', args: [modelId, c.params.table, plan.rows] }, user(c)) as { rowCount: number }; inserted = plan.rows.length; rowCount = r.rowCount; }
+      else { const r = await applyOp(db, { method: 'upsertRows', args: [modelId, c.params.table, plan.rows] }, user(c)) as { inserted: number; updated: number; rowCount: number }; inserted = r.inserted; updated = r.updated; rowCount = r.rowCount; }
+    }
+    return new Reply(201, { ...summary, inserted, updated, deleted, rowCount, version: version(db) });
   });
 
   // rules (§3): PUT replaces, POST appends; body is rule text (text/plain) or { rules: text | [{target, when, formula}] }

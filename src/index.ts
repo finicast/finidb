@@ -131,6 +131,23 @@ export class FiniDB {
     this.db.touch();
     return t.rowCount;
   }
+  /** Rows whose id exists get the given fields set in place; the rest are inserted. Keys that are not fields are ignored. */
+  upsertRows(t: Table, rows: Record<string, Scalar>[]): { inserted: number; updated: number; rowCount: number } {
+    let inserted = 0, updated = 0;
+    for (const r of rows) {
+      const id = r.id === undefined || r.id === null ? undefined : String(r.id);
+      if (id !== undefined && t.rowById.has(id)) {
+        for (const [k, v] of Object.entries(r)) {
+          if (k === 'id' || !t.fieldById.has(k)) continue;
+          t.setCell(id, k, v);
+          if (this.evaluator instanceof IncrementalEngine) this.evaluator.noteRowWrite(t, t.rowById.get(id)!, t.field(k));
+        }
+        updated++;
+      } else { t.insertRow(r); inserted++; }
+    }
+    this.db.touch();
+    return { inserted, updated, rowCount: t.rowCount };
+  }
 
   /** Create a dimension table from the distinct values of another table's column. */
   createDistinctTable(modelId: string, id: string, sourceTable: string, sourceField: string): Table {
