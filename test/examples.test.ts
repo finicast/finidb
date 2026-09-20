@@ -41,8 +41,9 @@ test('comparables: one table with LTM and NTM side by side, peer statistics excl
   const implied = num('implied', { line: 'price_pe_ltm', stat: 'median' });
   assert.ok(Math.abs(implied - pes[3] * fin('aapl', 'eps_ltm')) < 1e-9);
   assert.ok(Math.abs(num('implied', { line: 'upside_pe_ltm', stat: 'median' }) - (implied / md('aapl', 'price') - 1)) < 1e-9);
-  const g = r.outputs.find(o => o.title === 'Comparable companies');
+  const g = r.outputs.find(o => o.title === 'Financial performance');
   assert.match(g?.markdown ?? '', /Revenue LTM \| Revenue NTM/, 'LTM and NTM sit side by side as columns of one table');
+  assert.match(r.outputs.find(o => o.title === 'Valuation and multiples')?.markdown ?? '', /EV \/ EBITDA LTM \(x\) \| EV \/ EBITDA NTM \(x\)/);
   assert.ok(f.model(r.model).table('stats').hasField('name'));
 });
 

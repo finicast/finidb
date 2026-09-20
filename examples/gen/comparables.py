@@ -37,7 +37,8 @@ for c, (r, e, ni, eps) in NTM.items():
 
 MULTIPLES = ['ev_revenue_ltm', 'ev_revenue_ntm', 'ev_ebitda_ltm', 'ev_ebitda_ntm', 'pe_ltm', 'pe_ntm']
 RATIOS = ['rev_growth_ltm', 'rev_growth_ntm', 'ebitda_margin_ltm', 'ebitda_margin_ntm']
-TABLE_COLS = ['market_cap', 'net_debt', 'ev', 'revenue_ltm', 'revenue_ntm', 'ebitda_ltm', 'ebitda_ntm', 'eps_ltm', 'eps_ntm', 'rev_growth_ltm', 'rev_growth_ntm', 'ebitda_margin_ltm', 'ebitda_margin_ntm'] + MULTIPLES
+PERFORMANCE = ['revenue_ltm', 'revenue_ntm', 'ebitda_ltm', 'ebitda_ntm', 'eps_ltm', 'eps_ntm', 'rev_growth_ltm', 'rev_growth_ntm', 'ebitda_margin_ltm', 'ebitda_margin_ntm']
+VALUATION = ['market_cap', 'net_debt', 'ev'] + MULTIPLES
 
 doc = {
   'model': 'comps', 'name': 'Apple — comparable companies (illustrative, Sep 2026)', 'units': 'USD millions except per-share',
@@ -75,13 +76,15 @@ doc = {
                [f'upside_{m}_{b} = price_{m}_{b} / current_price - 1' for m in ('ev_revenue', 'ev_ebitda', 'pe') for b in ('ltm', 'ntm')]},
   },
   'outputs': [
-    {'pivot': 'comps', 'rows': ['company'], 'cols': ['line'], 'lines': TABLE_COLS, 'title': 'Comparable companies', 'decimals': 2},
+    {'pivot': 'comps', 'rows': ['company'], 'cols': ['line'], 'lines': PERFORMANCE, 'title': 'Financial performance', 'decimals': 2},
+    {'pivot': 'comps', 'rows': ['company'], 'cols': ['line'], 'lines': VALUATION, 'title': 'Valuation and multiples', 'decimals': 2},
     {'pivot': 'peer_stats', 'rows': ['line'], 'cols': ['stat'], 'lines': MULTIPLES + RATIOS, 'title': 'Peer statistics', 'decimals': 2},
     {'pivot': 'implied', 'rows': ['line'], 'cols': ['stat'], 'title': 'Implied Apple valuation', 'decimals': 1},
   ],
   'dashboards': [{'id': 'overview', 'name': 'Apple comps', 'cards': [
     {'kind': 'table', 'pivot': 'market_data', 'rows': ['company'], 'cols': ['line'], 'editable': True, 'title': 'Market data (edit any cell)'},
-    {'kind': 'table', 'pivot': 'comps', 'rows': ['company'], 'cols': ['line'], 'lines': TABLE_COLS, 'editable': True, 'title': 'Comparable companies: financials and trading multiples, LTM and NTM (financials editable)'},
+    {'kind': 'table', 'pivot': 'comps', 'rows': ['company'], 'cols': ['line'], 'lines': PERFORMANCE, 'editable': True, 'title': 'Financial performance, LTM and NTM (edit any input)'},
+    {'kind': 'table', 'pivot': 'comps', 'rows': ['company'], 'cols': ['line'], 'lines': VALUATION, 'title': 'Valuation and trading multiples, LTM and NTM'},
     {'kind': 'table', 'pivot': 'peer_stats', 'rows': ['line'], 'cols': ['stat'], 'lines': MULTIPLES + RATIOS, 'title': 'Peer statistics (Apple excluded)'},
     {'kind': 'table', 'pivot': 'implied', 'rows': ['line'], 'cols': ['stat'], 'title': 'Implied Apple valuation'},
     {'kind': 'chart', 'type': 'bar', 'pivot': 'comps', 'rows': ['line'], 'cols': ['company'], 'lines': ['ev_ebitda_ltm', 'ev_ebitda_ntm'], 'title': 'EV / EBITDA by company, LTM vs NTM', 'w': 6},

@@ -1079,9 +1079,6 @@
         "line"
       ],
       "lines": [
-        "market_cap",
-        "net_debt",
-        "ev",
         "revenue_ltm",
         "revenue_ntm",
         "ebitda_ltm",
@@ -1091,7 +1088,23 @@
         "rev_growth_ltm",
         "rev_growth_ntm",
         "ebitda_margin_ltm",
-        "ebitda_margin_ntm",
+        "ebitda_margin_ntm"
+      ],
+      "title": "Financial performance",
+      "decimals": 2
+    },
+    {
+      "pivot": "comps",
+      "rows": [
+        "company"
+      ],
+      "cols": [
+        "line"
+      ],
+      "lines": [
+        "market_cap",
+        "net_debt",
+        "ev",
         "ev_revenue_ltm",
         "ev_revenue_ntm",
         "ev_ebitda_ltm",
@@ -1099,7 +1112,7 @@
         "pe_ltm",
         "pe_ntm"
       ],
-      "title": "Comparable companies",
+      "title": "Valuation and multiples",
       "decimals": 2
     },
     {
@@ -1164,9 +1177,6 @@
             "line"
           ],
           "lines": [
-            "market_cap",
-            "net_debt",
-            "ev",
             "revenue_ltm",
             "revenue_ntm",
             "ebitda_ltm",
@@ -1176,7 +1186,24 @@
             "rev_growth_ltm",
             "rev_growth_ntm",
             "ebitda_margin_ltm",
-            "ebitda_margin_ntm",
+            "ebitda_margin_ntm"
+          ],
+          "editable": true,
+          "title": "Financial performance, LTM and NTM (edit any input)"
+        },
+        {
+          "kind": "table",
+          "pivot": "comps",
+          "rows": [
+            "company"
+          ],
+          "cols": [
+            "line"
+          ],
+          "lines": [
+            "market_cap",
+            "net_debt",
+            "ev",
             "ev_revenue_ltm",
             "ev_revenue_ntm",
             "ev_ebitda_ltm",
@@ -1184,8 +1211,7 @@
             "pe_ltm",
             "pe_ntm"
           ],
-          "editable": true,
-          "title": "Comparable companies: financials and trading multiples, LTM and NTM (financials editable)"
+          "title": "Valuation and trading multiples, LTM and NTM"
         },
         {
           "kind": "table",
