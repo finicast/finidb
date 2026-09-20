@@ -47,11 +47,22 @@ test('comparables: one table with LTM and NTM side by side, peer statistics excl
   assert.ok(f.model(r.model).table('stats').hasField('name'));
 });
 
-test('precedents: an attribute filter picks recent deals for the median', () => {
+test('precedents: multiples from the deal table, statistics over the set and its subsets, the implied valuation at each statistic', () => {
   const { num } = build('precedents');
-  const recent = [5100 / 158, 1900 / 49, 7800 / 246, 3300 / 98].sort((a, b) => a - b);
-  assert.ok(Math.abs(num('summary', { stat: 'median_recent', line: 'ev_ebitda' }) - (recent[1] + recent[2]) / 2) < 1e-9);
-  assert.ok(num('implied', { line: 'implied_price' }) > 0);
+  const doc = load('precedents');
+  const deals = doc.tables.deals.rows as { id: string; ev: number; target_ebitda: number; target_revenue: number; type: string; year: number; premium_1d: number }[];
+  const med = (xs: number[]) => { const s = [...xs].sort((a, b) => a - b); return s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2; };
+  const evEbitda = deals.map(d => d.ev / d.target_ebitda);
+  assert.ok(Math.abs(num('multiples', { deal: 'd06', line: 'ev_ebitda' }) - 5100 / 158) < 1e-9);
+  assert.ok(Math.abs(num('summary', { line: 'ev_ebitda', stat: 'median' }) - med(evEbitda)) < 1e-9);
+  assert.ok(Math.abs(num('summary', { line: 'ev_ebitda', stat: 'high' }) - Math.max(...evEbitda)) < 1e-9);
+  assert.ok(Math.abs(num('summary', { line: 'ev_ebitda', stat: 'median_sponsor' }) - med(deals.filter(d => d.type === 'sponsor').map(d => d.ev / d.target_ebitda))) < 1e-9, 'the sponsor subset');
+  assert.ok(Math.abs(num('summary', { line: 'premium_1d', stat: 'median_recent' }) - med(deals.filter(d => d.year >= 2025).map(d => d.premium_1d))) < 1e-9, 'the recent subset');
+  const subject = Object.fromEntries((doc.pivots.subject.values as { at: { line: string }; value: number }[]).map(v => [v.at.line, v.value]));
+  const price = (med(evEbitda) * subject.ebitda - subject.net_debt) / subject.shares;
+  assert.ok(Math.abs(num('implied', { line: 'price_from_ebitda', stat: 'median' }) - price) < 1e-9, 'implied price at the median EV/EBITDA');
+  assert.ok(Math.abs(num('implied', { line: 'premium_from_ebitda', stat: 'median' }) - (price / subject.price - 1)) < 1e-9);
+  assert.ok(Math.abs(num('implied', { line: 'price_from_premium', stat: 'median' }) - subject.price * (1 + med(deals.map(d => d.premium_1d)))) < 1e-9);
 });
 
 test('salesops: bookings tie to the opportunity table, tranches with accelerators sum to the statement, kickers and SPIFF add on, teams and company roll up, ARR bridge ties', () => {
