@@ -27,6 +27,8 @@ export interface OutputDoc { pivot: string; title?: string; rows?: string[]; col
 export interface DashboardCardDoc {
   /** `links`: navigation to the workspace's other dashboards, on the dashboard itself; `dashboards` lists their ids (omit for all) */
   kind?: 'table' | 'chart' | 'kpi' | 'links'; dashboards?: string[];
+  /** table cards: leave out rows whose cells are all blank or zero */
+  hideZeroRows?: boolean;
   /** table cards: extra columns after the view's columns, each another measure (a text commentary measure, say) at one pinned point */
   extra?: { measure?: string; label?: string; pages?: Record<string, string> }[]; type?: 'line' | 'bar' | 'stackedBar' | 'area' | 'waterfall' | 'scatter';
   title?: string; pivot: string; line?: string; lines?: string[]; periods?: string[];

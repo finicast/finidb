@@ -135,12 +135,33 @@ test('budget vs actual: actuals from the ledger, variance lines, and a text meas
   assert.ok(r.outputs.some(o => o.title === 'Manager commentary' && /GPU cluster/.test(o.markdown ?? '')));
 });
 
-test('ledger to model: CSV with a date column, periods derived, actuals then plan', () => {
+test('ledger to model: actuals from the CSV, driver-based forecast, budget beside it, year-to-date and full-year roll-ups', () => {
   const { num } = build('ledger-to-model');
-  const jun = num('model', { subsidiary: 'us', department: 'sales', line: 'revenue', period: 'jun26' });
-  const jul = num('model', { subsidiary: 'us', department: 'sales', line: 'revenue', period: 'jul26' });
-  assert.ok(jun > 0 && Math.abs(jul - jun * 1.02) < 1e-6, 'plan grows from the last actual');
-  assert.ok(Math.abs(num('model', { subsidiary: 'us', department: 'sales', line: 'total', period: 'jun26' }) - (['revenue', 'salaries', 'cloud', 'travel'].map(l => num('model', { subsidiary: 'us', department: 'sales', line: l, period: 'jun26' })).reduce((a, b) => a + b, 0))) < 1e-6);
+  const doc = load('ledger-to-model');
+  const plan = (line: string) => (doc.pivots.plan.values as { at: { line: string; period: string }; value: number }[]).find(v => v.at.line === line && v.at.period === 'sep26')!.value;
+  const heads = (sub: string, dept: string, line: string, p: string) => (doc.pivots.headcount.values as { at: Record<string, string>; value: number }[]).find(v => v.at.subsidiary === sub && v.at.department === dept && v.at.line === line && v.at.period === p)!.value;
+  // actuals: August US revenue equals the ledger's August US revenue lines
+  const csv = (doc.tables.ledger.csv as string).trim().split('\n').slice(1).map(l => l.split(','));
+  const augRev = csv.filter(r => r[1].startsWith('2026-08') && r[2] === 'us' && r[3] === 'company' && r[4] === 'revenue').reduce((s, r) => s + Number(r[5]), 0);
+  assert.ok(Math.abs(num('model', { subsidiary: 'us', department: 'company', line: 'revenue', period: 'aug26' }) - augRev) < 1e-6);
+  // forecast: revenue grows from the last actual; salaries follow the headcount plan; cloud is a share of revenue
+  const sep = num('model', { subsidiary: 'us', department: 'company', line: 'revenue', period: 'sep26' });
+  assert.ok(Math.abs(sep - augRev * (1 + plan('revenue_growth'))) < 1e-6);
+  assert.ok(Math.abs(num('model', { subsidiary: 'us', department: 'engineering', line: 'salaries', period: 'sep26' }) + heads('us', 'engineering', 'heads', 'sep26') * heads('us', 'engineering', 'cost_per_head', 'sep26') / 12) < 1e-6);
+  assert.ok(Math.abs(num('model', { subsidiary: 'us', department: 'engineering', line: 'cloud', period: 'sep26' }) + sep * plan('cloud_pct')) < 1e-6);
+  assert.equal(num('model', { subsidiary: 'us', department: 'sales', line: 'cloud', period: 'sep26' }), 0, 'cloud is forecast only where it is booked');
+  // roll-ups: YTD is January to August, full year is all twelve months, the company P&L is the sum of the entities
+  const months = ['jan26', 'feb26', 'mar26', 'apr26', 'may26', 'jun26', 'jul26', 'aug26', 'sep26', 'oct26', 'nov26', 'dec26'];
+  const rev = months.map(p => num('model', { subsidiary: 'us', department: 'company', line: 'revenue', period: p }));
+  assert.ok(Math.abs(num('fy', { subsidiary: 'us', department: 'company', line: 'revenue', version: 'ytd_actual' }) - rev.slice(0, 8).reduce((a, b) => a + b, 0)) < 1e-6);
+  assert.ok(Math.abs(num('fy', { subsidiary: 'us', department: 'company', line: 'revenue', version: 'fy_outlook' }) - rev.reduce((a, b) => a + b, 0)) < 1e-6);
+  const budget = num('fy', { subsidiary: 'us', department: 'company', line: 'revenue', version: 'fy_budget' });
+  assert.ok(Math.abs(num('fy', { subsidiary: 'us', department: 'company', line: 'revenue', version: 'fy_variance_pct' }) - (rev.reduce((a, b) => a + b, 0) - budget) / Math.abs(budget)) < 1e-9);
+  const usRev = num('pnl', { subsidiary: 'us', line: 'revenue', period: 'mar26' }), ukRev = num('pnl', { subsidiary: 'uk', line: 'revenue', period: 'mar26' });
+  assert.ok(Math.abs(num('pnl_company', { line: 'revenue', period: 'mar26' }) - (usRev + ukRev)) < 1e-6);
+  const gp = num('pnl_company', { line: 'gross_profit', period: 'mar26' }), opex = num('pnl_company', { line: 'total_opex', period: 'mar26' });
+  assert.ok(Math.abs(num('pnl_company', { line: 'ebitda', period: 'mar26' }) - (gp + opex)) < 1e-6);
+  assert.ok(num('fy_summary', { line: 'heads', version: 'fy_outlook' }) > num('fy_summary', { line: 'heads', version: 'ytd_actual' }), 'the plan hires');
 });
 
 test('scenarios: one rule set, three cases, history shared', () => {
