@@ -14,15 +14,27 @@ function build(name: string) {
   return { f, r, num };
 }
 
-test('dcf: discounting, terminal value and the NPV cross-check agree', () => {
+test('dcf: mid-year discounting, two terminal value methods with their cross-checks, and sensitivity tables that agree with the base case', () => {
   const { num } = build('dcf');
-  const ev = num('valuation', { line: 'enterprise_value' });
-  const sumPv = num('valuation', { line: 'sum_pv_fcf' }), pvTv = num('valuation', { line: 'pv_terminal' });
-  assert.ok(Math.abs(ev - (sumPv + pvTv)) < 1e-6);
-  assert.ok(Math.abs(num('valuation', { line: 'npv_check' }) - sumPv) < 1e-6, 'NPV() over the forecast FCF equals the explicit discounting');
-  const df = num('fcf', { line: 'discount_factor', period: 'fy2027' });
-  assert.ok(Math.abs(df - 1 / 1.09 ** 2) < 1e-9, 'discount factor uses the period index');
-  assert.ok(num('valuation', { line: 'per_share' }) > 0 && num('valuation', { line: 'terminal_share' }) > 0.5);
+  const w = num('wacc', { line: 'wacc' }), g = num('wacc', { line: 'terminal_growth' });
+  assert.ok(Math.abs(w - (0.85 * (0.042 + 1.15 * 0.045) + 0.15 * 0.055 * 0.75)) < 1e-12, 'WACC from the build-up');
+  assert.ok(Math.abs(num('fcf', { line: 'discount_factor', period: 'fy2027' }) - 1 / (1 + w) ** 1.5) < 1e-12, 'mid-year discount factor');
+  const ev = num('valuation', { method: 'perpetuity', line: 'enterprise_value' });
+  const sumPv = num('valuation', { method: 'perpetuity', line: 'sum_pv_ufcf' }), pvTv = num('valuation', { method: 'perpetuity', line: 'pv_terminal' });
+  assert.ok(Math.abs(ev - (sumPv + pvTv)) < 1e-9);
+  const last = num('fcf', { line: 'ufcf', period: 'fy2030' }), ebitdaLast = num('fcf', { line: 'ebitda', period: 'fy2030' });
+  assert.ok(Math.abs(num('valuation', { method: 'perpetuity', line: 'terminal_value' }) - last * (1 + g) / (w - g)) < 1e-9);
+  assert.ok(Math.abs(num('valuation', { method: 'exit_multiple', line: 'terminal_value' }) - ebitdaLast * 16) < 1e-9);
+  // cross-checks: the implied growth of the exit-multiple terminal value reproduces that terminal value under the perpetuity formula
+  const tvX = num('valuation', { method: 'exit_multiple', line: 'terminal_value' }), gX = num('valuation', { method: 'exit_multiple', line: 'implied_growth' });
+  assert.ok(Math.abs(last * (1 + gX) / (w - gX) - tvX) < 1e-6, 'implied perpetuity growth');
+  assert.ok(Math.abs(num('valuation', { method: 'perpetuity', line: 'implied_multiple' }) - num('valuation', { method: 'perpetuity', line: 'terminal_value' }) / ebitdaLast) < 1e-9);
+  // the base cell of each sensitivity table equals the valuation summary's price per share
+  const perShare = num('valuation', { method: 'perpetuity', line: 'per_share' });
+  assert.ok(Math.abs(num('sensitivity_growth', { wacc_case: 'w_base', growth_case: 'g_base', line: 'per_share' }) - perShare) < 1e-6, 'sensitivity base = summary (perpetuity)');
+  assert.ok(Math.abs(num('sensitivity_multiple', { wacc_case: 'w_base', multiple_case: 'm_base', line: 'per_share' }) - num('valuation', { method: 'exit_multiple', line: 'per_share' })) < 1e-6, 'sensitivity base = summary (exit multiple)');
+  assert.ok(num('sensitivity_growth', { wacc_case: 'w_m100', growth_case: 'g_p100', line: 'per_share' }) > perShare && num('sensitivity_growth', { wacc_case: 'w_p100', growth_case: 'g_m100', line: 'per_share' }) < perShare, 'the table slopes the right way');
+  assert.ok(Math.abs(num('valuation', { method: 'perpetuity', line: 'premium' }) - (perShare / 58 - 1)) < 1e-9);
 });
 
 test('comparables: one table with LTM and NTM side by side, peer statistics excluding the subject, implied value from the median', () => {
