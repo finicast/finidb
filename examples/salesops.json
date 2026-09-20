@@ -4894,6 +4894,9 @@
       "theme": "revenue",
       "cards": [
         {
+          "kind": "links"
+        },
+        {
           "kind": "kpi",
           "pivot": "company_quarterly",
           "line": "bookings",
@@ -5047,6 +5050,9 @@
       "theme": "revenue",
       "cards": [
         {
+          "kind": "links"
+        },
+        {
           "kind": "kpi",
           "pivot": "company_quarterly",
           "line": "forecast",
@@ -5197,6 +5203,9 @@
       "theme": "revenue",
       "cards": [
         {
+          "kind": "links"
+        },
+        {
           "kind": "table",
           "pivot": "comp_plan",
           "title": "Commission plan: attainment bands and multipliers (edit)",
@@ -5306,6 +5315,9 @@
       "name": "Rep scorecard: Hugo Lindqvist",
       "theme": "revenue",
       "cards": [
+        {
+          "kind": "links"
+        },
         {
           "kind": "kpi",
           "pivot": "rep_quarterly",
@@ -5477,6 +5489,9 @@
       "theme": "revenue",
       "cards": [
         {
+          "kind": "links"
+        },
+        {
           "kind": "table",
           "pivot": "sdr_scorecard",
           "title": "Scorecard, August 2026",
@@ -5570,6 +5585,9 @@
       "name": "Marketing: funnel and pipeline",
       "theme": "revenue",
       "cards": [
+        {
+          "kind": "links"
+        },
         {
           "kind": "table",
           "pivot": "channel_summary",

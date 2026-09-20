@@ -25,7 +25,8 @@ export interface TableDoc { name?: string; fields?: Record<string, string> | Fie
 export interface OutputDoc { pivot: string; title?: string; rows?: string[]; cols?: string[]; pages?: Record<string, string>; measure?: string; lines?: string[]; filters?: Record<string, string[]>; format?: 'markdown' | 'json' | 'both'; scale?: number; decimals?: number }
 /** A dashboard card (built by finicast.com when the document is imported there; ignored by the local build). */
 export interface DashboardCardDoc {
-  kind?: 'table' | 'chart' | 'kpi'; type?: 'line' | 'bar' | 'stackedBar' | 'area' | 'waterfall' | 'scatter';
+  /** `links`: navigation to the workspace's other dashboards, on the dashboard itself; `dashboards` lists their ids (omit for all) */
+  kind?: 'table' | 'chart' | 'kpi' | 'links'; dashboards?: string[]; type?: 'line' | 'bar' | 'stackedBar' | 'area' | 'waterfall' | 'scatter';
   title?: string; pivot: string; line?: string; lines?: string[]; periods?: string[];
   rows?: string[]; cols?: string[]; pages?: Record<string, string>; measure?: string; filters?: Record<string, string[]>;
   unit?: string; editable?: boolean; w?: number; h?: number;

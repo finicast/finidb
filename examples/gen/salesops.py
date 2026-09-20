@@ -406,6 +406,7 @@ doc = {
 Q = 'q3_2026'; PREVQ = 'q2_2026'; M = 'aug26'
 STAR = sorted([r for r in reps if r['start'] < '2025-04-01'], key=lambda r: -by_rep[r['id']] / max(1, sum(v['value'] for v in quota_plan if v['at']['rep'] == r['id'] and v['at']['quarter'] in ('q1_2026', 'q2_2026', 'q3_2026'))))[2]['id']
 def kpi(pivot, line, title, **kw): return dict(kind='kpi', pivot=pivot, line=line, title=title, **kw)
+NAV = dict(kind='links')   # a row of links to the other dashboards, first on every page
 def table(pivot, title, **kw): return dict(kind='table', pivot=pivot, title=title, **kw)
 def chart(pivot, title, **kw): return dict(kind='chart', pivot=pivot, title=title, **kw)
 QF = {'quarter': [PREVQ, Q]}   # a KPI shows the last column and its change from the one before
@@ -415,6 +416,7 @@ MONTHS26 = [pid(2026, m) for m in range(1, 13)]
 
 doc['dashboards'] = [
   {'id': 'cro', 'name': 'CRO: revenue overview', 'theme': 'revenue', 'cards': [
+    NAV,
     kpi('company_quarterly', 'bookings', 'Bookings, Q3 to date', filters=QF, cols=['quarter']),
     kpi('company_quarterly', 'attainment', 'Attainment, Q3 to date', filters=QF, cols=['quarter']),
     kpi('company_quarterly', 'forecast_attainment', 'Forecast attainment, Q3', filters=QF, cols=['quarter']),
@@ -428,6 +430,7 @@ doc['dashboards'] = [
     table('company_quarterly', 'Company scorecard by quarter', rows=['line'], cols=['quarter'], filters=QT, lines=['quota', 'bookings', 'attainment', 'forecast', 'forecast_attainment', 'open_pipeline', 'coverage', 'deals_won', 'win_rate', 'avg_deal', 'avg_cycle_days', 'new_logo_share', 'variable_pay', 'pay_rate', 'marketing_spend', 'marketing_ratio']),
   ]},
   {'id': 'vp', 'name': 'VP Sales: teams and forecast', 'theme': 'revenue', 'cards': [
+    NAV,
     kpi('company_quarterly', 'forecast', 'Q3 forecast', filters=QF, cols=['quarter']),
     kpi('company_quarterly', 'gap', 'Q3 gap to quota', filters=QF, cols=['quarter']),
     kpi('company_quarterly', 'win_rate', 'Win rate, Q3', filters=QF, cols=['quarter']),
@@ -440,6 +443,7 @@ doc['dashboards'] = [
     chart('segment_quarterly', 'Sales cycle by segment (days)', type='bar', rows=['segment'], cols=['quarter'], pages={'line': 'avg_cycle_days'}, filters=Y26, w=6),
   ]},
   {'id': 'ops', 'name': 'Sales ops: plan, quotas and commissions', 'theme': 'revenue', 'cards': [
+    NAV,
     table('comp_plan', 'Commission plan: attainment bands and multipliers (edit)', rows=['tranche'], cols=['line'], editable=True, filters={'tranche': ['t1', 't2', 't3', 't4', 't5']}, w=6),
     table('plan', 'Kickers, SPIFF and forecast weights (edit)', rows=['line'], editable=True, w=6),
     table('quota_plan', 'Quota plan by rep and quarter (edit)', rows=['rep'], cols=['quarter'], filters=QT, editable=True),
@@ -450,6 +454,7 @@ doc['dashboards'] = [
     table('team', 'Variable pay by team, Q2 2026 (paid)', rows=['region', 'segment'], cols=['line'], pages={'quarter': PREVQ}, lines=['rep_count', 'bookings', 'attainment', 'variable_pay', 'pay_rate']),
   ]},
   {'id': 'rep', 'name': f'Rep scorecard: {next(r["name"] for r in reps if r["id"] == STAR)}', 'theme': 'revenue', 'cards': [
+    NAV,
     kpi('rep_quarterly', 'bookings', 'Q3 bookings', pages={'rep': STAR}, filters=QF, cols=['quarter']),
     kpi('rep_quarterly', 'attainment', 'Q3 attainment', pages={'rep': STAR}, filters=QF, cols=['quarter']),
     kpi('rep_quarterly', 'coverage', 'Coverage of Q3 gap', pages={'rep': STAR}, filters=QF, cols=['quarter']),
@@ -461,6 +466,7 @@ doc['dashboards'] = [
     table('payout', 'Variable pay by quarter', rows=['line'], cols=['quarter'], pages={'rep': STAR}, filters=QT, lines=['base_commission', 'new_logo_kicker', 'multiyear_kicker', 'spiff', 'uncapped_variable', 'target_variable', 'total_variable', 'vs_target', 'ytd_variable', 'club'], w=6),
   ]},
   {'id': 'sdr', 'name': 'SDR and BDR: pipeline generation', 'theme': 'revenue', 'cards': [
+    NAV,
     table('sdr_scorecard', 'Scorecard, August 2026', rows=['sdr'], cols=['line'], pages={'period': M}, lines=['calls', 'connects', 'meetings_set', 'meetings_held', 'sqls', 'sql_quota', 'attainment', 'connect_rate', 'show_rate', 'opps_sourced', 'pipeline_sourced', 'pipeline_per_sql']),
     chart('sdr_scorecard', 'SQLs by month', type='bar', rows=['sdr'], cols=['period'], pages={'line': 'sqls'}, periods=MONTHS26[:8], w=6),
     chart('sdr_scorecard', 'SQL attainment by month', type='line', rows=['sdr'], cols=['period'], pages={'line': 'attainment'}, periods=MONTHS26[:8], w=6),
@@ -469,6 +475,7 @@ doc['dashboards'] = [
     table('sdr_scorecard', 'Sourced bookings by month (deals closed)', rows=['sdr'], cols=['period'], pages={'line': 'won_sourced'}, periods=MONTHS26[:8]),
   ]},
   {'id': 'marketing', 'name': 'Marketing: funnel and pipeline', 'theme': 'revenue', 'cards': [
+    NAV,
     table('channel_summary', 'Funnel by channel, August 2026', rows=['channel'], cols=['line'], pages={'period': M}, lines=['spend', 'leads', 'mqls', 'opps_created', 'pipeline_created', 'deals_won', 'won_acv', 'cost_per_lead', 'mql_rate', 'sql_rate', 'cost_per_opp', 'pipeline_per_dollar']),
     chart('channel_summary', 'Spend by channel', type='stackedBar', rows=['channel'], cols=['period'], pages={'line': 'spend'}, periods=MONTHS26[:8], filters={'channel': ['inbound', 'paid', 'events', 'partner']}, w=6),
     chart('channel_summary', 'Pipeline created by channel', type='stackedBar', rows=['channel'], cols=['period'], pages={'line': 'pipeline_created'}, periods=MONTHS26[:8], w=6),
