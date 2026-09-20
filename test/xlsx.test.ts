@@ -180,3 +180,22 @@ test('dashboards export as sheets of live references with native charts', () => 
   }
   assert.ok(checked > 40, `checked ${checked} dashboard cells`);
 });
+
+test('a dashboard table with two row dimensions gets one header column per dimension, outer labels written once', () => {
+  const f = new FiniDB();
+  const r = applyDocument(f, {
+    model: 'twodims',
+    tables: { regions: { rows: [{ id: 'east', name: 'East' }, { id: 'west', name: 'West' }] }, segments: { rows: [{ id: 'ent', name: 'Enterprise' }, { id: 'smb', name: 'SMB' }] } },
+    pivots: { t: { dims: { region: 'regions', segment: 'segments', period: false }, lines: [{ id: 'bookings' }], values: [
+      { at: { region: 'east', segment: 'ent', line: 'bookings' }, value: 10 }, { at: { region: 'east', segment: 'smb', line: 'bookings' }, value: 20 },
+      { at: { region: 'west', segment: 'ent', line: 'bookings' }, value: 30 }, { at: { region: 'west', segment: 'smb', line: 'bookings' }, value: 40 } ] } },
+  } as never);
+  const x = exportWorkbook(f.db, r.model, { dashboards: [{ id: 'd', name: 'Teams', cards: [{ id: 'c1', title: 'Teams', kind: 'table', view: { table: 't', rows: ['region', 'segment'], cols: ['line'] } }] }] as never });
+  const sheet = x.workbook.sheets.find(s => s.name === 'Teams')!;
+  const v = (a: string) => sheet.cells.get(a)?.v;
+  assert.deepEqual([v('A2'), v('B2'), v('C2')], ['region', 'segment', 'bookings'], 'one header per row dimension, named as the dimension');
+  assert.deepEqual([v('A3'), v('B3')], ['East', 'Enterprise']);
+  assert.deepEqual([v('A4'), v('B4')], ['', 'SMB'], 'the repeated region is left blank');
+  assert.deepEqual([v('A5'), v('B5')], ['West', 'Enterprise']);
+  assert.equal(sheet.cells.get('C5')?.v, 30);
+});

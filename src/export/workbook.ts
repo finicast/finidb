@@ -455,12 +455,16 @@ class Compiler extends ReferenceEvaluator {
       sheet.cells.set(a1(row, 1), { v: card.title, style: 'general/bold' });
       if (card.editable) { const ps = this.pivotSheets.get(`${p.iid}:${m.iid}`); sheet.cells.set(a1(row, 2), { v: `Inputs: edit the blue cells on the ${ps ? `'${ps.sheet.name}'` : p.id} sheet; this table follows them.`, style: 'general/muted' }); }
       const head = row + 1, first = head + 1;
-      sheet.cells.set(a1(head, 1), { v: rowDims.map(dm => dm.name || dm.id).join(' / ') || ' ', style: 'general/bold' });
-      colTuples.forEach((ct, c) => { sheet.cells.set(a1(head, 2 + c), { v: ct.map((i, k) => label(colDims[k].table, i)).join(' / ') || (m.name || m.id), style: 'general/bold' }); sheet.colWidths![2 + c] = Math.max(sheet.colWidths![2 + c] ?? 0, 12); });
+      // one header column per row dimension, as a pivot table lays it out; an outer label is written once and left blank while the rows below share it
+      const nd = Math.max(1, rowDims.length), dataCol = 1 + nd;
+      if (rowDims.length) rowDims.forEach((dm, k) => { sheet.cells.set(a1(head, 1 + k), { v: dm.name || dm.id, style: 'general/bold' }); if (k > 0) sheet.colWidths![1 + k] = Math.max(sheet.colWidths![1 + k] ?? 0, 18); });
+      else sheet.cells.set(a1(head, 1), { v: ' ', style: 'general/bold' });
+      colTuples.forEach((ct, c) => { sheet.cells.set(a1(head, dataCol + c), { v: ct.map((i, k) => label(colDims[k].table, i)).join(' / ') || (m.name || m.id), style: 'general/bold' }); sheet.colWidths![dataCol + c] = Math.max(sheet.colWidths![dataCol + c] ?? 0, 12); });
       let allPct = colTuples.length > 0 && rowTuples.length > 0;
       rowTuples.forEach((rt, r) => {
         const rr = first + r;
-        sheet.cells.set(a1(rr, 1), { v: rt.map((i, k) => label(rowDims[k].table, i)).join(' / ') || (m.name || m.id), style: 'general/normal' });
+        if (rt.length) rt.forEach((i, k) => { const same = r > 0 && k < rt.length - 1 && rt.slice(0, k + 1).every((j, q) => j === rowTuples[r - 1][q]); sheet.cells.set(a1(rr, 1 + k), { v: same ? '' : label(rowDims[k].table, i), style: 'general/normal' }); });
+        else sheet.cells.set(a1(rr, 1), { v: m.name || m.id, style: 'general/normal' });
         let pct = false, allInt = true; const made: { col: number; cell: Cell; pct: boolean }[] = [];
         colTuples.forEach((ct, c) => {
           const coord = base.slice();
@@ -472,7 +476,7 @@ class Compiler extends ReferenceEvaluator {
           const cell: Cell = { f: this.pivotAddr(p, m, coord, sheet) };
           this.setValue(cell, this.cell(p, m, coord));
           if (!cellPct && typeof cell.v === 'number' && !Number.isInteger(cell.v)) allInt = false;
-          made.push({ col: 2 + c, cell, pct: cellPct });
+          made.push({ col: dataCol + c, cell, pct: cellPct });
         });
         if (!pct) allPct = false;
         for (const x of made) { x.cell.style = style(x.cell, x.pct ? 'pct' : allInt ? 'int' : 'dec', 'normal'); sheet.cells.set(a1(rr, x.col), x.cell); this.counts.formulas++; }
@@ -482,12 +486,12 @@ class Compiler extends ReferenceEvaluator {
         const type: ChartSpec['type'] = card.chartType === 'bar' || card.chartType === 'waterfall' ? 'bar' : card.chartType === 'stackedBar' ? 'stackedBar' : card.chartType === 'area' ? 'area' : 'line';
         const ref = sheetRef(sheet.name);
         const abs = (r: number, c: number) => `$${colLetter(c)}$${r}`;
-        const lastCol = 1 + colTuples.length, lastRow = first + rowTuples.length - 1;
+        const lastCol = nd + colTuples.length, lastRow = first + rowTuples.length - 1;
         const byRows = card.series !== 'cols';
         const series = byRows
-          ? rowTuples.map((_, r) => ({ nameRef: `${ref}!${abs(first + r, 1)}`, valuesRef: `${ref}!${abs(first + r, 2)}:${abs(first + r, lastCol)}` }))
-          : colTuples.map((_, c) => ({ nameRef: `${ref}!${abs(head, 2 + c)}`, valuesRef: `${ref}!${abs(first, 2 + c)}:${abs(lastRow, 2 + c)}` }));
-        const categoriesRef = byRows ? `${ref}!${abs(head, 2)}:${abs(head, lastCol)}` : `${ref}!${abs(first, 1)}:${abs(lastRow, 1)}`;
+          ? rowTuples.map((_, r) => ({ nameRef: `${ref}!${abs(first + r, nd)}`, valuesRef: `${ref}!${abs(first + r, dataCol)}:${abs(first + r, lastCol)}` }))
+          : colTuples.map((_, c) => ({ nameRef: `${ref}!${abs(head, dataCol + c)}`, valuesRef: `${ref}!${abs(first, dataCol + c)}:${abs(lastRow, dataCol + c)}` }));
+        const categoriesRef = byRows ? `${ref}!${abs(head, dataCol)}:${abs(head, lastCol)}` : `${ref}!${abs(first, nd)}:${abs(lastRow, nd)}`;
         const height = 16;
         sheet.charts!.push({ type, title: card.title, anchor: { fromCol: 0, fromRow: next - 1, toCol: Math.max(9, lastCol + 1), toRow: next - 1 + height }, categoriesRef, series, percent: allPct });
         next += height + 1;
