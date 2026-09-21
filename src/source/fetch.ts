@@ -135,6 +135,22 @@ function parseBody(text: string, contentType: string, req: SourceRequest): Recor
   throw new SourceError('SOURCE_BAD_BODY', `no records at path "${req.path ?? ''}"`, 'set path to the key that holds the array of records');
 }
 
+/** The records a request keeps: ordered, after a date, skipped, taken, and summed into one when asked. */
+export function reduceRecords(records: Record<string, unknown>[], r: NonNullable<SourceRequest['reduce']>): Record<string, unknown>[] {
+  let out = records.slice();
+  if (r.by) { const k = r.by; out.sort((a, b) => { const x = String(a[k] ?? ''), y = String(b[k] ?? ''); return (x < y ? -1 : x > y ? 1 : 0) * (r.desc ? -1 : 1); }); }
+  if (r.after !== undefined && r.by) { const k = r.by; const after = r.after === 'today' ? new Date().toISOString().slice(0, 10) : r.after; out = out.filter(x => String(x[k] ?? '') > after); }
+  if (r.skip) out = out.slice(r.skip);
+  if (r.take !== undefined) out = out.slice(0, r.take);
+  if (r.sum?.length && out.length) {
+    const first = { ...out[0] };
+    for (const k of r.sum) { let total = 0, any = false; for (const rec of out) { const v = Number(rec[k]); if (Number.isFinite(v)) { total += v; any = true; } } first[k] = any ? total : null; }
+    first._records = out.length;
+    out = [first];
+  }
+  return out;
+}
+
 /** Fetch every request of a source and merge the rows by id. */
 export async function fetchSource(source: TableSource, opts: FetchOptions = {}): Promise<FetchedRows> {
   const requests = requestsOf(source);
@@ -154,8 +170,17 @@ export async function fetchSource(source: TableSource, opts: FetchOptions = {}):
   const byId = new Map<string, Record<string, Scalar>>();
   const columns: string[] = [];
   const warnings: string[] = [];
+  const memo = new Map<string, { text: string; type: string }>();   // the same URL asked twice (two reductions) is fetched once
   for (const p of prepared) {
     const u = await guardUrl(p.url, !!opts.allowPrivate);
+    const memoKey = `${p.req.method ?? 'GET'} ${u} ${JSON.stringify(p.headers)} ${p.body ?? ''}`;
+    if (memo.has(memoKey)) {
+      const m = memo.get(memoKey)!;
+      let records = parseBody(m.text, m.type, p.req);
+      if (p.req.reduce) records = reduceRecords(records, p.req.reduce);
+      records.forEach((rec, i) => merge(mapRecord(rec, p.req, i)));
+      continue;
+    }
     const ctl = new AbortController();
     const timer = setTimeout(() => ctl.abort(), timeout);
     let res: Response;
@@ -174,15 +199,17 @@ export async function fetchSource(source: TableSource, opts: FetchOptions = {}):
       try { const j = JSON.parse(text); msg = String(j.message ?? j.error ?? j['Error Message'] ?? msg); } catch { /* keep the text */ }
       throw new SourceError(res.status === 401 || res.status === 403 ? 'SOURCE_UNAUTHORIZED' : 'SOURCE_HTTP', `${u.host} answered ${res.status}: ${msg}`, res.status === 401 || res.status === 403 ? 'check the secret (API key) and the plan it belongs to' : undefined);
     }
-    const records = parseBody(text, res.headers.get('content-type') ?? '', p.req);
+    memo.set(memoKey, { text, type: res.headers.get('content-type') ?? '' });
+    let records = parseBody(text, res.headers.get('content-type') ?? '', p.req);
     if (!records.length) warnings.push(`${u.host}${u.pathname}: no records`);
-    records.forEach((rec, i) => {
-      const row = mapRecord(rec, p.req, i);
-      for (const k of Object.keys(row)) if (k !== 'id' && !columns.includes(k)) columns.push(k);
-      const prev = byId.get(row.id as string);
-      if (prev) { for (const [k, v] of Object.entries(row)) if (k !== 'id' && (v !== null || !(k in prev))) prev[k] = v; }
-      else byId.set(row.id as string, row);
-    });
+    if (p.req.reduce) records = reduceRecords(records, p.req.reduce);
+    records.forEach((rec, i) => merge(mapRecord(rec, p.req, i)));
+  }
+  function merge(row: Record<string, Scalar>) {
+    for (const k of Object.keys(row)) if (k !== 'id' && !columns.includes(k)) columns.push(k);
+    const prev = byId.get(row.id as string);
+    if (prev) { for (const [k, v] of Object.entries(row)) if (k !== 'id' && (v !== null || !(k in prev))) prev[k] = v; }
+    else byId.set(row.id as string, row);
   }
   return { rows: [...byId.values()], columns, requests: prepared.length, warnings };
 }

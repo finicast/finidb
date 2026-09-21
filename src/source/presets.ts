@@ -65,6 +65,23 @@ const RATIOS: Record<string, FieldMap> = {
   debt_to_assets: unscaled('debtToAssetsRatio'), current_ratio: unscaled('currentRatio'), quick_ratio: unscaled('quickRatio'), asset_turnover: unscaled('assetTurnover'),
 };
 
+/** One comps-ready row per ticker: market data, LTM from the last four quarters, the prior four for growth, NTM from consensus. */
+const COMPS_REQUESTS = (symbol: string, scale: number, constants: Record<string, string | number>): SourceRequest[] => {
+  const q = (path: string, params: Record<string, string>) => `${FMP}/${path}?${new URLSearchParams({ symbol, ...params })}&apikey=${KEY}`;
+  const base = { format: 'json' as const, id: symbol, constants, scale };
+  return [
+    { ...base, url: q('quote', {}), map: { name: 'name', price: unscaled('price'), market_cap: 'marketCap', year_low: unscaled('yearLow'), year_high: unscaled('yearHigh') } },
+    { ...base, url: q('shares-float', {}), map: { shares: 'outstandingShares' } },
+    { ...base, url: q('income-statement', { period: 'quarter', limit: '8' }), reduce: { by: 'date', desc: true, take: 4, sum: ['revenue', 'ebitda', 'operatingIncome', 'netIncome', 'epsDiluted'] },
+      map: { ltm_through: 'date', currency: 'reportedCurrency', revenue_ltm: 'revenue', ebitda_ltm: 'ebitda', ebit_ltm: 'operatingIncome', net_income_ltm: 'netIncome', eps_ltm: unscaled('epsDiluted'), shares_diluted: 'weightedAverageShsOutDil', quarters_ltm: unscaled('_records') } },
+    { ...base, url: q('income-statement', { period: 'quarter', limit: '8' }), reduce: { by: 'date', desc: true, skip: 4, take: 4, sum: ['revenue', 'ebitda', 'epsDiluted'] },
+      map: { revenue_prior: 'revenue', ebitda_prior: 'ebitda', eps_prior: unscaled('epsDiluted') } },
+    { ...base, url: q('balance-sheet-statement', { period: 'quarter', limit: '1' }), reduce: { by: 'date', desc: true, take: 1 }, map: { balance_date: 'date', cash: 'cashAndShortTermInvestments', debt: 'totalDebt', net_debt: 'netDebt', equity: 'totalStockholdersEquity' } },
+    { ...base, url: q('analyst-estimates', { period: 'annual', limit: '6' }), reduce: { by: 'date', desc: false, after: 'today', take: 1 },
+      map: { ntm_fy_end: 'date', revenue_ntm: 'revenueAvg', ebitda_ntm: 'ebitdaAvg', ebit_ntm: 'ebitAvg', net_income_ntm: 'netIncomeAvg', eps_ntm: unscaled('epsAvg'), analysts: unscaled('numAnalystsRevenue') } },
+  ];
+};
+
 type Dataset = { endpoints: { path: string; map: Record<string, FieldMap>; perPeriod: boolean; periodParam?: boolean }[] };
 const DATASETS: Record<string, Dataset> = {
   financials: { endpoints: [{ path: 'income-statement', map: INCOME, perPeriod: true, periodParam: true }, { path: 'balance-sheet-statement', map: BALANCE, perPeriod: true, periodParam: true }, { path: 'cash-flow-statement', map: CASHFLOW, perPeriod: true, periodParam: true }] },
@@ -83,27 +100,31 @@ const fmp: Preset = {
   params: [
     { id: 'symbols', label: 'Tickers', hint: 'One or more, comma-separated: NVDA, AMD, AVGO', required: true },
     { id: 'dataset', label: 'Dataset', default: 'financials', options: [
+      { id: 'comps', label: 'Comps: one row per ticker with price, LTM, NTM, cash and debt' },
       { id: 'financials', label: 'Financial statements (income, balance sheet, cash flow)' }, { id: 'income', label: 'Income statement' }, { id: 'balance', label: 'Balance sheet' }, { id: 'cashflow', label: 'Cash flow statement' },
       { id: 'metrics', label: 'Key metrics (EV, multiples, returns)' }, { id: 'ratios', label: 'Ratios and margins' }, { id: 'estimates', label: 'Analyst estimates' }, { id: 'profile', label: 'Company profile (price, market cap, beta)' }, { id: 'quote', label: 'Quote' } ] },
     { id: 'period', label: 'Period', default: 'annual', options: [{ id: 'annual', label: 'Annual' }, { id: 'quarter', label: 'Quarterly' }] },
     { id: 'limit', label: 'Periods', default: '10', hint: 'How many most-recent periods' },
+    { id: 'subject', label: 'Subject', hint: 'Comps only: the ticker being valued; it gets peer = 0, the others peer = 1' },
     { id: 'scale', label: 'Units', default: '1000000', options: [{ id: '1', label: 'As reported' }, { id: '1000', label: 'Thousands' }, { id: '1000000', label: 'Millions' }, { id: '1000000000', label: 'Billions' }] },
   ],
   expand(p) {
     const symbols = symbolsOf(p);
     if (!symbols.length) throw new SourceError('SOURCE_BAD_PRESET', 'fmp needs at least one ticker in symbols', 'e.g. { "symbols": "NVDA" }');
-    const ds = DATASETS[p.dataset ?? 'financials'];
-    if (!ds) throw new SourceError('SOURCE_BAD_PRESET', `unknown fmp dataset ${p.dataset}`, `one of ${Object.keys(DATASETS).join(', ')}`);
     const period = p.period === 'quarter' ? 'quarter' : 'annual';
     const limit = num(p.limit, period === 'quarter' ? 12 : 10);
     const scale = num(p.scale, 1e6);
+    const subject = (p.subject ?? '').trim().toUpperCase();
+    if ((p.dataset ?? 'financials') === 'comps') return symbols.flatMap(symbol => COMPS_REQUESTS(symbol, scale, { symbol, peer: subject ? (symbol === subject ? 0 : 1) : 1 }));
+    const ds = DATASETS[p.dataset ?? 'financials'];
+    if (!ds) throw new SourceError('SOURCE_BAD_PRESET', `unknown fmp dataset ${p.dataset}`, `comps, ${Object.keys(DATASETS).join(', ')}`);
     const out: SourceRequest[] = [];
     for (const symbol of symbols) for (const e of ds.endpoints) {
       const q = new URLSearchParams({ symbol });
       if (e.periodParam) { q.set('period', period); q.set('limit', String(limit)); }
       out.push({
         url: `${FMP}/${e.path}?${q}&apikey=${KEY}`, format: 'json', map: e.map, scale,
-        constants: { symbol },
+        constants: subject ? { symbol, peer: symbol === subject ? 0 : 1 } : { symbol },
         id: e.perPeriod ? (e.path === 'analyst-estimates' ? `${symbol}_{date:year}` : period === 'quarter' ? `${symbol}_{fiscalYear}{period}` : `${symbol}_{fiscalYear}`) : symbol,
       });
     }

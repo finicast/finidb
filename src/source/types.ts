@@ -26,6 +26,9 @@ export interface SourceRequest {
   constants?: Record<string, Scalar>;
   /** Divide numeric fields by this (1e6: dollars -> $M); fields mapped with scale:false are left alone. */
   scale?: number;
+  /** Collapse the records before mapping: order by a key, keep those after a date (or "today"), skip and take
+   *  some, and sum listed keys into the first kept record (a trailing-twelve-month figure from four quarters). */
+  reduce?: { by?: string; desc?: boolean; after?: string; skip?: number; take?: number; sum?: string[] };
 }
 
 export interface TableSource extends Partial<SourceRequest> {

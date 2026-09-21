@@ -11,7 +11,7 @@ import { createServer, type Server } from 'node:http';
 import { startServer, type ServerHandle } from '../src/server/server.js';
 import { filePersistence } from '../src/server/persistence.js';
 import { requestsOf, describePresets } from '../src/source/presets.js';
-import { fetchSource, secretNamesOf, envSecrets, mapRecord } from '../src/source/fetch.js';
+import { fetchSource, secretNamesOf, envSecrets, mapRecord, reduceRecords } from '../src/source/fetch.js';
 import { prefetchSources } from '../src/source/prefetch.js';
 import { applyDocument } from '../src/build/document.js';
 import { FiniDB } from '../src/index.js';
@@ -24,16 +24,20 @@ const income = (symbol: string) => [
   { date: '2026-01-25', symbol, fiscalYear: '2026', period: 'FY', revenue: revenue2026, ebitda: 144552e6, eps: 4.93, epsDiluted: 4.9, weightedAverageShsOutDil: 24514e6 },
   { date: '2025-01-26', symbol, fiscalYear: '2025', period: 'FY', revenue: 130497e6, ebitda: 86137e6, eps: 2.97, epsDiluted: 2.94, weightedAverageShsOutDil: 24804e6 },
 ];
-const balance = (symbol: string) => [{ date: '2026-01-25', symbol, fiscalYear: '2026', period: 'FY', totalDebt: 8468e6, cashAndCashEquivalents: 10605e6 }, { date: '2025-01-26', symbol, fiscalYear: '2025', period: 'FY', totalDebt: 8463e6, cashAndCashEquivalents: 8589e6 }];
+const balance = (symbol: string) => [{ date: '2026-01-25', symbol, fiscalYear: '2026', period: 'FY', totalDebt: 8468e6, cashAndCashEquivalents: 10605e6, cashAndShortTermInvestments: 62556e6, netDebt: -54088e6 }, { date: '2025-01-26', symbol, fiscalYear: '2025', period: 'FY', totalDebt: 8463e6, cashAndCashEquivalents: 8589e6, cashAndShortTermInvestments: 43210e6, netDebt: -34747e6 }];
 before(async () => {
   stub = createServer((req, res) => {
     hits++;
     const u = new URL(req.url!, 'http://x');
     if (u.searchParams.has('apikey') && u.searchParams.get('apikey') !== 'k-123') { res.writeHead(401, { 'content-type': 'application/json' }); res.end(JSON.stringify({ 'Error Message': 'Invalid API KEY.' })); return; }
     const symbol = u.searchParams.get('symbol') ?? 'X';
-    const body = u.pathname.endsWith('/income-statement') ? income(symbol) : u.pathname.endsWith('/balance-sheet-statement') ? balance(symbol) : u.pathname.endsWith('/cash-flow-statement') ? [{ date: '2026-01-25', symbol, fiscalYear: '2026', period: 'FY', freeCashFlow: 96676e6 }]
+    const quarters = Array.from({ length: 8 }, (_, i) => ({ date: `${2026 - Math.floor((i + 2) / 4)}-${String(12 - ((i + 2) % 4) * 3).padStart(2, '0')}-27`, symbol, fiscalYear: '2026', period: `Q${4 - ((i + 2) % 4)}`, revenue: (100 - i) * 1e9, ebitda: (20 - i) * 1e9, operatingIncome: 1e9, netIncome: 1e9, epsDiluted: 0.5, weightedAverageShsOutDil: (5000 - i) * 1e6, reportedCurrency: 'USD' }));
+    const body = u.pathname.endsWith('/income-statement') && u.searchParams.get('period') === 'quarter' ? quarters
+      : u.pathname.endsWith('/shares-float') ? [{ symbol, outstandingShares: 5044e6 }]
+      : u.pathname.endsWith('/quote') ? [{ symbol, name: `${symbol} Corp`, price: 222.27, marketCap: 5383601e6, yearLow: 100, yearHigh: 300 }]
+      : u.pathname.endsWith('/income-statement') ? income(symbol) : u.pathname.endsWith('/balance-sheet-statement') ? balance(symbol) : u.pathname.endsWith('/cash-flow-statement') ? [{ date: '2026-01-25', symbol, fiscalYear: '2026', period: 'FY', freeCashFlow: 96676e6 }]
       : u.pathname.endsWith('/profile') ? [{ symbol, companyName: `${symbol} Corp`, price: 222.27, marketCap: 5383601e6, beta: 2.217 }]
-      : u.pathname.endsWith('/analyst-estimates') ? [{ symbol, date: '2027-01-31', revenueAvg: 300000e6, epsAvg: 7.1 }]
+      : u.pathname.endsWith('/analyst-estimates') ? [{ symbol, date: '2028-01-31', revenueAvg: 400000e6, epsAvg: 9 }, { symbol, date: '2027-01-31', revenueAvg: 300000e6, epsAvg: 7.1 }, { symbol, date: '2020-01-31', revenueAvg: 10e6, epsAvg: 1 }]
       : u.pathname === '/csv' ? 'id,name,amount\na,Alpha,1\nb,Beta,2\n' : u.pathname === '/wrapped' ? { data: { items: [{ code: 'x', v: 1 }, { code: 'y', v: 2 }] } } : [];
     res.writeHead(200, { 'content-type': typeof body === 'string' ? 'text/csv' : 'application/json' });
     res.end(typeof body === 'string' ? body : JSON.stringify(body));
@@ -81,7 +85,7 @@ test('fetchSource: merges statements by id, applies the map and scale, needs its
   assert.equal(fy26.fiscal_year, '2026');         // the preset leaves it a string; the loader types the column
   assert.ok(r.columns.includes('cash') && r.columns.includes('ebitda'));
   const est = await fetchSource(fmp({ symbols: 'NVDA', dataset: 'estimates' }), { secrets: { fmp: 'k-123' }, fetch: toStub, allowPrivate: true });
-  assert.deepEqual([est.rows[0].id, est.rows[0].fiscal_year, est.rows[0].revenue], ['NVDA_2027', 2027, 300000]);
+  assert.deepEqual(est.rows.map(x => [x.id, x.fiscal_year, x.revenue]).sort(), [['NVDA_2020', 2020, 10], ['NVDA_2027', 2027, 300000], ['NVDA_2028', 2028, 400000]]);
   // a plain CSV url and a JSON path
   const csv = await fetchSource({ url: `${stubUrl}/csv` }, { fetch: toStub, allowPrivate: true });
   assert.deepEqual(csv.rows, [{ name: 'Alpha', amount: '1', id: 'a' }, { name: 'Beta', amount: '2', id: 'b' }]);
@@ -93,6 +97,30 @@ test('fetchSource: merges statements by id, applies the map and scale, needs its
   await assert.rejects(fetchSource({ url: 'https://localhost/x' }, {}), (e: any) => e.code === 'SOURCE_PRIVATE_HOST');
   await assert.rejects(fetchSource({ url: 'https://10.0.0.5/x' }, {}), (e: any) => e.code === 'SOURCE_PRIVATE_HOST');
   await assert.rejects(fetchSource({ url: 'https://user:pw@example.com/x' }, {}), (e: any) => e.code === 'SOURCE_BAD_URL');
+});
+
+test('the comps dataset: one row per ticker with LTM from four quarters, the prior four, NTM from the next estimate, and a peer flag', async () => {
+  const reqs = requestsOf(fmp({ symbols: 'INTC, AMD', dataset: 'comps', subject: 'intc' }));
+  assert.equal(reqs.length, 12);
+  assert.deepEqual(reqs[0].constants, { symbol: 'INTC', peer: 0 });
+  assert.deepEqual(reqs[6].constants, { symbol: 'AMD', peer: 1 });
+  assert.equal(reduceRecords([{ d: '1', v: 1 }, { d: '3', v: 3 }, { d: '2', v: 2 }], { by: 'd', desc: true, take: 2, sum: ['v'] })[0].v, 5);
+  assert.deepEqual(reduceRecords([{ d: '2020-01-01' }, { d: '2999-01-01' }, { d: '2998-01-01' }], { by: 'd', after: 'today', take: 1 }), [{ d: '2998-01-01' }]);
+  const hitsBefore = hits;
+  const r = await fetchSource(fmp({ symbols: 'INTC,AMD', dataset: 'comps', subject: 'INTC' }), { secrets: { fmp: 'k-123' }, fetch: toStub, allowPrivate: true });
+  assert.equal(hits - hitsBefore, 10);                     // the quarterly statement is fetched once per ticker, reduced twice
+  assert.equal(r.rows.length, 2);
+  const intc = r.rows.find(x => x.id === 'INTC')!, amd = r.rows.find(x => x.id === 'AMD')!;
+  assert.equal(intc.peer, 0); assert.equal(amd.peer, 1);
+  assert.equal(intc.price, 222.27); assert.equal(intc.shares, 5044);
+  assert.equal(intc.revenue_ltm, 100000 + 99000 + 98000 + 97000);   // $M, the four latest quarters
+  assert.equal(intc.revenue_prior, 96000 + 95000 + 94000 + 93000);
+  assert.equal(intc.eps_ltm, 2);                                     // per share, summed, unscaled
+  assert.equal(intc.shares_diluted, 5000);                           // the latest quarter's, not summed
+  assert.equal(intc.quarters_ltm, 4);
+  assert.equal(intc.revenue_ntm, 300000); assert.equal(intc.ntm_fy_end, '2027-01-31');   // the first fiscal year ending after today
+  assert.equal(intc.cash, 62556); assert.equal(intc.debt, 8468); assert.equal(intc.net_debt, -54088);
+  assert.equal(intc.ltm_through, '2026-06-27');   // the stub's latest quarter
 });
 
 test('server: refresh links and creates a table, stamps the source, replaces on the next refresh, unlinks; secrets come from the request', async () => {
