@@ -116,3 +116,14 @@ test('a paged percent line is the window fallback format (chart cards paged on a
   const plain = runQuery(f, r.model, { table: 'm', rows: ['basis'], cols: ['company'], pages: { line: 'rev' }, format: 'json' } as never) as { formats: (string | undefined)[] };
   assert.deepEqual(plain.formats, [undefined, undefined]);
 });
+
+test('inputs on a pivot without periods are keyed by the other dimension', () => {
+  const f = new FiniDB();
+  const r = applyDocument(f, {
+    model: 'm',
+    tables: { companies: { rows: [{ id: 'a', peer: 0 }, { id: 'b', peer: 1 }] } },
+    pivots: { md: { dims: { company: 'companies', period: false }, lines: ['price', 'shares', 'cap'], inputs: { price: { a: 10, b: 20 }, shares: { a: 3, b: 4 } }, rules: 'cap = price * shares' } },
+  } as any);
+  assert.match(r.log.join('\n'), /md: 4 inputs/);
+  assert.equal(f.get('m', 'md', { line: 'cap', company: 'b' }), 80);
+});

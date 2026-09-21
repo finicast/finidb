@@ -18,6 +18,7 @@ export interface PivotDoc {
   dims?: Record<string, string | false>;
   /** measure ids, or { id, type, format, name }; a `text` measure holds commentary next to the numbers */
   measures?: (string | { id: string; type?: 'number' | 'text' | 'date' | 'bool'; format?: string; name?: string })[];
+  /** line → member → value: the member is a period, or a member of the only other dimension when the pivot has no periods (`"period": false`) */
   inputs?: Record<string, Record<string, Scalar>>;
   values?: { at: Record<string, string>; measure?: string; value: Scalar }[];
   rules?: string | string[];
@@ -143,7 +144,10 @@ export function applyDocument(f: FiniDB, doc: ModelDocument): DocumentResult {
       log.push(`pivot ${id}: ${dims.map(d => d.id).join(' × ')}`);
     }
     let n = 0;
-    for (const [line, byPeriod] of Object.entries(p.inputs ?? {})) for (const [period, value] of Object.entries(byPeriod)) { f.setValue(modelId, id, { line, period }, value); n++; }
+    // inputs are line → member: the period when the pivot has one, else the only other dimension (a company, a stat)
+    const otherDims = Object.entries(p.dims ?? {}).filter(([d, t]) => t && d !== 'line').map(([d]) => d);
+    const inputDim = has('periods') && p.dims?.period !== false ? 'period' : otherDims.length === 1 ? otherDims[0] : 'period';
+    for (const [line, byMember] of Object.entries(p.inputs ?? {})) for (const [member, value] of Object.entries(byMember)) { f.setValue(modelId, id, { line, [inputDim]: member }, value); n++; }
     for (const v of p.values ?? []) { if (v.measure) f.setValue(modelId, id, v.at, v.measure, v.value); else f.setValue(modelId, id, v.at, v.value); n++; }
     if (n) log.push(`${id}: ${n} inputs`);
   }
