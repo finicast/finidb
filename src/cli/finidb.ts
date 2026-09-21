@@ -44,7 +44,8 @@ const USAGE = `finidb — a calculation engine for AI agents (doc 07 §5)
   finidb schema <db>
   finidb query <db> --table T --rows a[,b] --cols c [--pages dim=member,...] [--measure m] [--format markdown|json] [--title t]
   finidb rules <db> <table> [rules.txt] [--append]   (reads stdin by default; one rule per line; replaces the set)
-  finidb load <db> <table> file.csv [--model m] [--id-column x] [--delimiter ,]
+  finidb load <db> <table> file.csv [--model m] [--mode append|upsert|replace] [--dry-run] [--add-fields] [--id-column x] [--delimiter ,]
+  finidb refresh <db> <table> [--source '{"preset":{"id":"fmp","params":{"symbols":"NVDA"}}}'] [--dry-run]   fetch a linked table's source (FMP_API_KEY in the environment for the fmp preset)
   finidb bench [rows]
 
 Connection: --url http://host:port | FINIDB_URL (also finidb://user:pass@host:port/db)
@@ -171,12 +172,28 @@ async function main() {
       for (const w of r.warnings) console.log(`  warning: ${w}`);
       return;
     }
+    case 'refresh': {
+      const [db, table] = rest;
+      if (!db || !table) fail('usage: finidb refresh <db> <table> [--source \'{"preset":{"id":"fmp","params":{"symbols":"NVDA"}}}\'] [--model m] [--dry-run]');
+      const body: Record<string, unknown> = {};
+      if (str(flags.source)) body.source = JSON.parse(str(flags.source)!);
+      if (str(flags.model)) body.model = str(flags.model);
+      if (flags['dry-run']) body.dryRun = true;
+      const r = await api(conn, 'POST', `/db/${enc(db)}/tables/${enc(table)}/refresh`, body);
+      if (flags.json) return out(r);
+      console.log(`${r.dryRun ? 'dry run: ' : ''}${r.created ? 'created' : r.mode + ' into'} ${r.table}: ${r.dryRun ? `${r.toInsert} to add, ${r.toUpdate} to update, ${r.toDelete} to delete` : `${r.inserted} added, ${r.updated} updated (${r.changed} cells changed), ${r.deleted} deleted`} · ${r.requests} request${r.requests === 1 ? '' : 's'}`);
+      for (const w of r.warnings ?? []) console.log(`  warning: ${w}`);
+      return;
+    }
     case 'build': {
       const file = rest[0] ?? fail('usage: finidb build <model.json> [--format md|json] [--xlsx out.xlsx | --no-xlsx] [--data-dir <dir>] [--site https://finicast.com]');
       const { readFileSync } = await import('node:fs');
       const doc = JSON.parse(file === '-' ? readFileSync(0, 'utf8') : readFileSync(file, 'utf8'));
       const { applyDocument, renderDocumentResult } = await import('../build/document.js');
       const { FiniDB } = await import('../index.js');
+      const { prefetchSources } = await import('../source/prefetch.js');
+      const pre = await prefetchSources(doc, { allowPrivate: process.env.FINIDB_ALLOW_PRIVATE_SOURCES === '1' });
+      for (const x of pre.failed) console.error(`warning: linked table ${x.table} was not fetched: ${x.code} ${x.message}${x.fix ? ` (${x.fix})` : ''}`);
       let f: InstanceType<typeof FiniDB>; let closer: (() => Promise<void>) | undefined;
       if (flags['data-dir']) { const { openDatabase } = await import('../persist/store.js'); const o = await openDatabase(String(flags['data-dir'])); f = o.f; closer = () => o.close(); }
       else f = new FiniDB();

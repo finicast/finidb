@@ -7,6 +7,7 @@
 import { FiniDB, type FieldSpec, type PeriodsSpec, type Grid, type Scalar } from '../index.js';
 import { formatNumber, formatValue } from '../view/markdown.js';
 import { isError } from '../store/column.js';
+import type { TableSource } from '../source/types.js';
 
 export interface LineSpec { id: string; name?: string; format?: string; [attr: string]: unknown }
 export interface PivotDoc {
@@ -21,7 +22,14 @@ export interface PivotDoc {
   values?: { at: Record<string, string>; measure?: string; value: Scalar }[];
   rules?: string | string[];
 }
-export interface TableDoc { name?: string; fields?: Record<string, string> | FieldSpec[]; rows?: Record<string, Scalar>[]; csv?: string; distinctOf?: { table: string; field: string }; /** rules for computed fields, e.g. `period = PERIOD(date, periods)` */ rules?: string | string[] }
+export interface TableDoc {
+  name?: string; fields?: Record<string, string> | FieldSpec[]; rows?: Record<string, Scalar>[]; csv?: string; distinctOf?: { table: string; field: string };
+  /** rules for computed fields, e.g. `period = PERIOD(date, periods)` */
+  rules?: string | string[];
+  /** A linked table: rows fetched from an HTTP source (a preset such as { preset: { id: "fmp", params: { symbols: "NVDA" } } }, or url/path/map),
+   *  refreshed on demand. `prefetchSources` fills `rows` before a local build; finicast.com fetches when it builds. */
+  source?: TableSource;
+}
 export interface OutputDoc { pivot: string; title?: string; rows?: string[]; cols?: string[]; pages?: Record<string, string>; measure?: string; lines?: string[]; filters?: Record<string, string[]>; format?: 'markdown' | 'json' | 'both'; scale?: number; decimals?: number }
 /** A dashboard card (built by finicast.com when the document is imported there; ignored by the local build). */
 export interface DashboardCardDoc {
@@ -102,6 +110,7 @@ export function applyDocument(f: FiniDB, doc: ModelDocument): DocumentResult {
       continue;
     }
     f.createTable(modelId, id, withRowFields(fieldsOf(t.fields), t.rows), { name: t.name ?? titleCase(id), rows: t.rows ?? [] });
+    if (t.source) { f.setSource(modelId, id, t.source); log.push(`table ${id}: ${(t.rows ?? []).length} rows, linked to ${t.source.preset ? `${t.source.preset.id} ${JSON.stringify(t.source.preset.params)}` : t.source.url ?? 'a source'}`); continue; }
     log.push(`table ${id}: ${(t.rows ?? []).length} rows`);
   }
 

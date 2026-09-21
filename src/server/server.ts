@@ -15,7 +15,10 @@ import { join } from 'node:path';
 import { FiniDB, CompileError, ParseError, isError } from '../index.js';
 import type { QueryOptions, FieldSpec, PeriodsSpec, Scalar, Value, Grid, Clause } from '../index.js';
 import type { AnyTable, Table, Pivot, Dim, Measure, Model } from '../schema/schema.js';
-import { parseCsv, planLoad, slug, coerce } from '../store/csv.js';
+import { parseCsv, planLoad, slug, coerce, type ParsedCsv } from '../store/csv.js';
+import { fetchSource, envSecrets, secretNamesOf } from '../source/fetch.js';
+import { requestsOf, describePresets } from '../source/presets.js';
+import { SourceError, type TableSource, type FetchedRows } from '../source/types.js';
 import type { FieldType } from '../store/column.js';
 import { AuthStore, AuthError, Principal, Role, ROLES } from './auth.js';
 
@@ -47,6 +50,10 @@ export interface ServerOptions {
   persistence?: PersistenceHook;
   log?: (line: string) => void;  // request log; silent by default
   bodyLimit?: number;            // bytes; default 64 MiB (§6 "upload size caps")
+  /** Linked tables: secrets for {{secret:name}} (default: from the environment, FMP_API_KEY -> fmp), the fetch to use, and whether private hosts may be fetched (default: only when the host is loopback). */
+  secrets?: Record<string, string>;
+  fetch?: typeof fetch;
+  allowPrivateSources?: boolean;
 }
 
 export interface ServerHandle {
@@ -79,6 +86,7 @@ function toHttpError(e: unknown): HttpError {
   if (e instanceof AuthError) return new HttpError(e.status, e.code, e.message);
   if (e instanceof CompileError) return new HttpError(400, e.code, e.detail, e.fix ? { fix: e.fix } : {});
   if (e instanceof ParseError) return new HttpError(400, 'PARSE_ERROR', e.message, { pos: e.pos });
+  if (e instanceof SourceError) return new HttpError(e.code === 'SOURCE_NO_SECRET' || e.code === 'SOURCE_UNAUTHORIZED' ? 401 : /^SOURCE_(BAD|UNKNOWN|EMPTY|TOO_MANY|PRIVATE)/.test(e.code) ? 400 : 502, e.code, e.message, { fix: e.fix, ...e.extra });
   if (e instanceof SyntaxError) return new HttpError(400, 'BAD_JSON', e.message);
   if (e instanceof Error) {
     const m = /^([A-Z][A-Z0-9_]*):\s*([\s\S]*)$/.exec(e.message);   // engine errors are "CODE: message"
@@ -130,6 +138,7 @@ const MUTATIONS: Record<string, OpFn> = {
   },
   insertRows: (f, model: string, table: string, rows: Record<string, Scalar>[]) => ({ rowCount: f.insertRows(tabular(f, model, table), rows), inserted: rows.length }),
   upsertRows: (f, model: string, table: string, rows: Record<string, Scalar>[]) => f.upsertRows(tabular(f, model, table), rows),
+  setSource: (f, model: string, table: string, source: TableSource | null) => { f.setSource(model, table, source); return { ok: true }; },
   deleteRows: (f, model: string, table: string, ids: string[]) => ({ deleted: f.deleteRows(model, table, ids), rowCount: tabular(f, model, table).rowCount }),
   dropField: (f, model: string, table: string, field: string) => { f.dropField(model, table, field); return { ok: true }; },
   dropTable: (f, model: string, table: string) => { f.dropTable(model, table); return { ok: true }; },
@@ -255,6 +264,7 @@ export function describeTable(t: AnyTable) {
     id: t.id, name: t.name, kind: 'tabular' as const, model: t.model.id, rowCount: t.rowCount, version: t.version,
     fields: t.fields.map(fl => ({ id: fl.id, name: fl.name, type: fl.type, ref: fl.refTable?.id, computed: fl.computed, format: fl.format })),
     distinctOf: t.distinctOf ? { table: t.distinctOf.table.id, field: t.distinctOf.field.id } : undefined,
+    source: t.source,
     rules: describeRules(t),
   };
   return {
@@ -342,6 +352,9 @@ function multipartFile(raw: Buffer, contentType: string): Buffer {
 
 export async function startServer(opts: ServerOptions = {}): Promise<ServerHandle> {
   const host = opts.host ?? 'localhost';
+  const sourceSecrets = opts.secrets ?? envSecrets();
+  const sourceFetch = opts.fetch;
+  const allowPrivateSources = opts.allowPrivateSources ?? process.env.FINIDB_ALLOW_PRIVATE_SOURCES === '1';   // the guard is about where sources may point, not where the engine listens
   const dataDir = opts.dataDir ?? join(homedir(), '.finidb');
   const log = opts.log ?? (() => {});
   let requireAuth = opts.requireAuth ?? !isLoopbackHost(host);
@@ -573,26 +586,18 @@ export async function startServer(opts: ServerOptions = {}): Promise<ServerHandl
     return { ...(await applyOp(c.db!, { method: 'deleteRows', args: [model.id, table.id, ids] }, user(c)) as object), version: version(c.db!) };
   });
 
-  // CSV load: raw text/csv body, multipart file part, or { csv: "..." } (§3 `/load`); returns the profile.
-  // Into an existing table: ?mode=append (default) | upsert (ids that exist are updated in place) | replace (the file
-  // becomes the table: rows not in it are deleted); ?dryRun=1 plans and validates without writing; ?addFields=1 adds
-  // file columns that match no field. Columns match fields by id or name; computed columns are skipped.
-  route('POST', '/db/:db/tables/:table/load', 'write', async c => {
-    const ct = String(c.req.headers['content-type'] ?? '');
-    const text = ct.startsWith('multipart/form-data') ? multipartFile(c.raw, ct).toString('utf8') : typeof c.body?.csv === 'string' ? c.body.csv : c.raw.toString('utf8');
-    if (!text.trim()) throw new HttpError(400, 'LOAD_EMPTY', 'no CSV content');
-    const db = c.db!;
-    const opt = (k: string): string | undefined => { const v = c.query.get(k) ?? c.body?.[k]; return v === undefined || v === null ? undefined : String(v); };
-    const flag = (k: string) => { const v = opt(k); return v === '1' || v === 'true'; };
-    const modelId = opt('model') ?? (db.f.db.models.size === 1 ? [...db.f.db.models.keys()][0] : undefined);
-    if (!modelId) throw new HttpError(400, 'BAD_REQUEST', 'pass ?model= (the database has several models)');
+  // The loader shared by /load (a CSV) and /refresh (rows fetched from a source): plan, validate, apply.
+  // Into an existing table: mode append (default) | upsert (ids that exist are updated in place) | replace (the rows
+  // become the table: rows not in them are deleted); dryRun plans and validates without writing; addFields adds
+  // columns that match no field. Columns match fields by id or name; computed columns are skipped.
+  interface LoadOpts { mode?: string; dryRun?: boolean; addFields?: boolean; idColumn?: string; name?: string; user: string }
+  async function loadRows(db: DbEntry, modelId: string, tableId: string, csv: ParsedCsv, o: LoadOpts): Promise<Reply> {
     const model = db.f.model(modelId);
-    const mode = opt('mode') ?? 'append';
+    const mode = o.mode ?? 'append';
     if (mode !== 'append' && mode !== 'upsert' && mode !== 'replace') throw new HttpError(400, 'BAD_REQUEST', 'mode is append, upsert or replace');
-    const dryRun = flag('dryRun'), addFields = flag('addFields');
-    const csv = parseCsv(text, opt('delimiter') ?? ',');
-    const exists = model.hasTable(c.params.table);
-    const existing = exists ? model.table(c.params.table) : undefined;
+    const { dryRun = false, addFields = false } = o;
+    const exists = model.hasTable(tableId);
+    const existing = exists ? model.table(tableId) : undefined;
     if (existing && existing.kind !== 'tabular') throw new HttpError(400, 'SCHEMA_NOT_TABULAR', 'cannot load rows into a pivot');
     const candidates: Record<string, Set<string>> = {};
     for (const t of model.tables.values()) if (t.kind === 'tabular' && t !== existing) candidates[t.id] = new Set(t.rowById.keys());
@@ -602,7 +607,7 @@ export async function startServer(opts: ServerOptions = {}): Promise<ServerHandl
     const warnings: string[] = [];
     const errors: { code: string; message: string; fix?: string }[] = [];
     const columns: { header: string; field?: string; action: 'id' | 'match' | 'add' | 'ignore' | 'computed' }[] = [];
-    let idColumn = opt('idColumn');
+    let idColumn = o.idColumn;
     if (existing) {
       // resolve file columns to fields; drop what cannot be loaded
       const resolve = (h: string) => { const s = slug(h), l = h.trim().toLowerCase(); return existing.fields.find(f => f.id === s || f.id === l || f.name.toLowerCase() === l || slug(f.name) === s); };
@@ -657,26 +662,99 @@ export async function startServer(opts: ServerOptions = {}): Promise<ServerHandl
       if (missing.length) warnings.push(`fields not in the file keep their values; new rows get blanks: ${missing.join(', ')}`);
       if (toDelete.length) warnings.push(`${toDelete.length} rows not in the file will be deleted; references to them from other tables become blank`);
     }
-    const summary = { table: c.params.table, model: modelId, created: !existing, mode: existing ? mode : 'create', dryRun, ok: errors.length === 0, toInsert, toUpdate, toDelete: toDelete.length, idColumn: plan.idColumn ?? null, columns, fields: plan.fields, profile: plan.profile, warnings, errors };
-    if (dryRun) return { ...summary, rowCount: existing?.rowCount ?? 0, version: version(db) };
+    const summary = { table: tableId, model: modelId, created: !existing, mode: existing ? mode : 'create', dryRun, ok: errors.length === 0, toInsert, toUpdate, toDelete: toDelete.length, idColumn: plan.idColumn ?? null, columns, fields: plan.fields, profile: plan.profile, warnings, errors };
+    if (dryRun) return new Reply(200, { ...summary, rowCount: existing?.rowCount ?? 0, version: version(db) });
     if (errors.length) throw new HttpError(400, errors[0].code, errors[0].message, { fix: errors[0].fix, errors, columns });
-    let inserted = 0, updated = 0, deleted = 0, rowCount = 0;
+    let inserted = 0, updated = 0, changed = 0, deleted = 0, rowCount = 0;
     if (!existing) {
-      const r = await applyOp(db, { method: 'createTable', args: [modelId, c.params.table, plan.fields.map(f => ({ id: f.id, name: f.name, type: f.type === 'ref' ? undefined : f.type, ref: f.ref })), { rows: plan.rows, name: opt('name') }] }, user(c)) as { rowCount: number };
+      const r = await applyOp(db, { method: 'createTable', args: [modelId, tableId, plan.fields.map(f => ({ id: f.id, name: f.name, type: f.type === 'ref' ? undefined : f.type, ref: f.ref })), { rows: plan.rows, name: o.name }] }, o.user) as { rowCount: number };
       inserted = plan.rows.length; rowCount = r.rowCount;
     } else {
       for (const col of columns) if (col.action === 'add') {
         const pf = plan.fields.find(f => f.name === col.header);
         if (!pf) continue;
-        await applyOp(db, { method: 'addField', args: [modelId, c.params.table, { id: pf.id, name: pf.name, type: pf.type === 'ref' ? undefined : pf.type, ref: pf.ref }] }, user(c));
+        await applyOp(db, { method: 'addField', args: [modelId, tableId, { id: pf.id, name: pf.name, type: pf.type === 'ref' ? undefined : pf.type, ref: pf.ref }] }, o.user);
         col.field = pf.id;
       }
-      if (toDelete.length) deleted = (await applyOp(db, { method: 'deleteRows', args: [modelId, c.params.table, toDelete] }, user(c)) as { deleted: number }).deleted;
-      if (mode === 'append') { const r = await applyOp(db, { method: 'insertRows', args: [modelId, c.params.table, plan.rows] }, user(c)) as { rowCount: number }; inserted = plan.rows.length; rowCount = r.rowCount; }
-      else { const r = await applyOp(db, { method: 'upsertRows', args: [modelId, c.params.table, plan.rows] }, user(c)) as { inserted: number; updated: number; rowCount: number }; inserted = r.inserted; updated = r.updated; rowCount = r.rowCount; }
+      if (toDelete.length) deleted = (await applyOp(db, { method: 'deleteRows', args: [modelId, tableId, toDelete] }, o.user) as { deleted: number }).deleted;
+      if (mode === 'append') { const r = await applyOp(db, { method: 'insertRows', args: [modelId, tableId, plan.rows] }, o.user) as { rowCount: number }; inserted = plan.rows.length; rowCount = r.rowCount; }
+      else { const r = await applyOp(db, { method: 'upsertRows', args: [modelId, tableId, plan.rows] }, o.user) as { inserted: number; updated: number; changed: number; rowCount: number }; inserted = r.inserted; updated = r.updated; changed = r.changed; rowCount = r.rowCount; }
     }
-    return new Reply(201, { ...summary, inserted, updated, deleted, rowCount, version: version(db) });
+    return new Reply(201, { ...summary, inserted, updated, changed, deleted, rowCount, version: version(db) });
+  }
+  const modelIdOf = (c: Ctx, explicit?: string) => {
+    const db = c.db!;
+    const id = explicit ?? c.query.get('model') ?? c.body?.model ?? (db.f.db.models.size === 1 ? [...db.f.db.models.keys()][0] : undefined);
+    if (!id) throw new HttpError(400, 'BAD_REQUEST', 'pass ?model= (the database has several models)');
+    return String(id);
+  };
+  const flagOf = (c: Ctx, k: string) => { const v = c.query.get(k) ?? c.body?.[k]; return v === true || v === '1' || v === 'true'; };
+  const optOf = (c: Ctx, k: string): string | undefined => { const v = c.query.get(k) ?? c.body?.[k]; return v === undefined || v === null ? undefined : String(v); };
+
+  // CSV load: raw text/csv body, multipart file part, or { csv: "..." } (§3 `/load`); returns the plan and the profile
+  route('POST', '/db/:db/tables/:table/load', 'write', async c => {
+    const ct = String(c.req.headers['content-type'] ?? '');
+    const text = ct.startsWith('multipart/form-data') ? multipartFile(c.raw, ct).toString('utf8') : typeof c.body?.csv === 'string' ? c.body.csv : c.raw.toString('utf8');
+    if (!text.trim()) throw new HttpError(400, 'LOAD_EMPTY', 'no CSV content');
+    const csv = parseCsv(text, optOf(c, 'delimiter') ?? ',');
+    return loadRows(c.db!, modelIdOf(c), c.params.table, csv, { mode: optOf(c, 'mode'), dryRun: flagOf(c, 'dryRun'), addFields: flagOf(c, 'addFields'), idColumn: optOf(c, 'idColumn'), name: optOf(c, 'name'), user: user(c) });
   });
+
+  // Linked tables (src/source): a source is saved on the table; refresh fetches it and loads the rows.
+  //   POST /refresh  { source?, secrets?, name?, dryRun? }  — saves `source` if given (creating the table on first fetch), fetches, loads
+  //   PUT  /source   { source }                             — link or edit without fetching;  DELETE /source — unlink
+  const sourceOf = (body: unknown): TableSource => {
+    if (!body || typeof body !== 'object') throw new HttpError(400, 'BAD_REQUEST', 'source is an object: { preset: { id, params } } or { url, path, map, id, … }');
+    const { fetchedAt: _a, status: _b, error: _c, fetchedRows: _d, ...src } = body as TableSource;
+    requestsOf(src);   // validates the shape (throws SourceError)
+    return src;
+  };
+  const cleanSource = (s: TableSource | undefined) => s ? { ...s } : undefined;
+  route('PUT', '/db/:db/tables/:table/source', 'write', async c => {
+    const { model, table } = tableOf(c);
+    if (table.kind !== 'tabular') throw new HttpError(400, 'SCHEMA_NOT_TABULAR', 'only data tables can be linked');
+    const src = sourceOf(c.body?.source ?? c.body);
+    const prev = table.source;
+    await applyOp(c.db!, { method: 'setSource', args: [model.id, table.id, { ...src, fetchedAt: prev?.fetchedAt, status: prev?.status, fetchedRows: prev?.fetchedRows }] }, user(c));
+    return { ok: true, source: cleanSource(table.source), secrets: secretNamesOf(src), version: version(c.db!) };
+  });
+  route('DELETE', '/db/:db/tables/:table/source', 'write', async c => {
+    const { model, table } = tableOf(c);
+    await applyOp(c.db!, { method: 'setSource', args: [model.id, table.id, null] }, user(c));
+    return { ok: true, version: version(c.db!) };
+  });
+  route('POST', '/db/:db/tables/:table/refresh', 'write', async c => {
+    const db = c.db!;
+    const modelId = modelIdOf(c);
+    const model = db.f.model(modelId);
+    const existing = model.hasTable(c.params.table) ? model.table(c.params.table) : undefined;
+    if (existing && existing.kind !== 'tabular') throw new HttpError(400, 'SCHEMA_NOT_TABULAR', 'only data tables can be linked');
+    const src = c.body?.source ? sourceOf(c.body.source) : existing?.source;
+    if (!src) throw new HttpError(400, 'SOURCE_NONE', `${c.params.table} is not linked to a source`, { fix: 'pass { source } to link it, or PUT …/source first' });
+    const dryRun = flagOf(c, 'dryRun');
+    const secrets = { ...(sourceSecrets), ...(c.body?.secrets && typeof c.body.secrets === 'object' ? c.body.secrets : {}) };
+    let fetched: FetchedRows;
+    try { fetched = await fetchSource(src, { secrets, fetch: sourceFetch, allowPrivate: allowPrivateSources }); }
+    catch (e) {
+      if (!(e instanceof SourceError)) throw e;
+      if (existing?.source && !dryRun) await applyOp(db, { method: 'setSource', args: [modelId, existing.id, { ...(c.body?.source ? src : existing.source), fetchedAt: existing.source.fetchedAt, fetchedRows: existing.source.fetchedRows, status: 'error', error: `${e.code}: ${e.message}` }] }, user(c));
+      throw new HttpError(e.code === 'SOURCE_NO_SECRET' || e.code === 'SOURCE_UNAUTHORIZED' ? 401 : e.code.startsWith('SOURCE_BAD') || e.code === 'SOURCE_NONE' ? 400 : 502, e.code, e.message, { fix: e.fix, ...e.extra });
+    }
+    if (!fetched.rows.length) throw new HttpError(502, 'SOURCE_EMPTY_RESULT', 'the source returned no records', { fix: 'check the tickers, the path to the records, or the plan the key belongs to', warnings: fetched.warnings });
+    // rows -> csv matrix so the shared loader plans, validates and applies them like a file
+    const header = ['id', ...fetched.columns];
+    const cell = (v: Scalar | undefined) => v === null || v === undefined ? '' : typeof v === 'boolean' ? (v ? 'true' : 'false') : String(v);
+    const csv: ParsedCsv = { header, rows: fetched.rows.map(r => header.map(h => cell(r[h]))) };
+    const mode = src.mode ?? 'replace';
+    const reply = await loadRows(db, modelId, c.params.table, csv, { mode: existing ? mode : 'append', dryRun, addFields: true, idColumn: 'id', name: optOf(c, 'name'), user: user(c) });
+    const body = reply.body as Record<string, unknown>;
+    if (!dryRun) {
+      const stamp: TableSource = { ...src, fetchedAt: new Date().toISOString(), status: 'ok', error: undefined, fetchedRows: fetched.rows.length };
+      await applyOp(db, { method: 'setSource', args: [modelId, c.params.table, stamp] }, user(c));
+    }
+    return new Reply(reply.status, { ...body, source: cleanSource(dryRun ? src : (model.table(c.params.table) as Table).source), requests: fetched.requests, warnings: [...(body.warnings as string[]), ...fetched.warnings], version: version(db) });
+  });
+  route('GET', '/source-presets', 'none', () => ({ presets: describePresets() }));
 
   // rules (§3): PUT replaces, POST appends; body is rule text (text/plain) or { rules: text | [{target, when, formula}] }
   const rulesOf = (c: Ctx) => {
@@ -853,7 +931,7 @@ export const ROUTES = [
   ['GET', '/db/:db/tables', 'read'], ['POST', '/db/:db/tables', 'write'], ['GET', '/db/:db/tables/:table', 'read'], ['PATCH', '/db/:db/tables/:table', 'write'], ['DELETE', '/db/:db/tables/:table', 'write'],
   ['POST', '/db/:db/tables/:table/fields', 'write'], ['PATCH', '/db/:db/tables/:table/fields/:field', 'write'], ['DELETE', '/db/:db/tables/:table/fields/:field', 'write'],
   ['GET', '/db/:db/tables/:table/rows', 'read'], ['POST', '/db/:db/tables/:table/rows', 'write'], ['PATCH', '/db/:db/tables/:table/rows', 'write'], ['DELETE', '/db/:db/tables/:table/rows', 'write'],
-  ['POST', '/db/:db/tables/:table/load', 'write'],
+  ['POST', '/db/:db/tables/:table/load', 'write'], ['POST', '/db/:db/tables/:table/refresh', 'write'], ['PUT', '/db/:db/tables/:table/source', 'write'], ['DELETE', '/db/:db/tables/:table/source', 'write'], ['GET', '/source-presets', 'none'],
   ['GET', '/db/:db/tables/:table/rules', 'read'], ['PUT', '/db/:db/tables/:table/rules', 'write'], ['POST', '/db/:db/tables/:table/rules', 'write'], ['PATCH', '/db/:db/tables/:table/rules/:rule', 'write'], ['DELETE', '/db/:db/tables/:table/rules/:rule', 'write'],
   ['POST', '/db/:db/cells', 'write'], ['GET', '/db/:db/cells', 'read'],
   ['POST', '/db/:db/query', 'read'], ['POST', '/db/:db/batch', 'read|write'], ['GET', '/db/:db/changes', 'read'],

@@ -1,6 +1,7 @@
 /**
  * Schema objects. Every object has a stable internal integer id and a user-visible id (doc 03 §2).
  */
+import type { TableSource } from '../source/types.js';
 import { Column, TextColumn, RefColumn, makeColumn, FieldType, Scalar } from '../store/column.js';
 import type { Rule } from './rules.js';
 
@@ -29,6 +30,8 @@ export class Table {
   rulesVersion = 0;
   /** Derived table: distinct values of source.field */
   distinctOf?: { table: Table; field: Field };
+  /** Linked table: rows come from an HTTP source, refreshed on demand (src/source). */
+  source?: TableSource;
   constructor(public readonly iid: number, public id: string, public name: string, public readonly model: Model) {
     this.addField('id', 'ID', 'text');
   }

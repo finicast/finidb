@@ -14,6 +14,7 @@
  * Column payloads are the typed arrays as-is (Float64Array/Int32Array/Uint8Array, little-endian);
  * text dictionaries are UTF-8 JSON string arrays. Readable by a 50-line script.
  */
+import type { TableSource } from '../source/types.js';
 import * as fs from 'node:fs';
 import { FiniDB, ReferenceEvaluator } from '../index.js';
 import { Database, Model, Table, Pivot, Field } from '../schema/schema.js';
@@ -35,6 +36,7 @@ export interface TableHeader {
   id: string; name: string; rowCount: number;
   fields: FieldHeader[]; rules: RuleHeader[];
   distinctOf?: { table: string; field: string };
+  source?: TableSource;
 }
 export interface PivotHeader {
   id: string; name: string;
@@ -117,6 +119,7 @@ export function saveSnapshot(f: FiniDB, path: string, opts: { seq?: number } = {
     const tables = topoSortTables(all.filter((t): t is Table => t.kind === 'tabular')).map(t => {
       const th: TableHeader = { id: t.id, name: t.name, rowCount: t.rowCount, fields: t.fields.map(fl => fieldHeader(fl, t.rowCount, payload)), rules: t.rules.map(ruleHeader) };
       if (t.distinctOf) th.distinctOf = { table: t.distinctOf.table.id, field: t.distinctOf.field.id };
+      if (t.source) th.source = t.source;
       return th;
     });
     const pivots = all.filter((t): t is Pivot => t.kind === 'pivot').map(p => ({
@@ -209,6 +212,7 @@ export function loadSnapshot(path: string, opts: { engine?: 'incremental' | 'ref
       for (let i = 0; i < th.rowCount; i++) t.rowById.set(t.rowId(i), i);
       t.version++;
     }
+    for (const th of mh.tables) if (th.source) tables.get(th.id)!.source = th.source;
     for (const th of mh.tables) if (th.distinctOf) { const t = tables.get(th.id)!; t.distinctOf = { table: tables.get(th.distinctOf.table)!, field: tables.get(th.distinctOf.table)!.field(th.distinctOf.field) }; }
     // Pivots: dims, measures, inputs.
     for (const ph of mh.pivots) {

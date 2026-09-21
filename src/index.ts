@@ -9,6 +9,7 @@ import { ReferenceEvaluator, EvalCore, CompileError } from './eval/reference.js'
 import { IncrementalEngine } from './eval/incremental.js';
 import { TracingEvaluator, Precedent } from './eval/trace.js';
 import { Value, Scalar, FieldType, isError, toDays } from './store/column.js';
+import type { TableSource } from './source/types.js';
 import { renderMarkdown, Grid } from './view/markdown.js';
 
 export { Database, Model, Table, Pivot, Field, Dim, Measure, ReferenceEvaluator, IncrementalEngine, EvalCore, CompileError, ParseError, renderMarkdown, isError };
@@ -132,21 +133,32 @@ export class FiniDB {
     return t.rowCount;
   }
   /** Rows whose id exists get the given fields set in place; the rest are inserted. Keys that are not fields are ignored. */
-  upsertRows(t: Table, rows: Record<string, Scalar>[]): { inserted: number; updated: number; rowCount: number } {
-    let inserted = 0, updated = 0;
+  upsertRows(t: Table, rows: Record<string, Scalar>[]): { inserted: number; updated: number; changed: number; rowCount: number } {
+    let inserted = 0, updated = 0, changed = 0;
     for (const r of rows) {
       const id = r.id === undefined || r.id === null ? undefined : String(r.id);
       if (id !== undefined && t.rowById.has(id)) {
         for (const [k, v] of Object.entries(r)) {
           if (k === 'id' || !t.fieldById.has(k)) continue;
+          const before = t.field(k).column.get(t.rowById.get(id)!);
           t.setCell(id, k, v);
+          if (t.field(k).column.get(t.rowById.get(id)!) !== before) changed++;
           if (this.evaluator instanceof IncrementalEngine) this.evaluator.noteRowWrite(t, t.rowById.get(id)!, t.field(k));
         }
         updated++;
       } else { t.insertRow(r); inserted++; }
     }
     this.db.touch();
-    return { inserted, updated, rowCount: t.rowCount };
+    return { inserted, updated, changed, rowCount: t.rowCount };
+  }
+
+  /** Link (or unlink, with null) a table to an HTTP source; the rows are fetched by the server's refresh route. */
+  setSource(modelId: string, tableId: string, source: TableSource | null): void {
+    const t = this.model(modelId).table(tableId);
+    if (t.kind !== 'tabular') throw new Error('SCHEMA_NOT_TABULAR: only data tables can be linked to a source');
+    t.source = source ?? undefined;
+    this.db.schemaVersion++;
+    this.db.touch();
   }
 
   /** Create a dimension table from the distinct values of another table's column. */

@@ -159,7 +159,7 @@ export function withOplog<F extends FiniDB>(f: F, dir: string, opts: OplogOption
     createModel: f.createModel, createTable: f.createTable, addField: f.addField, insertRows: f.insertRows,
     createDistinctTable: f.createDistinctTable, createPeriods: f.createPeriods, createPivot: f.createPivot,
     setRules: f.setRules, setValue: f.setValue, setCell: f.setCell,
-    upsertRows: f.upsertRows, deleteRows: f.deleteRows, dropField: f.dropField, dropTable: f.dropTable, dropModel: f.dropModel, addFieldTo: f.addFieldTo,
+    upsertRows: f.upsertRows, setSource: f.setSource, deleteRows: f.deleteRows, dropField: f.dropField, dropTable: f.dropTable, dropModel: f.dropModel, addFieldTo: f.addFieldTo,
     setIterate: f.setIterate,
   };
   // Run `call` under the recording guard and, if it is the outermost call, log `args`.
@@ -200,6 +200,7 @@ export function withOplog<F extends FiniDB>(f: F, dir: string, opts: OplogOption
   f.setCell = (modelId, tableId, rowId, fieldId, value) =>
     record('setCell', () => orig.setCell.call(f, modelId, tableId, rowId, fieldId, value), () => ({ model: modelId, table: tableId, rowId, field: fieldId, value }));
 
+  f.setSource = (modelId, tableId, source) => record('setSource', () => orig.setSource.call(f, modelId, tableId, source), () => ({ model: modelId, table: tableId, source }));
   f.deleteRows = (modelId, tableId, ids) => record('deleteRows', () => orig.deleteRows.call(f, modelId, tableId, ids), () => ({ model: modelId, table: tableId, ids }));
   f.dropField = (modelId, tableId, fieldId) => record('dropField', () => orig.dropField.call(f, modelId, tableId, fieldId), () => ({ model: modelId, table: tableId, field: fieldId }));
   f.dropTable = (modelId, tableId) => record('dropTable', () => orig.dropTable.call(f, modelId, tableId), () => ({ model: modelId, table: tableId }));
@@ -249,6 +250,7 @@ function applyOpRaw(f: FiniDB, rec: OpRecord, dir: string) {
     case 'setRules': f.setRules(a.model, a.table, a.rules, a.opts); break;
     case 'setValue': if (a.measure !== undefined) f.setValue(a.model, a.table, a.at, a.measure, a.value); else f.setValue(a.model, a.table, a.at, a.value); break;
     case 'setCell': f.setCell(a.model, a.table, a.rowId, a.field, a.value); break;
+    case 'setSource': f.setSource(a.model, a.table, a.source ?? null); break;
     case 'deleteRows': f.deleteRows(a.model, a.table, a.ids); break;
     case 'dropField': f.dropField(a.model, a.table, a.field); break;
     case 'dropTable': f.dropTable(a.model, a.table); break;
