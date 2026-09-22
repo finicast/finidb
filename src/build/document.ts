@@ -8,6 +8,7 @@ import { FiniDB, type FieldSpec, type PeriodsSpec, type Grid, type Scalar } from
 import { formatNumber, formatValue } from '../view/markdown.js';
 import { isError } from '../store/column.js';
 import type { TableSource } from '../source/types.js';
+import { normalizeDocument } from './normalize.js';
 
 export interface LineSpec { id: string; name?: string; format?: string; [attr: string]: unknown }
 export interface PivotDoc {
@@ -91,6 +92,8 @@ function fieldsOf(f: TableDoc['fields']): FieldSpec[] {
 /** Apply a model document to a FiniDB instance (creating what does not exist) and produce the requested outputs. */
 export function applyDocument(f: FiniDB, doc: ModelDocument): DocumentResult {
   const log: string[] = [];
+  const normalized = normalizeDocument(doc as unknown as Record<string, unknown>);
+  log.push(...normalized.notes.map(n => `note: ${n}`));
   const modelId = doc.model ?? 'model';
   if (!f.db.models.has(modelId)) { f.createModel(modelId, doc.name ?? modelId); log.push(`model ${modelId}`); }
   if (doc.iterate !== undefined) { const it = f.setIterate(modelId, doc.iterate); log.push(it ? `iterate: up to ${it.maxIterations} passes, tolerance ${it.tolerance}` : 'iterate: off'); }

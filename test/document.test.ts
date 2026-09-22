@@ -127,3 +127,38 @@ test('inputs on a pivot without periods are keyed by the other dimension', () =>
   assert.match(r.log.join('\n'), /md: 4 inputs/);
   assert.equal(f.get('m', 'md', { line: 'cap', company: 'b' }), 80);
 });
+
+test('normalizeDocument forgives lists written as objects or strings and names the path of what it cannot read', async () => {
+  const { normalizeDocument, DocumentError } = await import('../src/build/normalize.js');
+  const doc: any = { model: 'm', pivots: { p: { lines: ['a'], rules: [{ target: 'a', formula: '1' }] } }, outputs: [{ pivot: 'p', rows: { company: '*' }, lines: 'a' }], dashboards: [{ cards: [{ kind: 'table', pivot: 'p', lines: { a: 1, b: 2 }, filters: { line: 'a' } }] }] };
+  const r = normalizeDocument(doc);
+  assert.deepEqual(r.doc.outputs[0].rows, ['company']);
+  assert.deepEqual(r.doc.outputs[0].lines, ['a']);
+  assert.deepEqual(r.doc.dashboards[0].cards[0].lines, ['a', 'b']);
+  assert.deepEqual(r.doc.dashboards[0].cards[0].filters, { line: ['a'] });
+  assert.deepEqual(r.doc.pivots.p.rules, ['a = 1']);
+  assert.equal(r.notes.length, 2);
+  assert.throws(() => normalizeDocument({ tables: { t: { rows: { id: 'x' } } } } as any), (e: any) => e instanceof DocumentError && e.path === 'tables.t.rows' && /array of row objects/.test(e.message));
+  assert.throws(() => normalizeDocument({ pivots: { p: { inputs: { revenue: 5 } } } } as any), (e: any) => e.path === 'pivots.p.inputs.revenue');
+  assert.throws(() => normalizeDocument({ outputs: [{ pivot: 'p', rows: 5 }] } as any), (e: any) => e.path === 'outputs[0].rows');
+  assert.throws(() => normalizeDocument({ dashboards: { cards: [] } } as any), (e: any) => e.path === 'dashboards');
+  // applyDocument reports the same error
+  const f = new FiniDB();
+  assert.throws(() => applyDocument(f, { model: 'm', tables: { t: { rows: 'nope' } } } as any), /tables.t.rows: must be an array/);
+});
+
+test('a pivot with its own line table reads the same-id line of another pivot (peer statistics over a subset of lines)', () => {
+  const f = new FiniDB();
+  applyDocument(f, {
+    model: 'm',
+    tables: { companies: { rows: [{ id: 'x', peer: 0 }, { id: 'a', peer: 1 }, { id: 'b', peer: 1 }] }, stats: { rows: [{ id: 'low' }, { id: 'high' }] } },
+    pivots: {
+      comps: { dims: { company: 'companies', period: false }, lines: ['ev_rev', 'ev_ebitda', 'pe'], inputs: { ev_rev: { x: 1, a: 2, b: 4 }, ev_ebitda: { x: 10, a: 20, b: 30 }, pe: { x: 5, a: 50, b: 70 } } },
+      peer_stats: { dims: { stat: 'stats', period: false }, lines: ['ev_ebitda', 'pe'], rules: ['value[stat=low] = MIN(comps.value[company.peer=1])', 'value[stat=high] = MAX(comps.value[company.peer=1])'] },
+    },
+  } as any);
+  assert.equal(f.get('m', 'peer_stats', { line: 'ev_ebitda', stat: 'low' }), 20);
+  assert.equal(f.get('m', 'peer_stats', { line: 'ev_ebitda', stat: 'high' }), 30);
+  assert.equal(f.get('m', 'peer_stats', { line: 'pe', stat: 'low' }), 50);
+  assert.equal(f.get('m', 'peer_stats', { line: 'pe', stat: 'high' }), 70);
+});

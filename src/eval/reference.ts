@@ -521,6 +521,12 @@ export abstract class EvalCore {
         // same pivot: the dimension itself; another pivot: same id over the same table, else the same table
         const same = ctx.pivot === p ? d : (ctx.pivot.dims.find(x => x.id === d.id && x.table === d.table) ?? ctx.pivot.dims.find(x => x.table === d.table));
         if (same) cur = ctx.coord[ctx.pivot.dimIndex(same)];
+        else if (d === p.lineDim && ctx.pivot.lineDim && ctx.pivot.lineDim.table !== d.table) {
+          // two pivots with their own line tables: the current line aligns with the line of the same id, when there is one
+          // (a statistics pivot listing a subset of a comps pivot's lines reads each line's own cells)
+          const i = d.table.memberIndex(ctx.pivot.lineDim.table.rowId(ctx.coord[ctx.pivot.dimIndex(ctx.pivot.lineDim)]));
+          if (i >= 0) cur = i;
+        }
       } else {
         const refs = ctx.table.fields.filter(f => f.type === 'ref' && f.refTable === d.table);
         if (refs.length === 1) { const v = this.field(ctx.table, refs[0], ctx.row); if (typeof v === 'number') cur = v; else cur = -1; }

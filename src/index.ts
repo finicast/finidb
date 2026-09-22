@@ -532,3 +532,4 @@ export { modelLink, modelLinkPlain, parseModelLink, encodeModelFragment, decodeM
 export type { IterateSettings } from './schema/schema.js';
 export { ITERATE_DEFAULTS, normalizeIterate } from './schema/schema.js';
 export type { ModelDocument, PivotDoc, TableDoc, OutputDoc, DashboardDoc, DashboardCardDoc, DocumentResult } from './build/document.js';
+export { normalizeDocument, DocumentError } from './build/normalize.js';
