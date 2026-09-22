@@ -90,6 +90,18 @@ function fieldsOf(f: TableDoc['fields']): FieldSpec[] {
 }
 
 /** Apply a model document to a FiniDB instance (creating what does not exist) and produce the requested outputs. */
+/** Ids that name the thing being compared: on a table without periods (comps, precedents), that dimension reads better on rows with the metrics across. */
+const ENTITY_DIMS = new Set(['company', 'companies', 'peer', 'peers', 'deal', 'deals', 'target', 'targets', 'entity', 'entities', 'ticker', 'tickers', 'symbol', 'symbols', 'firm', 'firms', 'issuer', 'issuers', 'transaction', 'transactions']);
+/** The dimension on rows of an output when the document does not say: an entity dimension of a period-less pivot, else the line dimension. */
+export function defaultRowDim(pv: { dims: { id: string; table: { hasField(id: string): boolean } }[]; lineDim?: { id: string }; timeDim?: { id: string } }): string {
+  const lineDim = pv.lineDim?.id ?? pv.dims[0].id;
+  if (!pv.timeDim && pv.dims.length === 2) {
+    const other = pv.dims.find(d => d.id !== lineDim);
+    if (other && (ENTITY_DIMS.has(other.id) || other.table.hasField('ticker') || other.table.hasField('symbol'))) return other.id;
+  }
+  return lineDim;
+}
+
 export function applyDocument(f: FiniDB, doc: ModelDocument): DocumentResult {
   const log: string[] = [];
   const normalized = normalizeDocument(doc as unknown as Record<string, unknown>);
@@ -166,8 +178,8 @@ export function applyDocument(f: FiniDB, doc: ModelDocument): DocumentResult {
   for (const o of outs) {
     const pv = m.table(o.pivot);
     if (pv.kind !== 'pivot') throw new Error(`NO_PIVOT: output ${o.pivot} is not a pivot`);
-    const rows = o.rows ?? [pv.lineDim?.id ?? pv.dims[0].id];
-    const cols = o.cols ?? (pv.dims.length > 1 ? [pv.timeDim?.id ?? pv.dims.find(d => d.id !== rows[0])!.id] : []);
+    const rows = o.rows ?? [defaultRowDim(pv)];
+    const cols = o.cols ?? (pv.dims.length > 1 ? [pv.timeDim && !rows.includes(pv.timeDim.id) ? pv.timeDim.id : pv.dims.find(d => !rows.includes(d.id))!.id] : []);
     const pages: Record<string, string> = { ...(o.pages ?? {}) };
     for (const d of pv.dims) if (!rows.includes(d.id) && !cols.includes(d.id) && !pages[d.id]) pages[d.id] = d.table.rowId(0);
     const filters: Record<string, string[]> = { ...(o.filters ?? {}) };

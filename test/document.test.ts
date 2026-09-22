@@ -162,3 +162,20 @@ test('a pivot with its own line table reads the same-id line of another pivot (p
   assert.equal(f.get('m', 'peer_stats', { line: 'pe', stat: 'low' }), 50);
   assert.equal(f.get('m', 'peer_stats', { line: 'pe', stat: 'high' }), 70);
 });
+
+test('a company × line pivot without periods renders companies on rows by default; a stat × line pivot keeps lines on rows', () => {
+  const f = new FiniDB();
+  const r = applyDocument(f, {
+    model: 'm',
+    tables: { companies: { rows: [{ id: 'x', ticker: 'X' }, { id: 'a', ticker: 'A' }] }, stats: { rows: [{ id: 'low' }, { id: 'high' }] } },
+    pivots: {
+      comps: { dims: { company: 'companies', period: false }, lines: ['ev_rev', 'pe'], inputs: { ev_rev: { x: 1, a: 2 }, pe: { x: 5, a: 50 } } },
+      peer_stats: { dims: { stat: 'stats', period: false }, lineTable: 'comps_lines', rules: ['value[stat=low] = MIN(comps.value)', 'value[stat=high] = MAX(comps.value)'] },
+    },
+    outputs: [{ pivot: 'comps', format: 'both' }, { pivot: 'peer_stats', format: 'both' }],
+  } as any);
+  assert.deepEqual(r.outputs[0].json!.rows.map(x => x[0]), ['x', 'a']);            // companies down the side
+  assert.deepEqual(r.outputs[0].json!.cols, ['ev_rev', 'pe']);                   // metrics across
+  assert.deepEqual(r.outputs[1].json!.rows.map(x => x[0]), ['ev_rev', 'pe']);      // statistics: lines down, stats across
+  assert.deepEqual(r.outputs[1].json!.cols, ['low', 'high']);
+});
