@@ -568,6 +568,13 @@ export async function startServer(opts: ServerOptions = {}): Promise<ServerHandl
     if (!Array.isArray(rows)) throw new HttpError(400, 'BAD_REQUEST', 'body is an array of row objects (or { rows: [...] })');
     return new Reply(201, { ...(await applyOp(c.db!, { method: 'insertRows', args: [model.id, c.params.table, rows] }, user(c)) as object), version: version(c.db!) });
   });
+  route('PUT', '/db/:db/tables/:table/rows', 'write', async c => {
+    // upsert: rows whose id exists get the given fields set; the rest are inserted
+    const { model } = tableOf(c);
+    const rows = Array.isArray(c.body) ? c.body : c.body?.rows;
+    if (!Array.isArray(rows)) throw new HttpError(400, 'BAD_REQUEST', 'body is an array of row objects with ids (or { rows: [...] })');
+    return { ...(await applyOp(c.db!, { method: 'upsertRows', args: [model.id, c.params.table, rows] }, user(c)) as object), version: version(c.db!) };
+  });
   route('PATCH', '/db/:db/tables/:table/rows', 'write', async c => {
     const { model } = tableOf(c);
     const rows: Record<string, Scalar>[] = Array.isArray(c.body) ? c.body : c.body?.rows;
@@ -930,7 +937,7 @@ export const ROUTES = [
   ['GET', '/db/:db/schema', 'read'], ['GET', '/db/:db/explain', 'read'], ['GET', '/db/:db/models', 'read'], ['POST', '/db/:db/models', 'write'],
   ['GET', '/db/:db/tables', 'read'], ['POST', '/db/:db/tables', 'write'], ['GET', '/db/:db/tables/:table', 'read'], ['PATCH', '/db/:db/tables/:table', 'write'], ['DELETE', '/db/:db/tables/:table', 'write'],
   ['POST', '/db/:db/tables/:table/fields', 'write'], ['PATCH', '/db/:db/tables/:table/fields/:field', 'write'], ['DELETE', '/db/:db/tables/:table/fields/:field', 'write'],
-  ['GET', '/db/:db/tables/:table/rows', 'read'], ['POST', '/db/:db/tables/:table/rows', 'write'], ['PATCH', '/db/:db/tables/:table/rows', 'write'], ['DELETE', '/db/:db/tables/:table/rows', 'write'],
+  ['GET', '/db/:db/tables/:table/rows', 'read'], ['POST', '/db/:db/tables/:table/rows', 'write'], ['PUT', '/db/:db/tables/:table/rows', 'write'], ['PATCH', '/db/:db/tables/:table/rows', 'write'], ['DELETE', '/db/:db/tables/:table/rows', 'write'],
   ['POST', '/db/:db/tables/:table/load', 'write'], ['POST', '/db/:db/tables/:table/refresh', 'write'], ['PUT', '/db/:db/tables/:table/source', 'write'], ['DELETE', '/db/:db/tables/:table/source', 'write'], ['GET', '/source-presets', 'none'],
   ['GET', '/db/:db/tables/:table/rules', 'read'], ['PUT', '/db/:db/tables/:table/rules', 'write'], ['POST', '/db/:db/tables/:table/rules', 'write'], ['PATCH', '/db/:db/tables/:table/rules/:rule', 'write'], ['DELETE', '/db/:db/tables/:table/rules/:rule', 'write'],
   ['POST', '/db/:db/cells', 'write'], ['GET', '/db/:db/cells', 'read'],

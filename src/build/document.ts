@@ -115,7 +115,16 @@ export function applyDocument(f: FiniDB, doc: ModelDocument): DocumentResult {
   if (doc.periods && !has('periods')) { f.createPeriods(modelId, 'periods', doc.periods); log.push(`periods: ${doc.periods.count} ${doc.periods.grain}s from ${doc.periods.start}`); }
 
   for (const [id, t] of Object.entries(doc.tables ?? {})) {
-    if (has(id)) continue;
+    if (has(id)) {
+      // an existing table: the document's rows are upserted by id and missing fields added; other rows stay
+      const existing = m.table(id);
+      if (existing.kind === 'tabular' && t.rows?.length) {
+        for (const spec of withRowFields(fieldsOf(t.fields), t.rows)) if (!existing.hasField(spec.id)) f.addField(existing, spec);
+        const r = f.upsertRows(existing, t.rows);
+        log.push(`table ${id}: ${r.inserted} rows added, ${r.updated} updated`);
+      }
+      continue;
+    }
     if (t.distinctOf) { f.createDistinctTable(modelId, id, t.distinctOf.table, t.distinctOf.field); log.push(`table ${id} (distinct of ${t.distinctOf.table}.${t.distinctOf.field})`); continue; }
     if (t.csv) {
       const { parseCsv, planLoad } = require_csv();
@@ -137,6 +146,19 @@ export function applyDocument(f: FiniDB, doc: ModelDocument): DocumentResult {
     log.push(`${id}: ${r.length} rules`);
   }
   for (const [id, p] of Object.entries(doc.pivots ?? {})) {
+    if (has(id) && p.lines) {
+      // an existing pivot: lines the document adds are appended to its line table, attributes updated; dimensions cannot change
+      const pv = m.table(id);
+      if (pv.kind === 'pivot' && pv.lineDim) {
+        const lt = pv.lineDim.table;
+        const lines = p.lines.map(l => typeof l === 'string' ? { id: l } as LineSpec : l);
+        for (const a of new Set(lines.flatMap(l => Object.keys(l).filter(k => k !== 'id')))) if (!lt.hasField(a)) f.addField(lt, { id: a, type: 'text' });
+        const rows = lines.map(l => { const row: Record<string, Scalar> = { id: l.id }; for (const [k, v] of Object.entries(l)) if (k !== 'id') row[k] = v as Scalar; if (lt.memberIndex(l.id) < 0 && row.name === undefined) row.name = l.id.replace(/_/g, ' '); return row; });
+        const r = f.upsertRows(lt, rows);
+        if (r.inserted) log.push(`pivot ${id}: ${r.inserted} lines added`);
+      }
+      for (const d of Object.keys(p.dims ?? {})) if (pv.kind === 'pivot' && p.dims![d] && !pv.dims.some(x => x.id === d)) log.push(`note: pivot ${id} already exists without a '${d}' dimension; dimensions cannot be added to an existing pivot, use a new pivot id`);
+    }
     if (!has(id)) {
       const dims: { id: string; table: string }[] = [];
       let lineTable = p.lineTable;

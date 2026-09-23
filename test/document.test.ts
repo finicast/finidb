@@ -179,3 +179,26 @@ test('a company × line pivot without periods renders companies on rows by defau
   assert.deepEqual(r.outputs[1].json!.rows.map(x => x[0]), ['ev_rev', 'pe']);      // statistics: lines down, stats across
   assert.deepEqual(r.outputs[1].json!.cols, ['low', 'high']);
 });
+
+test('applying a document twice updates in place: new lines, new rules, new and changed rows, a new pivot', () => {
+  const f = new FiniDB();
+  const v1: any = { model: 'm', periods: { start: '2024-01', count: 3, grain: 'year', histUntil: '2024-12-31' },
+    tables: { drivers: { rows: [{ id: 'g', name: 'Growth', value: 0.1 }] } },
+    pivots: { is: { lines: ['revenue'], inputs: { revenue: { fy2024: 100 } }, rules: ['revenue[frame=fcst] = PREV(revenue) * (1 + SUM(drivers.value[id=g]))'] } } };
+  applyDocument(f, v1);
+  const near = (v: unknown) => Math.round(Number(v) * 1e6) / 1e6;
+  assert.equal(near(f.get('m', 'is', { line: 'revenue', period: 'fy2026' })), 121);
+  const v2: any = { model: 'm', periods: v1.periods,
+    tables: { drivers: { rows: [{ id: 'g', name: 'Growth', value: 0.2 }, { id: 'm', name: 'Margin', value: 0.5 }] } },
+    pivots: { is: { lines: ['revenue', { id: 'ebitda', name: 'EBITDA' }, { id: 'margin', format: 'percent' }], inputs: { revenue: { fy2024: 100 } },
+      rules: ['revenue[frame=fcst] = PREV(revenue) * (1 + SUM(drivers.value[id=g]))', 'ebitda = revenue * SUM(drivers.value[id=m])', 'margin = ebitda / revenue'] },
+      summary: { lines: ['total_ebitda'], dims: { period: false }, rules: ['total_ebitda = SUM(is.ebitda)'] } } };
+  const r = applyDocument(f, v2);
+  assert.match(r.log.join('\n'), /pivot is: 2 lines added/);
+  assert.match(r.log.join('\n'), /table drivers: 1 rows added, 1 updated/);
+  assert.equal(near(f.get('m', 'is', { line: 'revenue', period: 'fy2026' })), 144);     // the changed driver
+  assert.equal(near(f.get('m', 'is', { line: 'ebitda', period: 'fy2026' })), 72);       // the new line and rule
+  assert.equal(f.get('m', 'is', { line: 'margin', period: 'fy2024' }), 0.5);
+  assert.equal(near(f.get('m', 'summary', { line: 'total_ebitda' })), 182);             // the new pivot
+  assert.equal((f.model('m').table('is_lines') as any).field('format').column.get(2), 'percent');
+});
