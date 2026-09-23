@@ -330,6 +330,22 @@ test('CSV load into an existing table: dry run, append clashes, upsert, replace,
   assert.equal(noId.body.error.code, 'LOAD_NO_ID');
 });
 
+test('rows: where, q and sort filter and order a data table; rowCount is the filtered count', async () => {
+  await ok('/db/nvda/tables/rf/load', { body: 'id,name,dept,amount,when\na,Alpha,eng,10,2026-01-05\nb,Beta,ops,25,2026-02-05\nc,Gamma,eng,-5,2026-03-05\nd,Delta,ops,40,2026-04-05\n', headers: { 'Content-Type': 'text/csv' } }, 201);
+  const eng = (await ok('/db/nvda/tables/rf/rows?where=' + encodeURIComponent('{"dept":"eng"}'))).body;
+  assert.deepEqual(eng.rows.map((r: any) => r.id), ['a', 'c']); assert.equal(eng.rowCount, 2); assert.equal(eng.total, 4);
+  const big = (await ok('/db/nvda/tables/rf/rows?where=' + encodeURIComponent('{"amount":{"gte":10}}') + '&sort=-amount')).body;
+  assert.deepEqual(big.rows.map((r: any) => r.id), ['d', 'b', 'a']);
+  const either = (await ok('/db/nvda/tables/rf/rows?where=' + encodeURIComponent('{"id":["b","d"]}') + '&sort=name')).body;
+  assert.deepEqual(either.rows.map((r: any) => r.name), ['Beta', 'Delta']);
+  const q = (await ok('/db/nvda/tables/rf/rows?q=amm')).body;
+  assert.deepEqual(q.rows.map((r: any) => r.id), ['c']);
+  const contains = (await ok('/db/nvda/tables/rf/rows?where=' + encodeURIComponent('{"name":{"contains":"ta"}}') + '&sort=-when&limit=1')).body;
+  assert.deepEqual(contains.rows.map((r: any) => r.id), ['d']); assert.equal(contains.rowCount, 2);
+  const bad = await api('/db/nvda/tables/rf/rows?where=' + encodeURIComponent('{"nope":1}'));
+  assert.equal(bad.status, 400); assert.equal(bad.body.error.code, 'SCHEMA_NO_FIELD');
+});
+
 test('auth: 401 when required, grants gate writes, bearer tokens, auth.json persists', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'finidb-auth-'));
   const s = await startServer({ port: 0, host: '127.0.0.1', dataDir: dir, requireAuth: true });

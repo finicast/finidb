@@ -36,7 +36,11 @@ export interface OutputDoc { pivot: string; title?: string; rows?: string[]; col
 /** A dashboard card (built by finicast.com when the document is imported there; ignored by the local build). */
 export interface DashboardCardDoc {
   /** `links`: navigation to the workspace's other dashboards, on the dashboard itself; `dashboards` lists their ids (omit for all) */
-  kind?: 'table' | 'chart' | 'kpi' | 'links'; dashboards?: string[];
+  kind?: 'table' | 'chart' | 'kpi' | 'links' | 'data'; dashboards?: string[];
+  /** data cards: rows of a data table; `where` values may be `$param` (a dashboard parameter) or a list (any of) */
+  table?: string; fields?: string[]; where?: Record<string, string | string[]>; sort?: string; limit?: number;
+  /** drill-down: a click opens `dashboard` with its parameters filled from the point ($row, $row.<dim>, $col, $col.<dim>, $page.<dim>, $series, $id, $<field>, $<param>, or a literal) */
+  drill?: { dashboard: string; params: Record<string, string> };
   /** table cards: leave out rows whose cells are all blank or zero */
   hideZeroRows?: boolean;
   /** table cards: extra columns after the view's columns, each another measure (a text commentary measure, say) at one pinned point */
@@ -45,7 +49,14 @@ export interface DashboardCardDoc {
   rows?: string[]; cols?: string[]; pages?: Record<string, string>; measure?: string; filters?: Record<string, string[]>;
   unit?: string; editable?: boolean; w?: number; h?: number;
 }
-export interface DashboardDoc { id?: string; name?: string; /** a look for the dashboard on finicast.com: default | research (equity research) | banking (a pitch-book page) | revenue (SaaS revenue ops) | controller (FP&A) | boardroom (dark) | print */ theme?: string; cards: DashboardCardDoc[] }
+export interface DashboardDoc {
+  id?: string; name?: string;
+  /** a look for the dashboard on finicast.com: default | research (equity research) | banking (a pitch-book page) | revenue (SaaS revenue ops) | controller (FP&A) | boardroom (dark) | print */
+  theme?: string;
+  /** parameters the dashboard reads from its URL, for cards (`$id`) and for drills from other dashboards */
+  params?: (string | { id: string; label?: string; default?: string })[];
+  cards: DashboardCardDoc[];
+}
 export interface ModelDocument {
   model?: string; name?: string; units?: string;
   /** Iterative calculation for same-period circularities (interest on average debt, a minimum-cash revolver):

@@ -281,14 +281,65 @@ function describeDb(db: DbEntry) {
     models: [...db.f.db.models.values()].map(m => ({ id: m.id, name: m.name, ...(m.iterate ? { iterate: m.iterate } : {}), tables: [...m.tables.values()].map(describeTable) })),
   };
 }
-function readRows(f: FiniDB, t: Table, offset: number, limit: number): Record<string, Value>[] {
+/** A row filter for GET /rows: field → value (equals; an array = any of), or { op: value } with gt gte lt lte ne contains. */
+export type Where = Record<string, Scalar | Scalar[] | Partial<Record<'eq' | 'ne' | 'gt' | 'gte' | 'lt' | 'lte' | 'contains' | 'in', Scalar | Scalar[]>>>;
+function rowMatches(f: FiniDB, t: Table, i: number, where: Where, q: string | undefined): boolean {
+  const id = t.rowId(i);
+  const get = (field: string): Value => field === 'id' ? id : f.getField(t.model.id, t.id, id, field);
+  const norm = (v: Value): Scalar => (v === null || v === undefined || typeof v === 'object') ? null : v;
+  const cmp = (a: Scalar, b: Scalar) => { if (a === null || b === null) return NaN; if (typeof a === 'number' && typeof b === 'number') return a - b; const x = String(a), y = String(b); return x < y ? -1 : x > y ? 1 : 0; };
+  const eq = (a: Scalar, b: Scalar) => a === b || (a !== null && b !== null && String(a).toLowerCase() === String(b).toLowerCase());
+  for (const [field, cond] of Object.entries(where)) {
+    if (field !== 'id' && !t.hasField(field)) throw new HttpError(400, 'SCHEMA_NO_FIELD', `${t.id} has no field ${field}`, { fix: `one of: id, ${t.fields.filter(x => x.id !== 'id').map(x => x.id).join(', ')}` });
+    const v = norm(get(field));
+    const test = (op: string, want: Scalar | Scalar[]): boolean => {
+      switch (op) {
+        case 'eq': return Array.isArray(want) ? want.some(w => eq(v, w)) : eq(v, want);
+        case 'in': return (Array.isArray(want) ? want : [want]).some(w => eq(v, w));
+        case 'ne': return Array.isArray(want) ? !want.some(w => eq(v, w)) : !eq(v, want);
+        case 'gt': return cmp(v, want as Scalar) > 0; case 'gte': return cmp(v, want as Scalar) >= 0;
+        case 'lt': return cmp(v, want as Scalar) < 0; case 'lte': return cmp(v, want as Scalar) <= 0;
+        case 'contains': return v !== null && String(v).toLowerCase().includes(String(want).toLowerCase());
+        default: throw new HttpError(400, 'BAD_REQUEST', `unknown where operator ${op}`, { fix: 'eq, ne, gt, gte, lt, lte, contains, in' });
+      }
+    };
+    if (cond !== null && typeof cond === 'object' && !Array.isArray(cond)) { for (const [op, want] of Object.entries(cond)) if (!test(op, want as Scalar | Scalar[])) return false; }
+    else if (!test('eq', cond as Scalar | Scalar[])) return false;
+  }
+  if (q) {
+    const needle = q.toLowerCase();
+    if (!t.fields.some(fl => { const v = get(fl.id); return v !== null && v !== undefined && typeof v !== 'object' && String(v).toLowerCase().includes(needle); })) return false;
+  }
+  return true;
+}
+/** The rows of a table, optionally filtered (`where`, free-text `q`) and sorted (`sort`: "field" or "-field", comma-separated); `count` is the filtered total. */
+function readRows(f: FiniDB, t: Table, offset: number, limit: number, opts: { where?: Where; q?: string; sort?: string } = {}): { rows: Record<string, Value>[]; count: number } {
+  let idx = Array.from({ length: t.rowCount }, (_, i) => i);
+  if ((opts.where && Object.keys(opts.where).length) || opts.q) idx = idx.filter(i => rowMatches(f, t, i, opts.where ?? {}, opts.q));
+  if (opts.sort) {
+    const keys = opts.sort.split(',').map(s => s.trim()).filter(Boolean).map(s => ({ field: s.replace(/^-/, ''), desc: s.startsWith('-') }));
+    for (const k of keys) if (k.field !== 'id' && !t.hasField(k.field)) throw new HttpError(400, 'SCHEMA_NO_FIELD', `${t.id} has no field ${k.field}`);
+    const val = (i: number, field: string): Scalar => { const v = field === 'id' ? t.rowId(i) : f.getField(t.model.id, t.id, t.rowId(i), field); return v === null || v === undefined || typeof v === 'object' ? null : v; };
+    const cache = new Map<string, Scalar>();
+    const at = (i: number, field: string) => { const k = `${i}|${field}`; if (!cache.has(k)) cache.set(k, val(i, field)); return cache.get(k)!; };
+    idx.sort((a, b) => {
+      for (const k of keys) {
+        const x = at(a, k.field), y = at(b, k.field);
+        if (x === y) continue;
+        if (x === null) return 1; if (y === null) return -1;   // blanks last either way
+        const c = typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y), undefined, { numeric: true, sensitivity: 'base' });
+        if (c) return k.desc ? -c : c;
+      }
+      return a - b;
+    });
+  }
   const out: Record<string, Value>[] = [];
-  for (let i = offset; i < Math.min(t.rowCount, offset + limit); i++) {
+  for (const i of idx.slice(offset, offset + limit)) {
     const row: Record<string, Value> = {};
     for (const fl of t.fields) row[fl.id] = f.getField(t.model.id, t.id, t.rowId(i), fl.id);
     out.push(row);
   }
-  return out;
+  return { rows: out, count: idx.length };
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -536,7 +587,7 @@ export async function startServer(opts: ServerOptions = {}): Promise<ServerHandl
     const d = describeTable(table);
     if (table.kind === 'tabular' && (c.query.has('rows') || c.query.has('limit') || c.query.has('offset'))) {
       const offset = Number(c.query.get('offset') ?? 0), limit = Number(c.query.get('limit') ?? c.query.get('rows') ?? 100);
-      return { ...d, rows: readRows(c.db!.f, table, offset, limit), offset, limit, model: model.id };
+      return { ...d, rows: readRows(c.db!.f, table, offset, limit).rows, offset, limit, model: model.id };
     }
     return d;
   });
@@ -560,7 +611,11 @@ export async function startServer(opts: ServerOptions = {}): Promise<ServerHandl
     const { table } = tableOf(c);
     if (table.kind !== 'tabular') throw new HttpError(400, 'SCHEMA_NOT_TABULAR', 'pivots are read with /query');
     const offset = Number(c.query.get('offset') ?? 0), limit = Number(c.query.get('limit') ?? 100);
-    return { rows: readRows(c.db!.f, table, offset, limit), offset, limit, rowCount: table.rowCount, version: version(c.db!) };
+    let where: Where | undefined;
+    const w = c.query.get('where');
+    if (w) { try { where = JSON.parse(w); } catch { throw new HttpError(400, 'BAD_REQUEST', 'where must be JSON: {"field": value | [values] | {"gt": n}}'); } if (!where || typeof where !== 'object' || Array.isArray(where)) throw new HttpError(400, 'BAD_REQUEST', 'where must be a JSON object'); }
+    const r = readRows(c.db!.f, table, offset, limit, { where, q: c.query.get('q') ?? undefined, sort: c.query.get('sort') ?? undefined });
+    return { rows: r.rows, offset, limit, rowCount: r.count, total: table.rowCount, version: version(c.db!) };
   });
   route('POST', '/db/:db/tables/:table/rows', 'write', async c => {
     const { model } = tableOf(c);

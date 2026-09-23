@@ -9226,7 +9226,15 @@
             ]
           },
           "hideZeroRows": true,
-          "title": "US departments by account: outlook vs budget"
+          "title": "US departments by account: outlook vs budget (click a row for the ledger entries)",
+          "drill": {
+            "dashboard": "ledger",
+            "params": {
+              "subsidiary": "$page.subsidiary",
+              "department": "$row.department",
+              "account": "$row.line"
+            }
+          }
         },
         {
           "kind": "table",
@@ -9373,7 +9381,16 @@
             "oct26"
           ],
           "hideZeroRows": true,
-          "title": "Outlook by account: last three actual months and the first two forecast months"
+          "title": "Outlook by account: last three actual months and the first two forecast months (click a cell for the ledger entries)",
+          "drill": {
+            "dashboard": "ledger",
+            "params": {
+              "subsidiary": "$row.subsidiary",
+              "department": "$row.department",
+              "account": "$row.line",
+              "period": "$col"
+            }
+          }
         },
         {
           "kind": "table",
@@ -9396,6 +9413,56 @@
           "editable": true,
           "hideZeroRows": true,
           "title": "Budget by account (edit any cell)"
+        }
+      ]
+    },
+    {
+      "id": "ledger",
+      "name": "Ledger entries",
+      "theme": "controller",
+      "params": [
+        {
+          "id": "subsidiary",
+          "label": "Entity"
+        },
+        {
+          "id": "department",
+          "label": "Department"
+        },
+        {
+          "id": "account",
+          "label": "Account"
+        },
+        {
+          "id": "period",
+          "label": "Month"
+        }
+      ],
+      "cards": [
+        {
+          "kind": "links"
+        },
+        {
+          "kind": "data",
+          "table": "ledger",
+          "title": "General ledger: the entries behind the numbers (filter, sort and search; the view is a link)",
+          "fields": [
+            "date",
+            "subsidiary",
+            "department",
+            "account",
+            "amount",
+            "period"
+          ],
+          "where": {
+            "subsidiary": "$subsidiary",
+            "department": "$department",
+            "account": "$account",
+            "period": "$period"
+          },
+          "sort": "-date",
+          "limit": 200,
+          "h": 10
         }
       ]
     }

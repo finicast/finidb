@@ -179,7 +179,8 @@ doc['dashboards'] = [
   {'id': 'departments', 'name': 'Departments and headcount', 'theme': 'controller', 'cards': [
     NAV,
     {'kind': 'table', 'pivot': 'fy', 'rows': ['subsidiary', 'department'], 'cols': ['version'], 'pages': {'line': 'total'}, 'filters': {'department': OPEX_DEPTS}, 'title': 'Department spend: year to date and full year, outlook vs budget'},
-    {'kind': 'table', 'pivot': 'fy', 'rows': ['department', 'line'], 'cols': ['version'], 'pages': {'subsidiary': 'us'}, 'filters': {'department': OPEX_DEPTS}, 'hideZeroRows': True, 'title': 'US departments by account: outlook vs budget'},
+    {'kind': 'table', 'pivot': 'fy', 'rows': ['department', 'line'], 'cols': ['version'], 'pages': {'subsidiary': 'us'}, 'filters': {'department': OPEX_DEPTS}, 'hideZeroRows': True, 'title': 'US departments by account: outlook vs budget (click a row for the ledger entries)',
+     'drill': {'dashboard': 'ledger', 'params': {'subsidiary': '$page.subsidiary', 'department': '$row.department', 'account': '$row.line'}}},
     {'kind': 'table', 'pivot': 'headcount', 'rows': ['subsidiary', 'department'], 'cols': ['period'], 'pages': {'line': 'heads'}, 'filters': {'department': OPEX_DEPTS}, 'editable': True, 'title': 'Headcount plan (period end; edit September to December)'},
     {'kind': 'chart', 'type': 'stackedBar', 'pivot': 'headcount', 'rows': ['department'], 'cols': ['period'], 'pages': {'line': 'heads', 'subsidiary': 'us'}, 'filters': {'department': OPEX_DEPTS}, 'title': 'US headcount by department', 'w': 6},
     {'kind': 'chart', 'type': 'bar', 'pivot': 'pnl_company', 'rows': ['line'], 'cols': ['period'], 'lines': ['heads'], 'title': 'Company headcount by month', 'w': 6},
@@ -188,8 +189,17 @@ doc['dashboards'] = [
     NAV,
     {'kind': 'table', 'pivot': 'plan', 'rows': ['line'], 'cols': ['period'], 'periods': PID[HIST:], 'editable': True, 'title': 'Forecast drivers, September to December (edit any cell)'},
     {'kind': 'table', 'pivot': 'headcount', 'rows': ['subsidiary', 'department'], 'cols': ['period'], 'pages': {'line': 'cost_per_head'}, 'periods': PID[HIST:], 'filters': {'department': OPEX_DEPTS}, 'editable': True, 'title': 'Loaded cost per head, annual (edit any cell)'},
-    {'kind': 'table', 'pivot': 'model', 'rows': ['subsidiary', 'department', 'line'], 'cols': ['period'], 'periods': PID[HIST - 3:HIST + 2], 'hideZeroRows': True, 'title': 'Outlook by account: last three actual months and the first two forecast months'},
+    {'kind': 'table', 'pivot': 'model', 'rows': ['subsidiary', 'department', 'line'], 'cols': ['period'], 'periods': PID[HIST - 3:HIST + 2], 'hideZeroRows': True, 'title': 'Outlook by account: last three actual months and the first two forecast months (click a cell for the ledger entries)',
+     'drill': {'dashboard': 'ledger', 'params': {'subsidiary': '$row.subsidiary', 'department': '$row.department', 'account': '$row.line', 'period': '$col'}}},
     {'kind': 'table', 'pivot': 'budget', 'rows': ['subsidiary', 'department', 'line'], 'cols': ['period'], 'periods': PID[HIST - 3:HIST + 2], 'editable': True, 'hideZeroRows': True, 'title': 'Budget by account (edit any cell)'},
+  ]},
+  {'id': 'ledger', 'name': 'Ledger entries', 'theme': 'controller',
+   'params': [{'id': 'subsidiary', 'label': 'Entity'}, {'id': 'department', 'label': 'Department'}, {'id': 'account', 'label': 'Account'}, {'id': 'period', 'label': 'Month'}],
+   'cards': [
+    NAV,
+    {'kind': 'data', 'table': 'ledger', 'title': 'General ledger: the entries behind the numbers (filter, sort and search; the view is a link)',
+     'fields': ['date', 'subsidiary', 'department', 'account', 'amount', 'period'],
+     'where': {'subsidiary': '$subsidiary', 'department': '$department', 'account': '$account', 'period': '$period'}, 'sort': '-date', 'limit': 200, 'h': 10},
   ]},
 ]
 

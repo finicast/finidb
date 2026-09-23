@@ -110,11 +110,18 @@ export function normalizeDocument<T extends Record<string, unknown>>(doc: T): { 
       if (!isObj(dv)) fail(`dashboards[${i}]`, 'must be an object with cards');
       const db = dv as Record<string, unknown>;
       if (db.cards !== undefined && !Array.isArray(db.cards)) fail(`dashboards[${i}].cards`, 'must be an array of cards', 'e.g. [{ "kind": "table", "pivot": "comps" }]');
+      if (db.params !== undefined) {
+        if (typeof db.params === 'string') db.params = [db.params];
+        if (!Array.isArray(db.params) || !(db.params as unknown[]).every(x => typeof x === 'string' || (isObj(x) && typeof x.id === 'string'))) fail(`dashboards[${i}].params`, 'must be an array of parameter ids or { "id", "label", "default" } objects', 'e.g. ["account", "period"]');
+      }
       (db.cards as unknown[] | undefined)?.forEach((cv, j) => {
         const path = `dashboards[${i}].cards[${j}]`;
         if (!isObj(cv)) fail(path, 'must be an object', 'e.g. { "kind": "chart", "type": "line", "pivot": "income_statement", "lines": ["revenue"] }');
         const c = cv as Record<string, unknown>;
-        if (c.kind !== 'links' && typeof c.pivot !== 'string') fail(`${path}.pivot`, 'names the pivot the card shows');
+        if (c.kind === 'data') { if (typeof c.table !== 'string' || !c.table) fail(`${path}.table`, 'a data card names the data table it shows', 'e.g. { "kind": "data", "table": "ledger", "where": { "account": "$account" } }'); }
+        else if (c.kind !== 'links' && typeof c.pivot !== 'string') fail(`${path}.pivot`, 'names the pivot the card shows');
+        if (c.drill !== undefined) { if (!isObj(c.drill) || typeof (c.drill as Record<string, unknown>).dashboard !== 'string') fail(`${path}.drill`, 'must be { "dashboard": "<id>", "params": { param: "$row" } }'); }
+        set(c, 'fields', toList(c.fields, `${path}.fields`, notes, 'field ids'));
         set(c, 'rows', toList(c.rows, `${path}.rows`, notes, 'dimension ids'));
         set(c, 'cols', toList(c.cols, `${path}.cols`, notes, 'dimension ids'));
         set(c, 'lines', toList(c.lines, `${path}.lines`, notes, 'line ids'));
