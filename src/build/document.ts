@@ -39,6 +39,8 @@ export interface DashboardCardDoc {
   kind?: 'table' | 'chart' | 'kpi' | 'links' | 'data' | 'text'; dashboards?: string[];
   /** text cards: markdown; `$param` reads a dashboard parameter */
   text?: string;
+  /** chart cards: marks over the data — a vertical event line ({ kind: "line", at, label }), a labelled span ({ kind: "span", from, to, label }), a horizontal level ({ kind: "level", value, label }), a callout ({ kind: "point", at, series?, label }); color muted | accent | positive | negative */
+  annotations?: { kind: 'line' | 'span' | 'level' | 'point'; at?: string; from?: string; to?: string; value?: number; series?: string; label?: string; color?: 'muted' | 'accent' | 'positive' | 'negative' }[];
   /** data cards: rows of a data table; `where` values may be `$param` (a dashboard parameter) or a list (any of) */
   table?: string; fields?: string[]; where?: Record<string, string | string[]>; sort?: string; limit?: number;
   /** drill-down: a click opens `dashboard` with its parameters filled from the point ($row, $row.<dim>, $col, $col.<dim>, $page.<dim>, $series, $id, $<field>, $<param>, or a literal) */

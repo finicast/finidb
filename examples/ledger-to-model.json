@@ -9121,7 +9121,20 @@
             "ebitda"
           ],
           "title": "Revenue, gross profit and EBITDA by month",
-          "w": 6
+          "w": 6,
+          "annotations": [
+            {
+              "kind": "line",
+              "at": "aug26",
+              "label": "Last actual"
+            },
+            {
+              "kind": "span",
+              "from": "sep26",
+              "to": "dec26",
+              "label": "Forecast"
+            }
+          ]
         },
         {
           "kind": "chart",
@@ -9138,7 +9151,28 @@
             "ebitda_margin"
           ],
           "title": "Margins by month",
-          "w": 6
+          "w": 6,
+          "annotations": [
+            {
+              "kind": "level",
+              "value": 0.2,
+              "label": "EBITDA margin target",
+              "color": "accent"
+            },
+            {
+              "kind": "point",
+              "at": "may26",
+              "series": "ebitda_margin",
+              "label": "Cloud contract renegotiated",
+              "color": "positive"
+            },
+            {
+              "kind": "span",
+              "from": "sep26",
+              "to": "dec26",
+              "label": "Forecast"
+            }
+          ]
         },
         {
           "kind": "chart",
