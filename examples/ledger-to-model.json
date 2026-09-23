@@ -9014,6 +9014,13 @@
           "kind": "links"
         },
         {
+          "kind": "text",
+          "title": "How to read this",
+          "w": 12,
+          "h": 2,
+          "text": "**Actuals January to August** come straight from the general ledger (744 entries, two entities, six departments); **September to December** are driven by the forecast drivers on the *Drivers* dashboard: revenue growth, cost of revenue as a share of revenue, headcount times loaded cost, and marketing and cloud as shares of revenue. The budget is the annual operating plan entered by account and month. Variance is outlook minus budget; a negative number on a cost line is spend above plan. Click any account on the *Departments* or *Drivers* dashboards to open the ledger entries behind it."
+        },
+        {
           "kind": "kpi",
           "pivot": "fy_summary",
           "line": "revenue",
@@ -9441,6 +9448,12 @@
       "cards": [
         {
           "kind": "links"
+        },
+        {
+          "kind": "text",
+          "w": 12,
+          "h": 1,
+          "text": "Entries for **$account** · **$department** · **$subsidiary** · **$period**. Clear a chip above to widen the view; every filter, sort and search below is part of the link."
         },
         {
           "kind": "data",

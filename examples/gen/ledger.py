@@ -165,6 +165,10 @@ FY = {'version': ['fy_outlook', 'fy_budget', 'fy_variance', 'fy_variance_pct']}
 doc['dashboards'] = [
   {'id': 'outlook', 'name': 'FY2026 outlook', 'theme': 'controller', 'cards': [
     NAV,
+    {'kind': 'text', 'title': 'How to read this', 'w': 12, 'h': 2, 'text':
+     '**Actuals January to August** come straight from the general ledger (744 entries, two entities, six departments); **September to December** are driven by the forecast drivers on the *Drivers* dashboard: revenue growth, cost of revenue as a share of revenue, headcount times loaded cost, and marketing and cloud as shares of revenue. '
+     'The budget is the annual operating plan entered by account and month. Variance is outlook minus budget; a negative number on a cost line is spend above plan. '
+     'Click any account on the *Departments* or *Drivers* dashboards to open the ledger entries behind it.'},
     kpi('fy_summary', 'revenue', 'FY2026 revenue: budget → outlook', cols=['version'], filters={'version': ['fy_budget', 'fy_outlook']}, unit='$'),
     kpi('fy_summary', 'ebitda', 'FY2026 EBITDA: budget → outlook', cols=['version'], filters={'version': ['fy_budget', 'fy_outlook']}, unit='$'),
     kpi('fy_summary', 'ebitda_margin', 'FY2026 EBITDA margin: budget → outlook', cols=['version'], filters={'version': ['fy_budget', 'fy_outlook']}),
@@ -197,6 +201,7 @@ doc['dashboards'] = [
    'params': [{'id': 'subsidiary', 'label': 'Entity'}, {'id': 'department', 'label': 'Department'}, {'id': 'account', 'label': 'Account'}, {'id': 'period', 'label': 'Month'}],
    'cards': [
     NAV,
+    {'kind': 'text', 'w': 12, 'h': 1, 'text': 'Entries for **$account** · **$department** · **$subsidiary** · **$period**. Clear a chip above to widen the view; every filter, sort and search below is part of the link.'},
     {'kind': 'data', 'table': 'ledger', 'title': 'General ledger: the entries behind the numbers (filter, sort and search; the view is a link)',
      'fields': ['date', 'subsidiary', 'department', 'account', 'amount', 'period'],
      'where': {'subsidiary': '$subsidiary', 'department': '$department', 'account': '$account', 'period': '$period'}, 'sort': '-date', 'limit': 200, 'h': 10},

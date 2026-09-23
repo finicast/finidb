@@ -119,6 +119,7 @@ export function normalizeDocument<T extends Record<string, unknown>>(doc: T): { 
         if (!isObj(cv)) fail(path, 'must be an object', 'e.g. { "kind": "chart", "type": "line", "pivot": "income_statement", "lines": ["revenue"] }');
         const c = cv as Record<string, unknown>;
         if (c.kind === 'data') { if (typeof c.table !== 'string' || !c.table) fail(`${path}.table`, 'a data card names the data table it shows', 'e.g. { "kind": "data", "table": "ledger", "where": { "account": "$account" } }'); }
+        else if (c.kind === 'text') { if (c.text !== undefined && typeof c.text !== 'string') fail(`${path}.text`, 'a text card carries markdown as a string'); }
         else if (c.kind !== 'links' && typeof c.pivot !== 'string') fail(`${path}.pivot`, 'names the pivot the card shows');
         if (c.drill !== undefined) { if (!isObj(c.drill) || typeof (c.drill as Record<string, unknown>).dashboard !== 'string') fail(`${path}.drill`, 'must be { "dashboard": "<id>", "params": { param: "$row" } }'); }
         set(c, 'fields', toList(c.fields, `${path}.fields`, notes, 'field ids'));

@@ -36,7 +36,9 @@ export interface OutputDoc { pivot: string; title?: string; rows?: string[]; col
 /** A dashboard card (built by finicast.com when the document is imported there; ignored by the local build). */
 export interface DashboardCardDoc {
   /** `links`: navigation to the workspace's other dashboards, on the dashboard itself; `dashboards` lists their ids (omit for all) */
-  kind?: 'table' | 'chart' | 'kpi' | 'links' | 'data'; dashboards?: string[];
+  kind?: 'table' | 'chart' | 'kpi' | 'links' | 'data' | 'text'; dashboards?: string[];
+  /** text cards: markdown; `$param` reads a dashboard parameter */
+  text?: string;
   /** data cards: rows of a data table; `where` values may be `$param` (a dashboard parameter) or a list (any of) */
   table?: string; fields?: string[]; where?: Record<string, string | string[]>; sort?: string; limit?: number;
   /** drill-down: a click opens `dashboard` with its parameters filled from the point ($row, $row.<dim>, $col, $col.<dim>, $page.<dim>, $series, $id, $<field>, $<param>, or a literal) */
