@@ -15,6 +15,7 @@ import { join } from 'node:path';
 import { FiniDB, CompileError, ParseError, isError } from '../index.js';
 import type { QueryOptions, FieldSpec, PeriodsSpec, Scalar, Value, Grid, Clause } from '../index.js';
 import type { AnyTable, Table, Pivot, Dim, Measure, Model } from '../schema/schema.js';
+import { readOplog, type OpRecord } from '../persist/oplog.js';
 import { parseCsv, planLoad, slug, coerce, type ParsedCsv } from '../store/csv.js';
 import { fetchSource, envSecrets, secretNamesOf } from '../source/fetch.js';
 import { requestsOf, describePresets } from '../source/presets.js';
@@ -486,6 +487,14 @@ export async function startServer(opts: ServerOptions = {}): Promise<ServerHandl
   const routes: Route[] = [];
   const route = (method: string, path: string, need: Need, handler: (c: Ctx) => unknown) => routes.push({ method, ...compile(path), need, handler });
   const user = (c: Ctx) => c.principal?.user ?? 'anonymous';
+  /** The actor for this request: a trusted caller may name one (`x-finidb-actor`, `x-finidb-actor-name`). */
+  function actorOf(c: Ctx): { id: string; name?: string } | undefined {
+    const h = c.req.headers;
+    const id = typeof h['x-finidb-actor'] === 'string' ? h['x-finidb-actor'].slice(0, 120) : undefined;
+    if (id && c.principal?.trusted) return { id, name: typeof h['x-finidb-actor-name'] === 'string' ? h['x-finidb-actor-name'].slice(0, 120) : undefined };
+    const u = c.principal?.user;
+    return u ? { id: u, name: u } : undefined;
+  }
 
   route('GET', '/health', 'none', () => ({ ok: true, databases: databases.size, uptime: process.uptime() }));
 
@@ -595,7 +604,7 @@ export async function startServer(opts: ServerOptions = {}): Promise<ServerHandl
     if (b.kind === 'pivot' || b.dims) op = { method: 'createPivot', args: [model, b.id, { dims: b.dims ?? [], measures: b.measures, lineDim: b.lineDim, timeDim: b.timeDim, name: b.name }] };
     else if (b.from?.distinctOf) op = { method: 'createDistinctTable', args: [model, b.id, b.from.distinctOf.table, b.from.distinctOf.field] };
     else if (b.from?.periods) op = { method: 'createPeriods', args: [model, b.id, b.from.periods] };
-    else op = { method: 'createTable', args: [model, b.id, b.fields ?? [], { name: b.name, rows: b.rows }] };
+    else op = { method: 'createTable', args: [model, b.id, b.fields ?? [], { name: b.name, rows: b.rows, track: b.track === true }] };
     const r = await applyOp(c.db!, op, user(c));
     if (op.method === 'createPeriods' && b.rows) await applyOp(c.db!, { method: 'insertRows', args: [model, b.id, b.rows] }, user(c));
     return new Reply(201, { ...(r as object), model, version: version(c.db!) });
@@ -929,6 +938,38 @@ export async function startServer(opts: ServerOptions = {}): Promise<ServerHandl
   });
 
   // changes (§3.2): long-poll up to 25 s until the database version moves past `since`
+  /**
+   * `GET /db/:db/history` — what changed, newest first: `{ seq, ts, op, by, byName, table, rows }`.
+   * `table` and `row` narrow it; `limit` caps the answer (200 by default). The log is the record of every
+   * change ever made, including the ones since overwritten, which a table's own columns cannot show.
+   */
+  route('GET', '/db/:db/history', 'read', c => {
+    const dir = join(dataDir, c.params.db);
+    const limit = Math.min(1000, Math.max(1, Number(c.query.get('limit') ?? 200)));
+    const table = c.query.get('table') ?? undefined, row = c.query.get('row') ?? undefined;
+    let records: OpRecord[];
+    try { records = readOplog(dir); } catch { records = []; }
+    const out: Record<string, unknown>[] = [];
+    for (let i = records.length - 1; i >= 0 && out.length < limit; i--) {
+      const r = records[i];
+      const a = (r.args ?? {}) as Record<string, unknown>;
+      const t = typeof a.table === 'string' ? a.table : typeof a.id === 'string' && r.op.startsWith('create') ? a.id : undefined;
+      if (table && t !== table) continue;
+      const rows = Array.isArray(a.rows) ? (a.rows as Record<string, unknown>[]) : undefined;
+      const ids = rows ? rows.map(x => (x?.id === undefined || x?.id === null ? null : String(x.id))).filter((x): x is string => !!x) : typeof a.rowId === 'string' ? [a.rowId] : Array.isArray(a.ids) ? (a.ids as unknown[]).map(String) : [];
+      if (row && !ids.includes(row)) continue;
+      out.push({
+        seq: r.seq, ts: r.ts, op: r.op, ...(r.by ? { by: r.by, byName: r.byName ?? r.by } : {}),
+        ...(t ? { table: t } : {}), ...(typeof a.model === 'string' ? { model: a.model } : {}),
+        ...(ids.length ? { rows: ids.slice(0, 50), rowCount: ids.length } : {}),
+        ...(typeof a.field === 'object' && a.field ? { field: (a.field as { id?: string }).id } : typeof a.fieldId === 'string' ? { field: a.fieldId } : {}),
+        ...(a.value !== undefined ? { value: a.value } : {}),
+        ...(typeof a.count === 'number' ? { rowCount: a.count } : {}),
+      });
+    }
+    return { history: out, total: records.length };
+  });
+
   route('GET', '/db/:db/changes', 'read', async c => {
     const db = c.db!;
     const since = Number(c.query.get('since') ?? -1);
@@ -976,6 +1017,9 @@ export async function startServer(opts: ServerOptions = {}): Promise<ServerHandl
       try {
         if (params.db !== undefined) { c.db = dbOf(params.db); authorize(c, match.need); }
         else authorize(c, match.need);
+        // Who is making this change: the authenticated user, or the person the trusted caller names on its behalf
+        // (the hosted site speaks for whoever is signed in). Every record written during this request carries it.
+        if (c.db) c.db.f.actor = actorOf(c);
         const result = await match.handler(c);
         if (result instanceof Reply) send(result.status, result.body, result.contentType, result.headers);
         else send(200, result ?? { ok: true });

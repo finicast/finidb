@@ -185,7 +185,7 @@ test('scenarios: one rule set, three cases, history shared', () => {
 });
 
 test('every example exports to a workbook without value-only cells', () => {
-  for (const name of ['dcf', 'comparables', 'precedents', 'salesops', 'budget-vs-actual', 'ledger-to-model', 'scenarios', 'coreweave', 'intc-ceos']) {
+  for (const name of ['dcf', 'comparables', 'precedents', 'salesops', 'budget-vs-actual', 'ledger-to-model', 'scenarios', 'coreweave', 'intc-ceos', 'trade-desk']) {
     const f = new FiniDB();
     const r = applyDocument(f, load(name));
     const x = exportWorkbook(f.db, r.model);

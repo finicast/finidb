@@ -105,6 +105,50 @@ test('a copied database carries the model and its values, and the two then move 
   } finally { await h.close(); rmSync(dir, { recursive: true, force: true }); }
 });
 
+test('a tracked table records who added each row and who changed it, and the log keeps the history', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'finidb-track-'));
+  let h = await startServer({ port: 0, host: 'localhost', dataDir: dir, persistence: filePersistence() });
+  try {
+    const as = (who: string, name: string) => ({ 'content-type': 'application/json', 'x-finidb-actor': who, 'x-finidb-actor-name': name });
+    const post = (path: string, body: unknown, who = 'u1', name = 'Ada') => fetch(`${h.url}${path}`, { method: 'POST', headers: as(who, name), body: JSON.stringify(body) });
+    const rows = async (table = 'notes') => (await (await fetch(`${h.url}/db/t/tables/${table}/rows?limit=50`)).json() as { rows: Record<string, unknown>[] }).rows;
+    assert.equal((await post('/db', { name: 't' })).status, 201);
+    await post('/db/t/models', { id: 'm' });
+    assert.equal((await post('/db/t/tables', { model: 'm', id: 'notes', fields: [{ id: 'note' }], track: true })).status, 201);
+    await post('/db/t/tables/notes/rows', { rows: [{ id: 'a', note: 'first' }] });
+
+    let r = (await rows())[0];
+    assert.equal(r.added_by, 'u1');
+    assert.equal(r.changed_by, 'u1');
+    assert.equal(typeof r.added_at, 'number');                     // a day number, so PERIOD() can roll it up
+    assert.deepEqual((await rows('people')).map(p => [p.id, p.name]), [['u1', 'Ada']]);   // the people table fills itself
+
+    // someone else changes the row: added_by stays, changed_by moves
+    await fetch(`${h.url}/db/t/tables/notes/rows`, { method: 'PUT', headers: as('u2', 'Grace'), body: JSON.stringify({ rows: [{ id: 'a', note: 'second' }] }) });
+    r = (await rows())[0];
+    assert.equal(r.note, 'second');
+    assert.equal(r.added_by, 'u1');
+    assert.equal(r.changed_by, 'u2');
+    assert.deepEqual((await rows('people')).map(p => p.id).sort(), ['u1', 'u2']);
+
+    // the engine's columns are its own: a caller that sends them is ignored
+    await post('/db/t/tables/notes/rows', { rows: [{ id: 'b', note: 'third', added_by: 'u1', changed_by: 'u1' }] }, 'u2', 'Grace');
+    assert.equal((await rows()).find(x => x.id === 'b')!.added_by, 'u2');
+
+    // the log says who did what, newest first, and keeps the overwritten value
+    const hist = await (await fetch(`${h.url}/db/t/history?table=notes`)).json() as { history: { op: string; by?: string; byName?: string; rows?: string[] }[] };
+    assert.deepEqual(hist.history.map(x => [x.op, x.by]).slice(0, 3), [['insertRows', 'u2'], ['upsertRows', 'u2'], ['insertRows', 'u1']]);
+    assert.equal(hist.history[0].byName, 'Grace');
+
+    // and it all comes back the same after a restart, stamps and all
+    await h.close();
+    h = await startServer({ port: 0, host: 'localhost', dataDir: dir, persistence: filePersistence() });
+    r = (await rows())[0];
+    assert.equal(r.added_by, 'u1');
+    assert.equal(r.changed_by, 'u2');
+  } finally { await h.close(); rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('server persists databases across restarts through filePersistence', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'finidb-srv-'));
   try {

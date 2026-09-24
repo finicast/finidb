@@ -28,7 +28,11 @@ export interface OplogOptions {
   seq?: number;
 }
 
-export interface OpRecord { seq: number; ts: string; op: string; args: Record<string, unknown> }
+export interface OpRecord {
+  seq: number; ts: string; op: string; args: Record<string, unknown>;
+  /** who made the change, when the caller said: an id and, when it has one, a readable name */
+  by?: string; byName?: string;
+}
 
 export const OPLOG_FILE = 'oplog.jsonl';
 export const BLOB_DIR = 'blobs';
@@ -64,9 +68,9 @@ export class OpLog {
   get closed(): boolean { return this.fd === null; }
 
   /** Append one op. Returns the record with its assigned seq. */
-  append(op: string, args: Record<string, unknown>): OpRecord {
+  append(op: string, args: Record<string, unknown>, by?: { id: string; name?: string }): OpRecord {
     if (this.fd === null) throw new Error('OPLOG_CLOSED');
-    const rec: OpRecord = { seq: ++this.seqCounter, ts: new Date().toISOString(), op, args };
+    const rec: OpRecord = { seq: ++this.seqCounter, ts: new Date().toISOString(), op, args, ...(by?.id ? { by: by.id, ...(by.name ? { byName: by.name } : {}) } : {}) };
     fs.writeSync(this.fd, JSON.stringify(rec) + '\n');
     this.dirty = true;
     if (this.policy === 'always') this.sync();
@@ -159,25 +163,26 @@ export function withOplog<F extends FiniDB>(f: F, dir: string, opts: OplogOption
     createModel: f.createModel, createTable: f.createTable, addField: f.addField, insertRows: f.insertRows,
     createDistinctTable: f.createDistinctTable, createPeriods: f.createPeriods, createPivot: f.createPivot,
     setRules: f.setRules, setValue: f.setValue, setCell: f.setCell,
-    upsertRows: f.upsertRows, setSource: f.setSource, deleteRows: f.deleteRows, dropField: f.dropField, dropTable: f.dropTable, dropModel: f.dropModel, addFieldTo: f.addFieldTo,
+    upsertRows: f.upsertRows, setSource: f.setSource, trackTable: f.trackTable, deleteRows: f.deleteRows, dropField: f.dropField, dropTable: f.dropTable, dropModel: f.dropModel, addFieldTo: f.addFieldTo,
     setIterate: f.setIterate,
   };
   // Run `call` under the recording guard and, if it is the outermost call, log `args`.
   const record = <T>(op: string, call: () => T, args: () => Record<string, unknown>): T => {
     if (log.depth > 0) return call();
     const r = log.silently(call);
-    log.append(op, args());
+    log.append(op, args(), f.actor);
     return r;
   };
 
   f.createModel = (id, name) => record('createModel', () => orig.createModel.call(f, id, name), () => ({ id, name }));
   f.setIterate = (modelId, iterate) => record('setIterate', () => orig.setIterate.call(f, modelId, iterate), () => ({ model: modelId, iterate: f.model(modelId).iterate ?? null }));
   f.createTable = (modelId, id, fields, o = {}) => {
-    const t = record('createTable', () => orig.createTable.call(f, modelId, id, fields, { name: o.name }), () => ({ model: modelId, id, fields, name: o.name }));
+    const t = record('createTable', () => orig.createTable.call(f, modelId, id, fields, { name: o.name, track: o.track }), () => ({ model: modelId, id, fields, name: o.name, ...(o.track ? { track: true } : {}) }));
     if (o.rows && log.depth === 0) f.insertRows(t, o.rows);
     else if (o.rows) orig.insertRows.call(f, t, o.rows);
     return t;
   };
+  f.trackTable = t => record('trackTable', () => orig.trackTable.call(f, t), () => ({ model: t.model.id, table: t.id }));
   f.addField = (t, spec) => record('addField', () => orig.addField.call(f, t, spec), () => ({ model: t.model.id, table: t.id, field: spec }));
   f.insertRows = (t, rows) => record('insertRows', () => orig.insertRows.call(f, t, rows), () => {
     const base = { model: t.model.id, table: t.id };
@@ -232,7 +237,8 @@ function applyOpRaw(f: FiniDB, rec: OpRecord, dir: string) {
   switch (rec.op) {
     case 'createModel': f.createModel(a.id, a.name); break;
     case 'setIterate': f.setIterate(a.model, a.iterate); break;
-    case 'createTable': f.createTable(a.model, a.id, a.fields as FieldSpec[], { name: a.name, rows: a.rows }); break;
+    case 'createTable': f.createTable(a.model, a.id, a.fields as FieldSpec[], { name: a.name, rows: a.rows, track: a.track === true }); break;
+    case 'trackTable': f.trackTable(table()); break;
     case 'addField': f.addField(table(), a.field as FieldSpec); break;
     case 'insertRows': {
       const rows: Record<string, Scalar>[] = a.blob ? JSON.parse(fs.readFileSync(path.join(dir, BLOB_DIR, `${a.blob}.json`), 'utf8')) : a.rows;
@@ -265,10 +271,17 @@ function applyOpRaw(f: FiniDB, rec: OpRecord, dir: string) {
  */
 export function replay(f: FiniDB, dir: string, opts: { afterSeq?: number } = {}): number {
   let last = opts.afterSeq ?? 0;
-  for (const rec of readOplog(dir)) {
-    if (rec.seq <= last) continue;
-    applyOp(f, rec, dir);
-    last = rec.seq;
-  }
+  const actor = f.actor, nowMs = f.nowMs;
+  try {
+    for (const rec of readOplog(dir)) {
+      if (rec.seq <= last) continue;
+      // Replay under the record's own actor and clock, so a tracked table's stamps come back as they were.
+      f.actor = rec.by ? { id: rec.by, name: rec.byName } : undefined;
+      const t = Date.parse(rec.ts);
+      f.nowMs = Number.isFinite(t) ? t : undefined;
+      applyOp(f, rec, dir);
+      last = rec.seq;
+    }
+  } finally { f.actor = actor; f.nowMs = nowMs; }
   return last;
 }

@@ -1,0 +1,839 @@
+{
+ "model": "desk",
+ "name": "Trade desk: a team blotter with who entered what",
+ "units": "US dollars",
+ "periods": {
+  "start": "2026-01",
+  "count": 9,
+  "grain": "month"
+ },
+ "tables": {
+  "people": {
+   "name": "People",
+   "fields": {
+    "role": "text"
+   },
+   "rows": [
+    {
+     "id": "maya",
+     "name": "Maya Okonkwo",
+     "role": "Portfolio manager"
+    },
+    {
+     "id": "tomas",
+     "name": "Tomas Lindqvist",
+     "role": "Analyst, technology"
+    },
+    {
+     "id": "priya",
+     "name": "Priya Raman",
+     "role": "Analyst, health care"
+    },
+    {
+     "id": "dan",
+     "name": "Dan Whitfield",
+     "role": "Risk"
+    }
+   ]
+  },
+  "tickers": {
+   "name": "Tickers",
+   "fields": {
+    "sector": "text",
+    "last": "number",
+    "covered_by": "ref:people"
+   },
+   "rows": [
+    {
+     "id": "nvda",
+     "name": "NVIDIA",
+     "sector": "Semiconductors",
+     "last": 178.2,
+     "covered_by": "tomas"
+    },
+    {
+     "id": "msft",
+     "name": "Microsoft",
+     "sector": "Software",
+     "last": 512.4,
+     "covered_by": "tomas"
+    },
+    {
+     "id": "lly",
+     "name": "Eli Lilly",
+     "sector": "Pharmaceuticals",
+     "last": 902.5,
+     "covered_by": "priya"
+    },
+    {
+     "id": "unh",
+     "name": "UnitedHealth",
+     "sector": "Managed care",
+     "last": 336.1,
+     "covered_by": "priya"
+    },
+    {
+     "id": "asml",
+     "name": "ASML",
+     "sector": "Semiconductor equipment",
+     "last": 1043.0,
+     "covered_by": "tomas"
+    },
+    {
+     "id": "isrg",
+     "name": "Intuitive Surgical",
+     "sector": "Medical devices",
+     "last": 566.8,
+     "covered_by": "priya"
+    },
+    {
+     "id": "avgo",
+     "name": "Broadcom",
+     "sector": "Semiconductors",
+     "last": 361.9,
+     "covered_by": "tomas"
+    },
+    {
+     "id": "vrtx",
+     "name": "Vertex Pharmaceuticals",
+     "sector": "Biotechnology",
+     "last": 452.3,
+     "covered_by": "priya"
+    },
+    {
+     "id": "crwd",
+     "name": "CrowdStrike",
+     "sector": "Security software",
+     "last": 402.6,
+     "covered_by": "tomas"
+    },
+    {
+     "id": "now",
+     "name": "ServiceNow",
+     "sector": "Software",
+     "last": 812.0,
+     "covered_by": "maya"
+    },
+    {
+     "id": "regn",
+     "name": "Regeneron",
+     "sector": "Biotechnology",
+     "last": 611.4,
+     "covered_by": "priya"
+    }
+   ]
+  },
+  "sides": {
+   "name": "Side",
+   "rows": [
+    {
+     "id": "buy",
+     "name": "Buy"
+    },
+    {
+     "id": "sell",
+     "name": "Sell"
+    }
+   ]
+  },
+  "statuses": {
+   "name": "Research status",
+   "rows": [
+    {
+     "id": "idea",
+     "name": "Idea"
+    },
+    {
+     "id": "researching",
+     "name": "Researching"
+    },
+    {
+     "id": "owned",
+     "name": "Owned"
+    },
+    {
+     "id": "exited",
+     "name": "Exited"
+    },
+    {
+     "id": "passed",
+     "name": "Passed"
+    }
+   ]
+  },
+  "trades": {
+   "name": "Trade blotter",
+   "track": true,
+   "fields": {
+    "date": "date",
+    "ticker": "ref:tickers",
+    "side": "ref:sides",
+    "quantity": "number",
+    "price": "number",
+    "entered_by": "ref:people",
+    "note": "text",
+    "value": "number*",
+    "signed_shares": "number*",
+    "period": "ref:periods*",
+    "entered_period": "ref:periods*"
+   },
+   "rows": [
+    {
+     "id": "t001",
+     "date": "2026-01-14",
+     "ticker": "nvda",
+     "side": "buy",
+     "quantity": 1200,
+     "price": 141.3,
+     "entered_by": "maya",
+     "note": "Adding on the thesis"
+    },
+    {
+     "id": "t002",
+     "date": "2026-01-14",
+     "ticker": "msft",
+     "side": "buy",
+     "quantity": 400,
+     "price": 471.2,
+     "entered_by": "maya",
+     "note": "Adding on the thesis"
+    },
+    {
+     "id": "t003",
+     "date": "2026-01-28",
+     "ticker": "lly",
+     "side": "buy",
+     "quantity": 150,
+     "price": 812.4,
+     "entered_by": "priya",
+     "note": "Adding on the thesis"
+    },
+    {
+     "id": "t004",
+     "date": "2026-02-09",
+     "ticker": "asml",
+     "side": "buy",
+     "quantity": 120,
+     "price": 903.1,
+     "entered_by": "tomas",
+     "note": "Adding on the thesis"
+    },
+    {
+     "id": "t005",
+     "date": "2026-02-20",
+     "ticker": "nvda",
+     "side": "buy",
+     "quantity": 600,
+     "price": 152.8,
+     "entered_by": "tomas",
+     "note": "Adding on the thesis"
+    },
+    {
+     "id": "t006",
+     "date": "2026-03-03",
+     "ticker": "unh",
+     "side": "buy",
+     "quantity": 500,
+     "price": 291.6,
+     "entered_by": "priya",
+     "note": "Adding on the thesis"
+    },
+    {
+     "id": "t007",
+     "date": "2026-03-17",
+     "ticker": "msft",
+     "side": "sell",
+     "quantity": 150,
+     "price": 498.0,
+     "entered_by": "maya",
+     "note": "Trimming into strength"
+    },
+    {
+     "id": "t008",
+     "date": "2026-04-02",
+     "ticker": "isrg",
+     "side": "buy",
+     "quantity": 180,
+     "price": 521.4,
+     "entered_by": "priya",
+     "note": "Adding on the thesis"
+    },
+    {
+     "id": "t009",
+     "date": "2026-04-21",
+     "ticker": "avgo",
+     "side": "buy",
+     "quantity": 700,
+     "price": 318.7,
+     "entered_by": "tomas",
+     "note": "Adding on the thesis"
+    },
+    {
+     "id": "t010",
+     "date": "2026-05-06",
+     "ticker": "nvda",
+     "side": "sell",
+     "quantity": 400,
+     "price": 168.9,
+     "entered_by": "maya",
+     "note": "Trimming into strength"
+    },
+    {
+     "id": "t011",
+     "date": "2026-05-19",
+     "ticker": "vrtx",
+     "side": "buy",
+     "quantity": 220,
+     "price": 421.8,
+     "entered_by": "priya",
+     "note": "Adding on the thesis"
+    },
+    {
+     "id": "t012",
+     "date": "2026-06-08",
+     "ticker": "asml",
+     "side": "buy",
+     "quantity": 60,
+     "price": 975.3,
+     "entered_by": "tomas",
+     "note": "Adding on the thesis"
+    },
+    {
+     "id": "t013",
+     "date": "2026-06-25",
+     "ticker": "unh",
+     "side": "sell",
+     "quantity": 200,
+     "price": 312.4,
+     "entered_by": "priya",
+     "note": "Trimming into strength"
+    },
+    {
+     "id": "t014",
+     "date": "2026-07-07",
+     "ticker": "avgo",
+     "side": "buy",
+     "quantity": 300,
+     "price": 334.1,
+     "entered_by": "tomas",
+     "note": "Adding on the thesis"
+    },
+    {
+     "id": "t015",
+     "date": "2026-07-23",
+     "ticker": "msft",
+     "side": "buy",
+     "quantity": 250,
+     "price": 489.6,
+     "entered_by": "maya",
+     "note": "Adding on the thesis"
+    },
+    {
+     "id": "t016",
+     "date": "2026-08-11",
+     "ticker": "lly",
+     "side": "buy",
+     "quantity": 80,
+     "price": 866.2,
+     "entered_by": "priya",
+     "note": "Adding on the thesis"
+    },
+    {
+     "id": "t017",
+     "date": "2026-08-27",
+     "ticker": "isrg",
+     "side": "sell",
+     "quantity": 60,
+     "price": 548.9,
+     "entered_by": "priya",
+     "note": "Trimming into strength"
+    },
+    {
+     "id": "t018",
+     "date": "2026-09-03",
+     "ticker": "nvda",
+     "side": "buy",
+     "quantity": 500,
+     "price": 171.4,
+     "entered_by": "tomas",
+     "note": "Adding on the thesis"
+    },
+    {
+     "id": "t019",
+     "date": "2026-09-15",
+     "ticker": "vrtx",
+     "side": "buy",
+     "quantity": 100,
+     "price": 438.5,
+     "entered_by": "priya",
+     "note": "Adding on the thesis"
+    },
+    {
+     "id": "t020",
+     "date": "2026-09-22",
+     "ticker": "avgo",
+     "side": "sell",
+     "quantity": 250,
+     "price": 357.2,
+     "entered_by": "maya",
+     "note": "Trimming into strength"
+    }
+   ],
+   "rules": [
+    "value = quantity * price",
+    "signed_shares = quantity * IF(side = \"sell\", -1, 1)",
+    "period = PERIOD(date, periods)",
+    "entered_period = PERIOD(added_at, periods)"
+   ]
+  },
+  "watchlist": {
+   "name": "Watchlist and notes",
+   "track": true,
+   "fields": {
+    "ticker": "ref:tickers",
+    "status": "ref:statuses",
+    "owner": "ref:people",
+    "note": "text",
+    "noted_period": "ref:periods*",
+    "one": "number*"
+   },
+   "rows": [
+    {
+     "id": "w01",
+     "ticker": "nvda",
+     "status": "owned",
+     "owner": "tomas",
+     "note": "Data-centre demand still ahead of supply; watching gross margin on the next print."
+    },
+    {
+     "id": "w02",
+     "ticker": "msft",
+     "status": "owned",
+     "owner": "maya",
+     "note": "Cloud growth steady; the capex line is the thing to watch."
+    },
+    {
+     "id": "w03",
+     "ticker": "lly",
+     "status": "owned",
+     "owner": "priya",
+     "note": "Incretin franchise compounding; supply constraints easing."
+    },
+    {
+     "id": "w04",
+     "ticker": "unh",
+     "status": "owned",
+     "owner": "priya",
+     "note": "Trimmed on the cost ratio; keeping a half position while utilisation normalises."
+    },
+    {
+     "id": "w05",
+     "ticker": "asml",
+     "status": "owned",
+     "owner": "tomas",
+     "note": "Order book covers two years; export rules are the risk."
+    },
+    {
+     "id": "w06",
+     "ticker": "isrg",
+     "status": "owned",
+     "owner": "priya",
+     "note": "Procedure growth intact, install base compounding."
+    },
+    {
+     "id": "w07",
+     "ticker": "avgo",
+     "status": "owned",
+     "owner": "tomas",
+     "note": "Custom silicon share gains; software mix lifts margin."
+    },
+    {
+     "id": "w08",
+     "ticker": "vrtx",
+     "status": "researching",
+     "owner": "priya",
+     "note": "Pain programme read-out due; sizing a starter position."
+    },
+    {
+     "id": "w09",
+     "ticker": "crwd",
+     "status": "researching",
+     "owner": "tomas",
+     "note": "Platform consolidation story; waiting on net retention."
+    },
+    {
+     "id": "w10",
+     "ticker": "now",
+     "status": "idea",
+     "owner": "maya",
+     "note": "Worth a look after the guide-down."
+    },
+    {
+     "id": "w11",
+     "ticker": "regn",
+     "status": "passed",
+     "owner": "priya",
+     "note": "Passed: pipeline concentration too high for the sleeve."
+    }
+   ],
+   "rules": [
+    "noted_period = PERIOD(changed_at, periods)",
+    "one = 1"
+   ]
+  }
+ },
+ "pivots": {
+  "position": {
+   "name": "Positions",
+   "dims": {
+    "ticker": "tickers",
+    "period": false
+   },
+   "lines": [
+    {
+     "id": "shares",
+     "name": "Shares held"
+    },
+    {
+     "id": "cost",
+     "name": "Cost",
+     "format": "currency"
+    },
+    {
+     "id": "last",
+     "name": "Last price",
+     "format": "currency"
+    },
+    {
+     "id": "market_value",
+     "name": "Market value",
+     "format": "currency"
+    },
+    {
+     "id": "unrealised",
+     "name": "Unrealised gain",
+     "format": "currency"
+    },
+    {
+     "id": "weight",
+     "name": "Weight",
+     "format": "percent"
+    }
+   ],
+   "rules": [
+    "shares = SUM(trades.signed_shares[ticker=@ticker])",
+    "cost = SUM(trades.value[ticker=@ticker, side=buy]) - SUM(trades.value[ticker=@ticker, side=sell])",
+    "last = SUM(tickers.last[id=@ticker])",
+    "market_value = shares * last",
+    "unrealised = market_value - cost",
+    "weight = market_value / fund.market_value"
+   ]
+  },
+  "fund": {
+   "name": "The book",
+   "dims": {
+    "period": false
+   },
+   "lines": [
+    {
+     "id": "market_value",
+     "name": "Market value",
+     "format": "currency"
+    },
+    {
+     "id": "cost",
+     "name": "Cost",
+     "format": "currency"
+    },
+    {
+     "id": "unrealised",
+     "name": "Unrealised gain",
+     "format": "currency"
+    },
+    {
+     "id": "names",
+     "name": "Names held"
+    }
+   ],
+   "rules": [
+    "market_value = SUM(position.market_value)",
+    "cost = SUM(position.cost)",
+    "unrealised = market_value - cost",
+    "names = COUNT(watchlist.one[status=owned])"
+   ]
+  },
+  "contributions": {
+   "name": "Who entered what",
+   "dims": {
+    "person": "people",
+    "period": "periods"
+   },
+   "lines": [
+    {
+     "id": "trades_entered",
+     "name": "Trades entered"
+    },
+    {
+     "id": "traded_value",
+     "name": "Value entered",
+     "format": "currency"
+    },
+    {
+     "id": "notes_touched",
+     "name": "Watchlist notes they keep"
+    }
+   ],
+   "rules": [
+    "trades_entered = COUNT(trades.value[added_by=@person, period=@period])",
+    "traded_value = SUM(trades.value[added_by=@person, period=@period])",
+    "notes_touched = COUNT(watchlist.one[changed_by=@person])"
+   ]
+  },
+  "coverage": {
+   "name": "By analyst",
+   "dims": {
+    "person": "people",
+    "period": false
+   },
+   "lines": [
+    {
+     "id": "names_covered",
+     "name": "Names covered"
+    },
+    {
+     "id": "positions",
+     "name": "Positions held"
+    },
+    {
+     "id": "market_value",
+     "name": "Market value",
+     "format": "currency"
+    },
+    {
+     "id": "notes",
+     "name": "Notes on the list"
+    }
+   ],
+   "rules": [
+    "names_covered = COUNT(tickers.last[covered_by=@person])",
+    "positions = COUNT(watchlist.one[owner=@person, status=owned])",
+    "market_value = SUM(position.market_value[ticker.covered_by=@person])",
+    "notes = COUNT(watchlist.one[owner=@person])"
+   ]
+  }
+ },
+ "outputs": [
+  {
+   "pivot": "position",
+   "rows": [
+    "ticker"
+   ],
+   "title": "Positions"
+  },
+  {
+   "pivot": "contributions",
+   "rows": [
+    "person"
+   ],
+   "cols": [
+    "period"
+   ],
+   "lines": [
+    "trades_entered"
+   ],
+   "title": "Trades entered per person"
+  }
+ ],
+ "dashboards": [
+  {
+   "id": "desk",
+   "name": "The desk",
+   "theme": "banking",
+   "cards": [
+    {
+     "kind": "links"
+    },
+    {
+     "kind": "text",
+     "text": "Every row in the blotter and on the watchlist carries the person who entered it and the person who last changed it. The engine fills those columns; nobody types them, and a client that sends them is ignored. They are ordinary fields, so the Activity page charts them like any other dimension."
+    },
+    {
+     "kind": "kpi",
+     "pivot": "fund",
+     "line": "market_value",
+     "title": "Market value"
+    },
+    {
+     "kind": "kpi",
+     "pivot": "fund",
+     "line": "unrealised",
+     "title": "Unrealised gain"
+    },
+    {
+     "kind": "kpi",
+     "pivot": "fund",
+     "line": "names",
+     "title": "Names held"
+    },
+    {
+     "kind": "table",
+     "pivot": "position",
+     "rows": [
+      "ticker"
+     ],
+     "cols": [
+      "line"
+     ],
+     "title": "Positions",
+     "sort": "-market_value",
+     "hideZeroRows": true
+    },
+    {
+     "kind": "chart",
+     "type": "bar",
+     "pivot": "coverage",
+     "rows": [
+      "line"
+     ],
+     "cols": [
+      "person"
+     ],
+     "lines": [
+      "market_value"
+     ],
+     "title": "The book, by the analyst who covers it",
+     "w": 4
+    },
+    {
+     "kind": "chart",
+     "type": "bar",
+     "pivot": "position",
+     "rows": [
+      "line"
+     ],
+     "cols": [
+      "ticker"
+     ],
+     "lines": [
+      "market_value"
+     ],
+     "title": "Market value by name",
+     "w": 4
+    },
+    {
+     "kind": "chart",
+     "type": "bar",
+     "pivot": "position",
+     "rows": [
+      "line"
+     ],
+     "cols": [
+      "ticker"
+     ],
+     "lines": [
+      "unrealised"
+     ],
+     "title": "Unrealised gain by name",
+     "w": 4
+    },
+    {
+     "kind": "data",
+     "table": "trades",
+     "title": "The blotter, newest first",
+     "fields": [
+      "date",
+      "ticker",
+      "side",
+      "quantity",
+      "price",
+      "value",
+      "added_by",
+      "added_at",
+      "changed_by",
+      "changed_at",
+      "note"
+     ],
+     "sort": "-date",
+     "limit": 50,
+     "h": 10
+    }
+   ]
+  },
+  {
+   "id": "activity",
+   "name": "Who did what",
+   "theme": "banking",
+   "cards": [
+    {
+     "kind": "links"
+    },
+    {
+     "kind": "text",
+     "text": "**The desk's own record.** `added_by` and `changed_by` reference the people table the engine keeps, so contributions pivot like any other dimension. The log behind them keeps every change ever made, including the ones since overwritten."
+    },
+    {
+     "kind": "chart",
+     "type": "stackedBar",
+     "pivot": "contributions",
+     "rows": [
+      "person"
+     ],
+     "cols": [
+      "period"
+     ],
+     "pages": {
+      "line": "trades_entered"
+     },
+     "title": "Trades by month, and who entered them",
+     "w": 6
+    },
+    {
+     "kind": "chart",
+     "type": "stackedBar",
+     "pivot": "contributions",
+     "rows": [
+      "person"
+     ],
+     "cols": [
+      "period"
+     ],
+     "pages": {
+      "line": "traded_value"
+     },
+     "title": "Value traded by month, and who entered it",
+     "w": 6
+    },
+    {
+     "kind": "table",
+     "pivot": "coverage",
+     "rows": [
+      "person"
+     ],
+     "cols": [
+      "line"
+     ],
+     "title": "By analyst",
+     "sort": "-market_value"
+    },
+    {
+     "kind": "data",
+     "table": "watchlist",
+     "title": "The watchlist: whose note, and when it was last touched",
+     "fields": [
+      "ticker",
+      "status",
+      "owner",
+      "note",
+      "added_by",
+      "added_at",
+      "changed_by",
+      "changed_at"
+     ],
+     "sort": "-changed_at",
+     "limit": 50,
+     "h": 9
+    }
+   ]
+  }
+ ]
+}

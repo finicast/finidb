@@ -60,9 +60,28 @@ export function formatRule(t: AnyTable, r: Rule): string {
   return `${target}${when.length ? '[' + when.map(clause).join(', ') + ']' : ''} = ${r.formula}`;
 }
 
+/** Who is making the change, and when. The server sets it per request; replay restores it per record, so a
+ *  tracked table's stamps come out the same on the way back as they went in. */
+export interface Actor { id: string; name?: string }
+
+/** The table of people and agents that tracked tables reference. */
+export const PEOPLE_TABLE = 'people';
+const UNKNOWN_PERSON = { id: 'unknown', name: 'Someone with the link' };
+/** The columns the engine keeps on a tracked table. */
+export const TRACK_FIELDS: FieldSpec[] = [
+  { id: 'added_by', name: 'Added by', ref: PEOPLE_TABLE },
+  { id: 'added_at', name: 'Added', type: 'date' },
+  { id: 'changed_by', name: 'Changed by', ref: PEOPLE_TABLE },
+  { id: 'changed_at', name: 'Changed', type: 'date' },
+];
+
 export class FiniDB {
   readonly db = new Database();
   readonly evaluator: EvalCore;
+  /** The person, agent or link making the current change; unset means nobody said. */
+  actor?: Actor;
+  /** The clock for the current change, in milliseconds; set only during replay. */
+  nowMs?: number;
   constructor(opts: FiniDBOptions = {}) {
     this.evaluator = opts.engine === 'reference' ? new ReferenceEvaluator(this.db) : new IncrementalEngine(this.db);
   }
@@ -74,12 +93,53 @@ export class FiniDB {
   setIterate(modelId: string, iterate: boolean | Partial<IterateSettings> | null | undefined): IterateSettings | undefined { const m = this.model(modelId); m.setIterate(iterate); return m.iterate; }
   model(id: string): Model { return this.db.model(id); }
 
-  createTable(modelId: string, id: string, fields: FieldSpec[], opts: { name?: string; rows?: Record<string, Scalar>[] } = {}): Table {
+  createTable(modelId: string, id: string, fields: FieldSpec[], opts: { name?: string; rows?: Record<string, Scalar>[]; track?: boolean } = {}): Table {
     const m = this.model(modelId);
     const t = m.createTable(id, opts.name);
     for (const f of fields) this.addField(t, f);
+    if (opts.track) this.trackTable(t);
     if (opts.rows) this.insertRows(t, opts.rows);
     return t;
+  }
+
+  /**
+   * Make a table keep its own record of who added each row and who last changed it. The four columns are the
+   * engine's: a client may send them, and they are ignored. `added_by` and `changed_by` reference a `people`
+   * table the engine keeps, so "rows by person" is an ordinary dimension.
+   */
+  trackTable = (t: Table): Table => {
+    if (t.kind !== 'tabular') throw new Error('SCHEMA_NOT_TABULAR: only a data table can be tracked');
+    const m = t.model;
+    let people = m.tables.get(PEOPLE_TABLE) as Table | undefined;
+    if (!people) people = this.createTable(m.id, PEOPLE_TABLE, [{ id: 'name' }], { name: 'People' });
+    else if (!people.fieldById.has('name')) this.addField(people, { id: 'name' });
+    for (const f of TRACK_FIELDS) if (!t.fieldById.has(f.id)) this.addField(t, f);
+    t.track = true;
+    this.db.schemaVersion++;
+    this.db.touch();
+    return t;
+  };
+
+  /** The row for whoever is making this change, in the model's `people` table, created the first time they act. */
+  private personId(t: Table): string {
+    const people = t.model.tables.get(PEOPLE_TABLE) as Table | undefined;
+    if (!people) return UNKNOWN_PERSON.id;
+    const who = this.actor?.id ? { id: this.actor.id, name: this.actor.name ?? this.actor.id } : UNKNOWN_PERSON;
+    const at = people.rowById.get(who.id);
+    if (at === undefined) people.insertRow({ id: who.id, name: who.name });
+    else if (who.name && people.fieldById.has('name') && people.field('name').column.get(at) !== who.name) people.setCell(who.id, 'name', who.name);
+    return who.id;
+  }
+
+  /** Fill a row's tracking columns. `kind` is 'add' for a new row, 'change' for one that already existed. */
+  private stamp(t: Table, row: Record<string, Scalar>, kind: 'add' | 'change'): Record<string, Scalar> {
+    if (!t.track) return row;
+    const by = this.personId(t), day = Math.floor((this.nowMs ?? Date.now()) / 86_400_000);
+    const out = { ...row };
+    for (const f of TRACK_FIELDS) delete out[f.id];             // the engine's columns, not the caller's
+    if (kind === 'add') { out.added_by = by; out.added_at = day; }
+    out.changed_by = by; out.changed_at = day;
+    return out;
   }
   addField(t: Table, f: FieldSpec): Field {
     if (f.id === 'id') return t.idField;
@@ -128,16 +188,18 @@ export class FiniDB {
     this.db.touch();
   }
   insertRows(t: Table, rows: Record<string, Scalar>[]): number {
-    for (const r of rows) t.insertRow(r);
+    for (const r of rows) t.insertRow(t.track ? this.stamp(t, r, 'add') : r);
     this.db.touch();
     return t.rowCount;
   }
   /** Rows whose id exists get the given fields set in place; the rest are inserted. Keys that are not fields are ignored. */
   upsertRows(t: Table, rows: Record<string, Scalar>[]): { inserted: number; updated: number; changed: number; rowCount: number } {
     let inserted = 0, updated = 0, changed = 0;
-    for (const r of rows) {
-      const id = r.id === undefined || r.id === null ? undefined : String(r.id);
-      if (id !== undefined && t.rowById.has(id)) {
+    for (const raw of rows) {
+      const id = raw.id === undefined || raw.id === null ? undefined : String(raw.id);
+      const existing = id !== undefined && t.rowById.has(id);
+      const r = t.track ? this.stamp(t, raw, existing ? 'change' : 'add') : raw;
+      if (existing) {
         for (const [k, v] of Object.entries(r)) {
           if (k === 'id' || !t.fieldById.has(k)) continue;
           const before = t.field(k).column.get(t.rowById.get(id)!);
@@ -359,7 +421,9 @@ export class FiniDB {
   }
   setCell(modelId: string, tableId: string, rowId: string, fieldId: string, value: Scalar) {
     const t = this.model(modelId).table(tableId) as Table;
+    if (t.track && TRACK_FIELDS.some(f => f.id === fieldId)) throw new Error(`SCHEMA_TRACKED_FIELD: ${fieldId} is kept by the engine`);
     t.setCell(rowId, fieldId, value);
+    if (t.track) { const s = this.stamp(t, {}, 'change'); for (const [k, v] of Object.entries(s)) t.setCell(rowId, k, v); }
     if (this.evaluator instanceof IncrementalEngine) this.evaluator.noteRowWrite(t, t.rowById.get(rowId)!, t.field(fieldId));
   }
 

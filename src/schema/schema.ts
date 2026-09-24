@@ -32,6 +32,8 @@ export class Table {
   distinctOf?: { table: Table; field: Field };
   /** Linked table: rows come from an HTTP source, refreshed on demand (src/source). */
   source?: TableSource;
+  /** Tracked table: the engine keeps added_by, added_at, changed_by and changed_at on every row. */
+  track = false;
   constructor(public readonly iid: number, public id: string, public name: string, public readonly model: Model) {
     this.addField('id', 'ID', 'text');
   }

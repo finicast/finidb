@@ -64,6 +64,7 @@ export function normalizeDocument<T extends Record<string, unknown>>(doc: T): { 
       if (t.rows !== undefined && (!Array.isArray(t.rows) || !t.rows.every(isObj))) fail(`tables.${id}.rows`, 'must be an array of row objects', 'e.g. [{ "id": "nvda", "name": "NVIDIA", "peer": 1 }]');
       if (t.fields !== undefined && !isObj(t.fields) && !Array.isArray(t.fields)) fail(`tables.${id}.fields`, 'must be an object { field: type } or an array of { id, type }');
       if (t.csv !== undefined && typeof t.csv !== 'string') fail(`tables.${id}.csv`, 'must be CSV text with a header row');
+      if (t.track !== undefined && typeof t.track !== 'boolean') fail(`tables.${id}.track`, 'is true to have the engine record who added and changed each row', 'e.g. "track": true');
       if (t.rules !== undefined) set(t, 'rules', toRules(t.rules, `tables.${id}.rules`));
     }
   }

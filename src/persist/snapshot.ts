@@ -37,6 +37,8 @@ export interface TableHeader {
   fields: FieldHeader[]; rules: RuleHeader[];
   distinctOf?: { table: string; field: string };
   source?: TableSource;
+  /** the engine keeps added_by, added_at, changed_by and changed_at on this table */
+  track?: boolean;
 }
 export interface PivotHeader {
   id: string; name: string;
@@ -120,6 +122,7 @@ export function saveSnapshot(f: FiniDB, path: string, opts: { seq?: number } = {
       const th: TableHeader = { id: t.id, name: t.name, rowCount: t.rowCount, fields: t.fields.map(fl => fieldHeader(fl, t.rowCount, payload)), rules: t.rules.map(ruleHeader) };
       if (t.distinctOf) th.distinctOf = { table: t.distinctOf.table.id, field: t.distinctOf.field.id };
       if (t.source) th.source = t.source;
+      if (t.track) th.track = true;
       return th;
     });
     const pivots = all.filter((t): t is Pivot => t.kind === 'pivot').map(p => ({
@@ -213,6 +216,7 @@ export function loadSnapshot(path: string, opts: { engine?: 'incremental' | 'ref
       t.version++;
     }
     for (const th of mh.tables) if (th.source) tables.get(th.id)!.source = th.source;
+    for (const th of mh.tables) if (th.track) tables.get(th.id)!.track = true;
     for (const th of mh.tables) if (th.distinctOf) { const t = tables.get(th.id)!; t.distinctOf = { table: tables.get(th.distinctOf.table)!, field: tables.get(th.distinctOf.table)!.field(th.distinctOf.field) }; }
     // Pivots: dims, measures, inputs.
     for (const ph of mh.pivots) {

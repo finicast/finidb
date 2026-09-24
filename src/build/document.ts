@@ -31,6 +31,9 @@ export interface TableDoc {
   /** A linked table: rows fetched from an HTTP source (a preset such as { preset: { id: "fmp", params: { symbols: "NVDA" } } }, or url/path/map),
    *  refreshed on demand. `prefetchSources` fills `rows` before a local build; finicast.com fetches when it builds. */
   source?: TableSource;
+  /** the engine keeps who added each row and who changed it, in added_by, added_at, changed_by and changed_at,
+   *  which reference a `people` table it fills; a client that sends those columns is ignored */
+  track?: boolean;
 }
 export interface OutputDoc { pivot: string; title?: string; rows?: string[]; cols?: string[]; pages?: Record<string, string>; measure?: string; lines?: string[]; filters?: Record<string, string[]>; format?: 'markdown' | 'json' | 'both'; scale?: number; decimals?: number }
 /** A dashboard card (built by finicast.com when the document is imported there; ignored by the local build). */
@@ -148,12 +151,12 @@ export function applyDocument(f: FiniDB, doc: ModelDocument): DocumentResult {
     if (t.csv) {
       const { parseCsv, planLoad } = require_csv();
       const plan = planLoad(parseCsv(t.csv), { candidates: candidateIds(f, modelId) });
-      const made = f.createTable(modelId, id, plan.fields as FieldSpec[], { name: t.name ?? titleCase(id), rows: plan.rows });
+      const made = f.createTable(modelId, id, plan.fields as FieldSpec[], { name: t.name ?? titleCase(id), rows: plan.rows, track: t.track === true });
       for (const spec of fieldsOf(t.fields)) if (!made.hasField(spec.id)) f.addField(made, spec);   // declared computed fields (e.g. period = PERIOD(date)) on top of the CSV's columns
       log.push(`table ${id}: ${plan.rows.length} rows from CSV`);
       continue;
     }
-    f.createTable(modelId, id, withRowFields(fieldsOf(t.fields), t.rows), { name: t.name ?? titleCase(id), rows: t.rows ?? [] });
+    f.createTable(modelId, id, withRowFields(fieldsOf(t.fields), t.rows), { name: t.name ?? titleCase(id), rows: t.rows ?? [], track: t.track === true });
     if (t.source) { f.setSource(modelId, id, t.source); log.push(`table ${id}: ${(t.rows ?? []).length} rows, linked to ${t.source.preset ? `${t.source.preset.id} ${JSON.stringify(t.source.preset.params)}` : t.source.url ?? 'a source'}`); continue; }
     log.push(`table ${id}: ${(t.rows ?? []).length} rows`);
   }
