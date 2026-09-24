@@ -409,6 +409,7 @@ def kpi(pivot, line, title, **kw): return dict(kind='kpi', pivot=pivot, line=lin
 NAV = dict(kind='links')   # a row of links to the other dashboards, first on every page
 def table(pivot, title, **kw): return dict(kind='table', pivot=pivot, title=title, **kw)
 def chart(pivot, title, **kw): return dict(kind='chart', pivot=pivot, title=title, **kw)
+def dist(table, field, title, **kw): return dict(kind='distribution', table=table, field=field, title=title, **kw)
 QF = {'quarter': [PREVQ, Q]}   # a KPI shows the last column and its change from the one before
 Y26 = {'quarter': ['q1_2026', 'q2_2026', 'q3_2026', 'q4_2026']}
 QT = {'quarter': ['q4_2025', 'q1_2026', 'q2_2026', 'q3_2026', 'q4_2026']}   # tables: last closed year-end quarter onward
@@ -441,7 +442,17 @@ doc['dashboards'] = [
     table('rep_quarterly', 'Rep leaderboard, Q3 2026', rows=['rep'], cols=['line'], pages={'quarter': Q}, lines=['quota', 'bookings', 'attainment', 'forecast', 'forecast_attainment', 'open_pipeline', 'coverage', 'deals_won', 'win_rate', 'avg_deal', 'ytd_attainment']),
     chart('segment_quarterly', 'Average deal by segment', type='bar', rows=['segment'], cols=['quarter'], pages={'line': 'avg_deal'}, filters=Y26, w=6),
     chart('segment_quarterly', 'Sales cycle by segment (days)', type='bar', rows=['segment'], cols=['quarter'], pages={'line': 'avg_cycle_days'}, filters=Y26, w=6),
+    dist('opps', 'cycle_days', 'Sales cycle of won deals (days), with quartiles', where={'won': '1'}, bins=14, marks='quartiles', w=6),
+    dist('opps', 'acv', 'Won deal size (ACV), by decile', where={'won': '1'}, bins='deciles', w=6,
+         drill=dict(dashboard='deals', params={'range': '$range', 'bin': '$bin'})),
   ]},
+  {'id': 'deals', 'name': 'Won deals in a band', 'theme': 'revenue', 'params': [dict(id='range', label='ACV band'), dict(id='bin', label='Band')],
+   'cards': [
+     NAV,
+     dict(kind='text', text='### Won deals, ACV **$bin**\n\nEvery closed-won opportunity whose annual contract value falls in the band clicked on the VP page. Sort, filter or search the rows; the view is in the URL.'),
+     dict(kind='data', table='opps', where={'won': '1', 'acv': '$range'}, sort='-acv',
+          fields=['id', 'account', 'rep', 'segment', 'region', 'channel', 'acv', 'term_years', 'cycle_days', 'close']),
+   ]},
   {'id': 'ops', 'name': 'Sales ops: plan, quotas and commissions', 'theme': 'revenue', 'cards': [
     NAV,
     table('comp_plan', 'Commission plan: attainment bands and multipliers (edit)', rows=['tranche'], cols=['line'], editable=True, filters={'tranche': ['t1', 't2', 't3', 't4', 't5']}, w=6),

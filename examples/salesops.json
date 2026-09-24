@@ -5194,6 +5194,75 @@
             "quarter": ["q1_2026", "q2_2026", "q3_2026", "q4_2026"]
           },
           "w": 6
+        },
+        {
+          "kind": "distribution",
+          "table": "opps",
+          "field": "cycle_days",
+          "title": "Sales cycle of won deals (days), with quartiles",
+          "where": {
+            "won": "1"
+          },
+          "bins": 14,
+          "marks": "quartiles",
+          "w": 6
+        },
+        {
+          "kind": "distribution",
+          "table": "opps",
+          "field": "acv",
+          "title": "Won deal size (ACV), by decile",
+          "where": {
+            "won": "1"
+          },
+          "bins": "deciles",
+          "w": 6,
+          "drill": {
+            "dashboard": "deals",
+            "params": {
+              "range": "$range",
+              "bin": "$bin"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "deals",
+      "name": "Won deals in a band",
+      "theme": "revenue",
+      "params": [
+        {"id": "range", "label": "ACV band"},
+        {"id": "bin", "label": "Band"}
+      ],
+      "cards": [
+        {
+          "kind": "links"
+        },
+        {
+          "kind": "text",
+          "text": "### Won deals, ACV **$bin**\n\nEvery closed-won opportunity whose annual contract value falls in the band clicked on the VP page. Sort, filter or search the rows; the view is in the URL."
+        },
+        {
+          "kind": "data",
+          "table": "opps",
+          "where": {
+            "won": "1",
+            "acv": "$range"
+          },
+          "sort": "-acv",
+          "fields": [
+            "id",
+            "account",
+            "rep",
+            "segment",
+            "region",
+            "channel",
+            "acv",
+            "term_years",
+            "cycle_days",
+            "close"
+          ]
         }
       ]
     },

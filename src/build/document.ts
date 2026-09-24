@@ -36,7 +36,9 @@ export interface OutputDoc { pivot: string; title?: string; rows?: string[]; col
 /** A dashboard card (built by finicast.com when the document is imported there; ignored by the local build). */
 export interface DashboardCardDoc {
   /** `links`: navigation to the workspace's other dashboards, on the dashboard itself; `dashboards` lists their ids (omit for all) */
-  kind?: 'table' | 'chart' | 'kpi' | 'links' | 'data' | 'text'; dashboards?: string[];
+  kind?: 'table' | 'chart' | 'kpi' | 'links' | 'data' | 'text' | 'distribution'; dashboards?: string[];
+  /** distribution cards: a histogram of numeric `field` of data `table` (cut by `where`); `bins` = a count of value ranges or "quartiles" | "quintiles" | "deciles"; `y` = "count" | "sum" | "mean"; `marks` = quantile boundaries drawn */
+  field?: string; bins?: number | 'quartiles' | 'quintiles' | 'deciles'; y?: 'count' | 'sum' | 'mean'; marks?: 'quartiles' | 'quintiles' | 'deciles'; tail?: 'fold' | 'keep';
   /** text cards: markdown; `$param` reads a dashboard parameter */
   text?: string;
   /** chart cards: marks over the data — a vertical event line ({ kind: "line", at, label }), a labelled span ({ kind: "span", from, to, label }), a horizontal level ({ kind: "level", value, label }), a callout ({ kind: "point", at, series?, label }); color muted | accent | positive | negative */

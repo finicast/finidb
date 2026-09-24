@@ -128,6 +128,20 @@ test('inputs on a pivot without periods are keyed by the other dimension', () =>
   assert.equal(f.get('m', 'md', { line: 'cap', company: 'b' }), 80);
 });
 
+test('a distribution card names its table, field and how it bins', async () => {
+  const { normalizeDocument, DocumentError } = await import('../src/build/normalize.js');
+  const card = (extra: object) => ({ dashboards: [{ cards: [{ kind: 'distribution', table: 'opps', field: 'acv', ...extra }] }] }) as any;
+  assert.equal(normalizeDocument(card({ bins: '14' })).doc.dashboards[0].cards[0].bins, 14);   // "14" is a count, not a quantile
+  assert.equal(normalizeDocument(card({ bins: 'deciles', y: 'sum', marks: undefined })).doc.dashboards[0].cards[0].bins, 'deciles');
+  assert.throws(() => normalizeDocument(card({ bins: 'thirds' })), (e: any) => e instanceof DocumentError && e.path === 'dashboards[0].cards[0].bins');
+  assert.throws(() => normalizeDocument(card({ bins: 1 })), (e: any) => e.path === 'dashboards[0].cards[0].bins');
+  assert.throws(() => normalizeDocument(card({ y: 'median' })), (e: any) => e.path === 'dashboards[0].cards[0].y');
+  assert.throws(() => normalizeDocument(card({ marks: 'halves' })), (e: any) => e.path === 'dashboards[0].cards[0].marks');
+  assert.throws(() => normalizeDocument(card({ tail: 'cut' })), (e: any) => e.path === 'dashboards[0].cards[0].tail');
+  assert.throws(() => normalizeDocument({ dashboards: [{ cards: [{ kind: 'distribution', table: 'opps' }] }] } as any), (e: any) => e.path === 'dashboards[0].cards[0].field');
+  assert.throws(() => normalizeDocument({ dashboards: [{ cards: [{ kind: 'distribution', field: 'acv' }] }] } as any), (e: any) => e.path === 'dashboards[0].cards[0].table');
+});
+
 test('normalizeDocument forgives lists written as objects or strings and names the path of what it cannot read', async () => {
   const { normalizeDocument, DocumentError } = await import('../src/build/normalize.js');
   const doc: any = { model: 'm', pivots: { p: { lines: ['a'], rules: [{ target: 'a', formula: '1' }] } }, outputs: [{ pivot: 'p', rows: { company: '*' }, lines: 'a' }], dashboards: [{ cards: [{ kind: 'table', pivot: 'p', lines: { a: 1, b: 2 }, filters: { line: 'a' } }] }] };

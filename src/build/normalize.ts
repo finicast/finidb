@@ -119,6 +119,15 @@ export function normalizeDocument<T extends Record<string, unknown>>(doc: T): { 
         if (!isObj(cv)) fail(path, 'must be an object', 'e.g. { "kind": "chart", "type": "line", "pivot": "income_statement", "lines": ["revenue"] }');
         const c = cv as Record<string, unknown>;
         if (c.kind === 'data') { if (typeof c.table !== 'string' || !c.table) fail(`${path}.table`, 'a data card names the data table it shows', 'e.g. { "kind": "data", "table": "ledger", "where": { "account": "$account" } }'); }
+        else if (c.kind === 'distribution') {
+          if (typeof c.table !== 'string' || !c.table) fail(`${path}.table`, 'a distribution card names the data table its observations come from', 'e.g. { "kind": "distribution", "table": "opps", "field": "acv", "bins": 12 }');
+          if (typeof c.field !== 'string' || !c.field) fail(`${path}.field`, 'a distribution card names the numeric field it bins', 'e.g. "field": "acv"');
+          if (typeof c.bins === 'string' && /^\d+$/.test(c.bins)) c.bins = Number(c.bins);
+          if (c.bins !== undefined && !(typeof c.bins === 'number' && c.bins >= 2) && !['quartiles', 'quintiles', 'deciles'].includes(c.bins as string)) fail(`${path}.bins`, 'is a number of value ranges (2 or more) or "quartiles" | "quintiles" | "deciles"');
+          if (c.y !== undefined && !['count', 'sum', 'mean'].includes(c.y as string)) fail(`${path}.y`, 'is "count" (observations per bin), "sum" or "mean" of the field');
+          if (c.marks !== undefined && !['quartiles', 'quintiles', 'deciles'].includes(c.marks as string)) fail(`${path}.marks`, 'is "quartiles" | "quintiles" | "deciles"');
+          if (c.tail !== undefined && c.tail !== 'fold' && c.tail !== 'keep') fail(`${path}.tail`, 'is "fold" (default: bin to the 99th percentile, the rest in a final bar) or "keep"');
+        }
         else if (c.kind === 'text') { if (c.text !== undefined && typeof c.text !== 'string') fail(`${path}.text`, 'a text card carries markdown as a string'); }
         else if (c.kind !== 'links' && typeof c.pivot !== 'string') fail(`${path}.pivot`, 'names the pivot the card shows');
         if (c.drill !== undefined) { if (!isObj(c.drill) || typeof (c.drill as Record<string, unknown>).dashboard !== 'string') fail(`${path}.drill`, 'must be { "dashboard": "<id>", "params": { param: "$row" } }'); }
