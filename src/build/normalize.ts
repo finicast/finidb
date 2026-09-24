@@ -130,6 +130,7 @@ export function normalizeDocument<T extends Record<string, unknown>>(doc: T): { 
         }
         else if (c.kind === 'text') { if (c.text !== undefined && typeof c.text !== 'string') fail(`${path}.text`, 'a text card carries markdown as a string'); }
         else if (c.kind !== 'links' && typeof c.pivot !== 'string') fail(`${path}.pivot`, 'names the pivot the card shows');
+        if (c.sort !== undefined && typeof c.sort !== 'string') fail(`${path}.sort`, 'is the column a table card opens sorted by, a string', 'e.g. "sort": "-return_since" (descending) or "label"');
         if (c.drill !== undefined) { if (!isObj(c.drill) || typeof (c.drill as Record<string, unknown>).dashboard !== 'string') fail(`${path}.drill`, 'must be { "dashboard": "<id>", "params": { param: "$row" } }'); }
         set(c, 'fields', toList(c.fields, `${path}.fields`, notes, 'field ids'));
         set(c, 'rows', toList(c.rows, `${path}.rows`, notes, 'dimension ids'));

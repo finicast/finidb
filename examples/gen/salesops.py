@@ -439,7 +439,7 @@ doc['dashboards'] = [
     table('team', 'Teams, Q3 2026', rows=['region', 'segment'], cols=['line'], pages={'quarter': Q}, lines=['rep_count', 'quota', 'bookings', 'attainment', 'forecast', 'forecast_attainment', 'open_pipeline', 'coverage', 'win_rate', 'avg_deal']),
     chart('region_quarterly', 'Forecast attainment by region', type='line', rows=['region'], cols=['quarter'], pages={'line': 'forecast_attainment'}, filters=Y26, w=6),
     chart('company_quarterly', 'Q3 forecast build: booked, commit, best case', type='bar', rows=['line'], cols=['quarter'], lines=['bookings', 'commit', 'best_case'], filters=Y26, w=6),
-    table('rep_quarterly', 'Rep leaderboard, Q3 2026', rows=['rep'], cols=['line'], pages={'quarter': Q}, lines=['quota', 'bookings', 'attainment', 'forecast', 'forecast_attainment', 'open_pipeline', 'coverage', 'deals_won', 'win_rate', 'avg_deal', 'ytd_attainment']),
+    table('rep_quarterly', 'Rep leaderboard, Q3 2026', rows=['rep'], cols=['line'], pages={'quarter': Q}, sort='-attainment', lines=['quota', 'bookings', 'attainment', 'forecast', 'forecast_attainment', 'open_pipeline', 'coverage', 'deals_won', 'win_rate', 'avg_deal', 'ytd_attainment']),
     chart('segment_quarterly', 'Average deal by segment', type='bar', rows=['segment'], cols=['quarter'], pages={'line': 'avg_deal'}, filters=Y26, w=6),
     chart('segment_quarterly', 'Sales cycle by segment (days)', type='bar', rows=['segment'], cols=['quarter'], pages={'line': 'avg_cycle_days'}, filters=Y26, w=6),
     dist('opps', 'cycle_days', 'Sales cycle of won deals (days), with quartiles', where={'won': '1'}, bins=14, marks='quartiles', w=6),

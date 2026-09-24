@@ -45,6 +45,7 @@ export interface DashboardCardDoc {
   annotations?: ({ kind: 'line' | 'span' | 'level' | 'point'; at?: string; from?: string; to?: string; value?: number; series?: string; label?: string; color?: 'muted' | 'accent' | 'positive' | 'negative' }
     | { table: string; where?: Record<string, string | string[]>; kind?: 'line' | 'span' | 'point'; at?: string; from?: string; to?: string; label?: string; series?: string; color?: 'muted' | 'accent' | 'positive' | 'negative'; limit?: number })[];
   /** data cards: rows of a data table; `where` values may be `$param` (a dashboard parameter) or a list (any of) */
+  /** `sort` is read on a data card (its row order) and on a table card (the sort it opens with: a column, a line id, or `label`, `-` first for descending) */
   table?: string; fields?: string[]; where?: Record<string, string | string[]>; sort?: string; limit?: number;
   /** drill-down: a click opens `dashboard` with its parameters filled from the point ($row, $row.<dim>, $col, $col.<dim>, $page.<dim>, $series, $id, $<field>, $<param>, or a literal) */
   drill?: { dashboard: string; params: Record<string, string> };

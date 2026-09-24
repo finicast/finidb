@@ -5151,6 +5151,7 @@
           "pages": {
             "quarter": "q3_2026"
           },
+          "sort": "-attainment",
           "lines": [
             "quota",
             "bookings",
