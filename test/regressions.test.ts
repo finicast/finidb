@@ -74,6 +74,37 @@ test('two dimensions over the same member table resolve selectors by dimension i
   }
 });
 
+test('a copied database carries the model and its values, and the two then move apart', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'finidb-copy-'));
+  let h = await startServer({ port: 0, host: 'localhost', dataDir: dir, persistence: filePersistence() });
+  try {
+    const post = (path: string, body?: unknown) => fetch(`${h.url}${path}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body ?? {}) });
+    const cell = async (db: string, line: string) => (await (await fetch(`${h.url}/db/${db}/cells?table=p&line=${line}`)).json() as { value: number }).value;
+    assert.equal((await post('/db', { name: 'src' })).status, 201);
+    await post('/db/src/models', { id: 'm' });
+    await post('/db/src/tables', { model: 'm', id: 'lines', rows: [{ id: 'price' }, { id: 'qty' }, { id: 'revenue' }] });
+    assert.equal((await post('/db/src/tables', { model: 'm', id: 'p', kind: 'pivot', dims: [{ id: 'line', table: 'lines' }], lineDim: 'line', measures: [{ id: 'value' }] })).status, 201);
+    await post('/db/src/cells', [{ table: 'p', at: { line: 'price' }, value: 10 }, { table: 'p', at: { line: 'qty' }, value: 3 }]);
+    assert.ok((await post('/db/src/tables/p/rules', { rules: 'revenue = price * qty' })).status < 300);
+    assert.equal(await cell('src', 'revenue'), 30);
+
+    assert.equal((await post('/db/src/copy', { to: 'mine' })).status, 201);
+    assert.equal(await cell('mine', 'revenue'), 30);                 // values and rules came across
+
+    // the copy is its own database: a change to one leaves the other alone
+    await post('/db/mine/cells', [{ table: 'p', at: { line: 'qty' }, value: 5 }]);
+    assert.equal(await cell('mine', 'revenue'), 50);
+    assert.equal(await cell('src', 'revenue'), 30);
+    assert.equal((await post('/db/src/copy', { to: 'mine' })).status, 409);       // the name is taken
+    assert.equal((await post('/db/src/copy', { to: 'no spaces' })).status, 400);
+
+    // and it survives a restart on its own files
+    await h.close();
+    h = await startServer({ port: 0, host: 'localhost', dataDir: dir, persistence: filePersistence() });
+    assert.equal(await cell('mine', 'revenue'), 50);
+  } finally { await h.close(); rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('server persists databases across restarts through filePersistence', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'finidb-srv-'));
   try {

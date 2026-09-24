@@ -40,6 +40,8 @@ export interface PersistenceHook {
   append?: (name: string, op: Op, user: string) => void | Promise<void>;
   list?: (dataDir: string) => string[];
   drop?: (name: string, dir: string) => void | Promise<void>;
+  /** Copy a database's contents into a new one and open it. */
+  copy?: (from: string, fromDir: string, to: string, toDir: string) => FiniDB | undefined | Promise<FiniDB | undefined>;
 }
 
 export interface ServerOptions {
@@ -524,6 +526,22 @@ export async function startServer(opts: ServerOptions = {}): Promise<ServerHandl
     log(`createdb ${name} by ${user(c)}`);
     return new Reply(201, { name: db.name, created: db.created, version: version(db) });
   });
+  // A copy of a database: same contents, new name, clean history. Reading the source is enough to copy it;
+  // whoever copies it becomes the admin of the copy, exactly as if they had created it.
+  route('POST', '/db/:db/copy', 'read', async c => {
+    const to = c.body?.to;
+    if (typeof to !== 'string' || !/^[A-Za-z0-9_][A-Za-z0-9_.-]{0,63}$/.test(to)) throw new HttpError(400, 'DB_BAD_NAME', 'database name: [A-Za-z0-9_][A-Za-z0-9_.-]{0,63}', { fix: 'send { "to": "<name>" }' });
+    if (databases.has(to)) throw new HttpError(409, 'DB_DUPLICATE', `database '${to}' exists`);
+    if (!persistence.copy) throw new HttpError(501, 'NOT_SUPPORTED', 'this server keeps no files, so it cannot copy a database');
+    const f = await persistence.copy(c.params.db, join(dataDir, c.params.db), to, join(dataDir, to));
+    if (!f) throw new HttpError(500, 'COPY_FAILED', `could not copy '${c.params.db}'`);
+    const db: DbEntry = { name: to, f, created: new Date().toISOString(), changes: [] };
+    databases.set(to, db);
+    if (c.principal && !c.principal.trusted) auth.grant(c.principal.user, to, 'admin');
+    log(`copydb ${c.params.db} -> ${to} by ${user(c)}`);
+    return new Reply(201, { name: to, created: db.created, version: version(db), from: c.params.db });
+  });
+
   route('DELETE', '/db/:db', 'admin', async c => {
     dbOf(c.params.db); databases.delete(c.params.db);
     await persistence.drop?.(c.params.db, join(dataDir, c.params.db));
