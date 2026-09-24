@@ -24430,40 +24430,25 @@
      "h": 7,
      "annotations": [
       {
-       "kind": "line",
-       "at": "may13",
-       "label": "Brian Krzanich",
+       "table": "ceos",
+       "where": {
+        "role": "CEO"
+       },
+       "at": "start",
+       "label": "name",
        "color": "accent"
       },
       {
-       "kind": "line",
-       "at": "jan19",
-       "label": "Bob Swan",
-       "color": "accent"
-      },
-      {
-       "kind": "line",
-       "at": "feb21",
-       "label": "Pat Gelsinger",
-       "color": "accent"
-      },
-      {
-       "kind": "line",
-       "at": "mar25",
-       "label": "Lip-Bu Tan",
-       "color": "accent"
-      },
-      {
-       "kind": "span",
-       "from": "jun18",
-       "to": "jan19",
-       "label": "Interim"
-      },
-      {
-       "kind": "span",
-       "from": "dec24",
-       "to": "mar25",
-       "label": "Interim co-CEOs"
+       "table": "ceos",
+       "where": {
+        "role": [
+         "Interim CEO",
+         "Interim co-CEOs"
+        ]
+       },
+       "from": "start",
+       "to": "end",
+       "label": "role"
       }
      ],
      "drill": {
@@ -24484,6 +24469,13 @@
      ],
      "title": "Tenure scorecard: price at appointment, at handover, and the return in between",
      "w": 12
+    },
+    {
+     "kind": "text",
+     "title": "Notes on the current tenure",
+     "w": 12,
+     "h": 2,
+     "text": "**{{ceos.name[id=tan]}}** — {{ceos.note[id=tan]}} Appointed {{ceos.start[id=tan]}}; {{tenure.months[ceo=tan]}} months in the role, total return {{tenure.total_return[ceo=tan]|percent}}. The previous permanent CEO, **{{ceos.name[id=gelsinger]}}**: {{ceos.note[id=gelsinger]}}"
     },
     {
      "kind": "chart",
@@ -24537,7 +24529,7 @@
      "kind": "text",
      "w": 12,
      "h": 1,
-     "text": "Daily closes for **$month** (every month when none is chosen). Sort, filter and search; the view is a link."
+     "text": "Daily closes for **$month**: month-end close {{stock.close[period=$month]}}, high {{stock.high[period=$month]}}, low {{stock.low[period=$month]}}. Sort, filter and search; the view is a link."
     },
     {
      "kind": "data",

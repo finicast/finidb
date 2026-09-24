@@ -40,8 +40,11 @@ lines_stock = [
   {'id': 'avg', 'name': 'Monthly average ($)'}, {'id': 'return_mom', 'name': 'Return, month over month', 'format': 'percent'},
   {'id': 'return_ytd', 'name': 'Return since January 2013', 'format': 'percent'},
 ]
-annotations = [{'kind': 'line', 'at': c['start'], 'label': c['name'].replace(' (interim)', ''), 'color': 'accent' if c['role'] == 'CEO' else 'muted'} for c in CEOS if 'interim' not in c['id']]
-annotations += [{'kind': 'span', 'from': 'jun18', 'to': 'jan19', 'label': 'Interim'}, {'kind': 'span', 'from': 'dec24', 'to': 'mar25', 'label': 'Interim co-CEOs'}]
+# the marks come from the ceos table itself: one event line per permanent CEO, one shaded span per interim period
+annotations = [
+  {'table': 'ceos', 'where': {'role': 'CEO'}, 'at': 'start', 'label': 'name', 'color': 'accent'},
+  {'table': 'ceos', 'where': {'role': ['Interim CEO', 'Interim co-CEOs']}, 'from': 'start', 'to': 'end', 'label': 'role'},
+]
 
 doc = {
   'model': 'intc_ceos', 'name': f'Intel under five CEOs: the share price since 2013 (prices as of {asof})',
@@ -72,12 +75,13 @@ doc = {
       {'kind': 'chart', 'type': 'line', 'pivot': 'stock', 'rows': ['line'], 'cols': ['period'], 'lines': ['close'], 'title': 'INTC month-end close, with each CEO appointment', 'unit': '$', 'w': 12, 'h': 7,
        'annotations': annotations, 'drill': {'dashboard': 'daily', 'params': {'month': '$col'}}},
       {'kind': 'table', 'pivot': 'tenure', 'rows': ['ceo'], 'cols': ['line'], 'title': 'Tenure scorecard: price at appointment, at handover, and the return in between', 'w': 12},
+      {'kind': 'text', 'title': 'Notes on the current tenure', 'w': 12, 'h': 2, 'text': '**{{ceos.name[id=tan]}}** — {{ceos.note[id=tan]}} Appointed {{ceos.start[id=tan]}}; {{tenure.months[ceo=tan]}} months in the role, total return {{tenure.total_return[ceo=tan]|percent}}. The previous permanent CEO, **{{ceos.name[id=gelsinger]}}**: {{ceos.note[id=gelsinger]}}'},
       {'kind': 'chart', 'type': 'bar', 'pivot': 'tenure', 'rows': ['ceo'], 'cols': ['line'], 'lines': ['annualized'], 'title': 'Annualised return by tenure', 'w': 6},
       {'kind': 'chart', 'type': 'bar', 'pivot': 'stock', 'rows': ['line'], 'cols': ['period'], 'lines': ['return_mom'], 'title': 'Monthly returns', 'w': 6},
     ]},
     {'id': 'daily', 'name': 'Daily closes', 'theme': 'research', 'params': [{'id': 'month', 'label': 'Month'}], 'cards': [
       {'kind': 'links'},
-      {'kind': 'text', 'w': 12, 'h': 1, 'text': 'Daily closes for **$month** (every month when none is chosen). Sort, filter and search; the view is a link.'},
+      {'kind': 'text', 'w': 12, 'h': 1, 'text': 'Daily closes for **$month**: month-end close {{stock.close[period=$month]}}, high {{stock.high[period=$month]}}, low {{stock.low[period=$month]}}. Sort, filter and search; the view is a link.'},
       {'kind': 'data', 'table': 'prices', 'fields': ['date', 'close', 'volume', 'period'], 'where': {'period': '$month'}, 'sort': '-date', 'limit': 100, 'title': 'INTC daily closes', 'h': 10},
     ]},
   ],
