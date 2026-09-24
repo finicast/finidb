@@ -12,7 +12,7 @@ import { createServer, IncomingMessage, ServerResponse, Server } from 'node:http
 import type { AddressInfo } from 'node:net';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { FiniDB, CompileError, ParseError, isError } from '../index.js';
+import { FiniDB, CompileError, ParseError, isError, TRACK_FIELDS } from '../index.js';
 import type { QueryOptions, FieldSpec, PeriodsSpec, Scalar, Value, Grid, Clause } from '../index.js';
 import type { AnyTable, Table, Pivot, Dim, Measure, Model } from '../schema/schema.js';
 import { readOplog, type OpRecord } from '../persist/oplog.js';
@@ -265,7 +265,8 @@ function describeRules(t: AnyTable) {
 export function describeTable(t: AnyTable) {
   if (t.kind === 'tabular') return {
     id: t.id, name: t.name, kind: 'tabular' as const, model: t.model.id, rowCount: t.rowCount, version: t.version,
-    fields: t.fields.map(fl => ({ id: fl.id, name: fl.name, type: fl.type, ref: fl.refTable?.id, computed: fl.computed, format: fl.format })),
+    fields: t.fields.map(fl => ({ id: fl.id, name: fl.name, type: fl.type, ref: fl.refTable?.id, computed: fl.computed, format: fl.format, ...(t.track && TRACK_FIELDS.some(k => k.id === fl.id) ? { managed: true } : {}) })),
+    track: t.track || undefined,
     distinctOf: t.distinctOf ? { table: t.distinctOf.table.id, field: t.distinctOf.field.id } : undefined,
     source: t.source,
     rules: describeRules(t),

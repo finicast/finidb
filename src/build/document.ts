@@ -39,7 +39,10 @@ export interface OutputDoc { pivot: string; title?: string; rows?: string[]; col
 /** A dashboard card (built by finicast.com when the document is imported there; ignored by the local build). */
 export interface DashboardCardDoc {
   /** `links`: navigation to the workspace's other dashboards, on the dashboard itself; `dashboards` lists their ids (omit for all) */
-  kind?: 'table' | 'chart' | 'kpi' | 'links' | 'data' | 'text' | 'distribution'; dashboards?: string[];
+  kind?: 'table' | 'chart' | 'kpi' | 'links' | 'data' | 'text' | 'distribution' | 'form';
+  /** form cards (a row added to data `table` from the dashboard): `fields` chooses and orders the controls,
+   *  `defaults` fixes values on top of `where`, `button` names the button */
+  form?: { fields?: string[]; defaults?: Record<string, string>; button?: string }; dashboards?: string[];
   /** distribution cards: a histogram of numeric `field` of data `table` (cut by `where`); `bins` = a count of value ranges or "quartiles" | "quintiles" | "deciles"; `y` = "count" | "sum" | "mean"; `marks` = quantile boundaries drawn */
   field?: string; bins?: number | 'quartiles' | 'quintiles' | 'deciles'; y?: 'count' | 'sum' | 'mean'; marks?: 'quartiles' | 'quintiles' | 'deciles'; tail?: 'fold' | 'keep';
   /** text cards: markdown; `$param` reads a dashboard parameter */

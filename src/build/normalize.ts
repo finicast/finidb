@@ -120,6 +120,10 @@ export function normalizeDocument<T extends Record<string, unknown>>(doc: T): { 
         if (!isObj(cv)) fail(path, 'must be an object', 'e.g. { "kind": "chart", "type": "line", "pivot": "income_statement", "lines": ["revenue"] }');
         const c = cv as Record<string, unknown>;
         if (c.kind === 'data') { if (typeof c.table !== 'string' || !c.table) fail(`${path}.table`, 'a data card names the data table it shows', 'e.g. { "kind": "data", "table": "ledger", "where": { "account": "$account" } }'); }
+        else if (c.kind === 'form') {
+          if (typeof c.table !== 'string' || !c.table) fail(`${path}.table`, 'a form card names the data table a row is added to', 'e.g. { "kind": "form", "table": "trades", "button": "Log the trade" }');
+          if (c.form !== undefined && !isObj(c.form)) fail(`${path}.form`, 'is { "fields": [...], "defaults": { field: value }, "button": "Add" }');
+        }
         else if (c.kind === 'distribution') {
           if (typeof c.table !== 'string' || !c.table) fail(`${path}.table`, 'a distribution card names the data table its observations come from', 'e.g. { "kind": "distribution", "table": "opps", "field": "acv", "bins": 12 }');
           if (typeof c.field !== 'string' || !c.field) fail(`${path}.field`, 'a distribution card names the numeric field it bins', 'e.g. "field": "acv"');
