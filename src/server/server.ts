@@ -8,6 +8,7 @@
  */
 import { exportWorkbook as _exportWorkbook } from '../export/workbook.js';
 function require_export() { return { exportWorkbook: _exportWorkbook }; }
+import { readFileSync } from 'node:fs';
 import { createServer, IncomingMessage, ServerResponse, Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { homedir } from 'node:os';
@@ -76,6 +77,11 @@ export interface ServerHandle {
   url: string;
   auth: AuthStore;
   databases: Map<string, DbEntry>;
+}
+
+/** How far the database's log has been written: the cursor a client resumes from. 0 when nothing persists it. */
+function oplogSeq(db: DbEntry): number {
+  return (db.f as unknown as { oplog?: { seq?: number } }).oplog?.seq ?? 0;
 }
 
 export interface DbEntry {
@@ -870,13 +876,56 @@ export async function startServer(opts: ServerOptions = {}): Promise<ServerHandl
    * computed, because the reader recomputes it.
    */
   route('GET', '/db/:db/snapshot', 'read', c => {
-    const bytes = snapshotBuffer(c.db!.f, { seq: 0 });
+    const seq = oplogSeq(c.db!);
+    const bytes = snapshotBuffer(c.db!.f, { seq });
     return new Reply(200, bytes as unknown as object, 'application/octet-stream', {
       'Content-Disposition': `attachment; filename="${c.params.db}.fdb"`,
       'X-Finidb-Version': String(version(c.db!)),
+      'X-Finidb-Seq': String(seq),
       'Cache-Control': 'no-store',
     });
   });
+
+  /**
+   * `GET /db/:db/ops?since=<seq>` — the mutations made since that point, so a client holding the model can
+   * apply them rather than fetch it again. Rows written out of line come back inline; when there are more
+   * than the caller asked to carry, the answer says `reload` and the client takes a new snapshot instead,
+   * which is also what happens when the log has been compacted past `since`.
+   */
+  route('GET', '/db/:db/ops', 'read', c => {
+    const since = Number(c.query.get('since') ?? 0);
+    const limit = Math.min(5000, Math.max(1, Number(c.query.get('limit') ?? 1000)));
+    const dir = join(dataDir, c.params.db);
+    const head = { seq: oplogSeq(c.db!), version: version(c.db!) };
+    if (!Number.isFinite(since) || since < 0) throw new HttpError(400, 'BAD_REQUEST', 'since must be a sequence number');
+    if (since >= head.seq) return { ops: [], ...head };
+    let records: OpRecord[];
+    try { records = readOplog(dir); } catch { return { ops: [], reload: true, ...head }; }
+    const first = records.find(r => r.seq > since);
+    if (!first || (records[0] && records[0].seq > since + 1)) return { ops: [], reload: true, ...head };
+    const out: OpRecord[] = [];
+    let bytes = 0;
+    for (const r of records) {
+      if (r.seq <= since) continue;
+      if (out.length >= limit) return { ops: [], reload: true, ...head };
+      const rec = inlineBlob(r, dir);
+      bytes += JSON.stringify(rec.args).length;
+      if (bytes > 4_000_000) return { ops: [], reload: true, ...head };
+      out.push(rec);
+    }
+    return { ops: out, ...head };
+  });
+
+  /** A bulk load keeps its rows in a blob file; a client that cannot read our disk gets them inline. */
+  function inlineBlob(r: OpRecord, dir: string): OpRecord {
+    const blob = (r.args as { blob?: string }).blob;
+    if (!blob) return r;
+    try {
+      const rows = JSON.parse(readFileSync(join(dir, 'blobs', `${blob}.json`), 'utf8'));
+      const args = { ...r.args, rows }; delete (args as { blob?: string }).blob;
+      return { ...r, args };
+    } catch { return r; }
+  }
 
   route('GET', '/db/:db/history', 'read', c => {
     const dir = join(dataDir, c.params.db);
@@ -994,4 +1043,5 @@ export const ROUTES = [
   ['GET', '/db/:db/tables/:table/rules', 'read'], ['PUT', '/db/:db/tables/:table/rules', 'write'], ['POST', '/db/:db/tables/:table/rules', 'write'], ['PATCH', '/db/:db/tables/:table/rules/:rule', 'write'], ['DELETE', '/db/:db/tables/:table/rules/:rule', 'write'],
   ['POST', '/db/:db/cells', 'write'], ['GET', '/db/:db/cells', 'read'],
   ['POST', '/db/:db/query', 'read'], ['POST', '/db/:db/batch', 'read|write'], ['GET', '/db/:db/changes', 'read'],
+  ['GET', '/db/:db/snapshot', 'read'], ['GET', '/db/:db/ops', 'read'], ['GET', '/db/:db/history', 'read'],
 ] as const;

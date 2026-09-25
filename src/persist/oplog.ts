@@ -14,6 +14,7 @@ import { FiniDB } from '../index.js';
 import type { FieldSpec, PeriodsSpec } from '../index.js';
 import type { Table } from '../schema/schema.js';
 import type { Scalar } from '../store/column.js';
+import { applyRecord, type OpRecord } from './apply.js';
 
 export type FsyncPolicy = 'always' | 'interval' | 'never';
 
@@ -28,11 +29,7 @@ export interface OplogOptions {
   seq?: number;
 }
 
-export interface OpRecord {
-  seq: number; ts: string; op: string; args: Record<string, unknown>;
-  /** who made the change, when the caller said: an id and, when it has one, a readable name */
-  by?: string; byName?: string;
-}
+export type { OpRecord } from './apply.js';
 
 export const OPLOG_FILE = 'oplog.jsonl';
 export const BLOB_DIR = 'blobs';
@@ -232,37 +229,7 @@ export function applyOp(f: FiniDB, rec: OpRecord, dir: string) {
 }
 
 function applyOpRaw(f: FiniDB, rec: OpRecord, dir: string) {
-  const a = rec.args as any;
-  const table = (): Table => f.model(a.model).table(a.table) as Table;
-  switch (rec.op) {
-    case 'createModel': f.createModel(a.id, a.name); break;
-    case 'setIterate': f.setIterate(a.model, a.iterate); break;
-    case 'createTable': f.createTable(a.model, a.id, a.fields as FieldSpec[], { name: a.name, rows: a.rows, track: a.track === true }); break;
-    case 'trackTable': f.trackTable(table()); break;
-    case 'addField': f.addField(table(), a.field as FieldSpec); break;
-    case 'insertRows': {
-      const rows: Record<string, Scalar>[] = a.blob ? JSON.parse(fs.readFileSync(path.join(dir, BLOB_DIR, `${a.blob}.json`), 'utf8')) : a.rows;
-      f.insertRows(table(), rows);
-      break;
-    }
-    case 'upsertRows': {
-      const rows: Record<string, Scalar>[] = a.blob ? JSON.parse(fs.readFileSync(path.join(dir, BLOB_DIR, `${a.blob}.json`), 'utf8')) : a.rows;
-      f.upsertRows(table(), rows);
-      break;
-    }
-    case 'createDistinctTable': f.createDistinctTable(a.model, a.id, a.sourceTable, a.sourceField); break;
-    case 'createPeriods': f.createPeriods(a.model, a.id, a.spec as PeriodsSpec); break;
-    case 'createPivot': f.createPivot(a.model, a.id, a.spec); break;
-    case 'setRules': f.setRules(a.model, a.table, a.rules, a.opts); break;
-    case 'setValue': if (a.measure !== undefined) f.setValue(a.model, a.table, a.at, a.measure, a.value); else f.setValue(a.model, a.table, a.at, a.value); break;
-    case 'setCell': f.setCell(a.model, a.table, a.rowId, a.field, a.value); break;
-    case 'setSource': f.setSource(a.model, a.table, a.source ?? null); break;
-    case 'deleteRows': f.deleteRows(a.model, a.table, a.ids); break;
-    case 'dropField': f.dropField(a.model, a.table, a.field); break;
-    case 'dropTable': f.dropTable(a.model, a.table); break;
-    case 'dropModel': f.dropModel(a.model); break;
-    default: throw new Error(`OPLOG_UNKNOWN_OP: ${rec.op} (seq ${rec.seq})`);
-  }
+  applyRecord(f, rec, id => JSON.parse(fs.readFileSync(path.join(dir, BLOB_DIR, `${id}.json`), 'utf8')));
 }
 
 /**

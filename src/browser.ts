@@ -10,6 +10,8 @@ export { columnar, WindowError } from './view/window.js';
 export type { ColumnarWindow } from './view/window.js';
 export { readRows, RowsError } from './view/rows.js';
 export { describeTable, describeRules } from './view/describe.js';
+export { applyRecord, applyRecords } from './persist/apply.js';
+export type { OpRecord } from './persist/apply.js';
 export type { Where } from './view/rows.js';
 export { decodeSnapshot, readSnapshotBytes, MAGIC, FORMAT_VERSION } from './persist/snapshot-codec.js';
 export type { SnapshotHeader } from './persist/snapshot-codec.js';

@@ -6,7 +6,8 @@ import * as path from 'node:path';
 import { FiniDB } from '../src/index.js';
 import { openDatabase, readMeta } from '../src/persist/store.js';
 import { readOplog, createPersistentFiniDB, replay } from '../src/persist/oplog.js';
-import { saveSnapshot, loadSnapshot, readSnapshotHeader } from '../src/persist/snapshot.js';
+import { saveSnapshot, snapshotBuffer, loadSnapshot, readSnapshotHeader } from '../src/persist/snapshot.js';
+import { applyRecords } from '../src/persist/apply.js';
 
 function tmpdir(): string { return fs.mkdtempSync(path.join(os.tmpdir(), 'finidb-persist-')); }
 
@@ -226,5 +227,34 @@ test('saveSnapshot/loadSnapshot and replay work stand-alone; nested facade calls
     assert.equal(is.rules.length, 15);
     const asm = readSnapshotHeader(file).header.models[0].pivots.find(p => p.id === 'assumptions')!;
     assert.equal(asm.inputs[0][1].length, 12);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('a client that holds the model catches up from the ops it missed, as a browser tab does', () => {
+  const dir = tmpdir();
+  try {
+    const f = createPersistentFiniDB(dir, { fsync: 'never' });
+    buildNvda(f);
+
+    // what the tab is handed: the bytes, and the cursor they were taken at
+    const seq = f.oplog.seq;
+    const bytes = snapshotBuffer(f, { seq });
+    const tab = loadSnapshot(bytes);
+    assert.equal(nvdaQuery(tab), nvdaQuery(f));
+
+    // and then the model moves on: an input, a row, a rule
+    f.setValue('nvda', 'assumptions', { driver: 'revenue_growth', period: 'fy2027' }, 0.42);
+    f.insertRows(f.model('nvda').table('financials') as never, [{ id: '99', account: 'revenue', period: 'fy2026', amount: 1000 }]);
+    f.setRules('nvda', 'income_statement', 'tax = IF(ebit > 0, ebit * 0.3, 0)', { replace: false });
+    assert.notEqual(nvdaQuery(f), nvdaQuery(tab));
+
+    // the tab applies what it missed and agrees again, without fetching the model a second time
+    const missed = readOplog(dir).filter(r => r.seq > seq);
+    assert.ok(missed.length >= 3, `expected the writes in the log, saw ${missed.length}`);
+    const applied = applyRecords(tab, missed, { afterSeq: seq });
+    assert.equal(applied, f.oplog.seq);
+    assert.equal(nvdaQuery(tab), nvdaQuery(f));
+    assert.equal(tab.get('nvda', 'assumptions', { driver: 'revenue_growth', period: 'fy2027' }), 0.42);
+    f.oplog.close();
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
