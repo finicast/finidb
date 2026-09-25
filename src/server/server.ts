@@ -16,6 +16,7 @@ import { FiniDB, CompileError, ParseError, isError, TRACK_FIELDS } from '../inde
 import type { QueryOptions, FieldSpec, PeriodsSpec, Scalar, Value, Grid, Clause } from '../index.js';
 import type { AnyTable, Table, Pivot, Dim, Measure, Model } from '../schema/schema.js';
 import { readOplog, type OpRecord } from '../persist/oplog.js';
+import { runJob } from './jobs.js';
 import { parseCsv, planLoad, slug, coerce, type ParsedCsv } from '../store/csv.js';
 import { fetchSource, envSecrets, secretNamesOf } from '../source/fetch.js';
 import { requestsOf, describePresets } from '../source/presets.js';
@@ -57,6 +58,8 @@ export interface ServerOptions {
   secrets?: Record<string, string>;
   fetch?: typeof fetch;
   allowPrivateSources?: boolean;
+  /** Compile workbooks on a worker thread, so a long one does not block every other request (default: on). */
+  workers?: boolean;
 }
 
 export interface ServerHandle {
@@ -417,6 +420,7 @@ export async function startServer(opts: ServerOptions = {}): Promise<ServerHandl
   const bodyLimit = opts.bodyLimit ?? 64 * 1024 * 1024;
   const auth = new AuthStore(dataDir);
   const persistence = opts.persistence ?? {};
+  const workers = opts.workers !== false;
   const databases = new Map<string, DbEntry>();
   let closing = false;
 
@@ -573,15 +577,35 @@ export async function startServer(opts: ServerOptions = {}): Promise<ServerHandl
     return c.db!.f.explain(model.id, table.id, at, c.query.get('measure') ?? c.query.get('field') ?? undefined);
   });
   route('GET', '/db/:db/models', 'read', c => ({ models: [...c.db!.f.db.models.values()].map(m => ({ id: m.id, name: m.name, tables: [...m.tables.keys()] })) }));
-  const exportRoute = (c: Ctx) => {
+  /**
+   * The workbook is compiled on a worker thread against a snapshot of the database, so a model that takes
+   * minutes to render leaves every other request alone. `?inline=1` compiles it here instead, which is what
+   * the CLI and the tests want: one process, no threads.
+   */
+  const exportRoute = async (c: Ctx) => {
     const f = c.db!.f;
     const model = c.query.get('model') ?? c.body?.model ?? (f.db.models.size === 1 ? [...f.db.models.keys()][0] : undefined);
     if (!model) throw new HttpError(400, 'BAD_REQUEST', 'pass ?model= (the database has several models)');
-    const { exportWorkbook } = require_export();
     const dashboards = Array.isArray(c.body?.dashboards) ? c.body.dashboards : undefined;
-    const r = exportWorkbook(f.db, model, { dashboards });
     const name = `${c.params.db}${f.db.models.size > 1 ? `-${model}` : ''}.xlsx`.replace(/[^A-Za-z0-9._-]+/g, '_');
-    return new Reply(200, r.buffer as unknown as object, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', { 'Content-Disposition': `attachment; filename="${name}"`, 'X-Finidb-Formulas': String(r.formulas), 'X-Finidb-Values': String(r.values) });
+    const head = (formulas: unknown, values: unknown) => ({ 'Content-Disposition': `attachment; filename="${name}"`, 'X-Finidb-Formulas': String(formulas), 'X-Finidb-Values': String(values) });
+    const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    if (c.query.get('inline') === '1' || !workers) {
+      const { exportWorkbook } = require_export();
+      const r = exportWorkbook(f.db, model, { dashboards });
+      return new Reply(200, r.buffer as unknown as object, XLSX, head(r.formulas, r.values));
+    }
+    const t0 = performance.now();
+    try {
+      const { bytes, meta } = await runJob(`${c.params.db}:xlsx:${model}`, f, { kind: 'exportXlsx', model, opts: { dashboards } });
+      log(`export ${c.params.db} on a worker in ${(performance.now() - t0).toFixed(0)}ms by ${user(c)}`);
+      return new Reply(200, bytes as unknown as object, XLSX, head(meta.formulas, meta.values));
+    } catch (e) {
+      const msg = (e as Error).message;
+      if (msg === 'JOB_TIMEOUT') throw new HttpError(503, 'EXPORT_TOO_LONG', 'the workbook took too long to compile', { fix: 'export fewer periods or lines, or ask for one model at a time' });
+      if (/JOB_EXIT|heap|memory/i.test(msg)) throw new HttpError(503, 'EXPORT_TOO_LARGE', 'the workbook did not fit in memory', { fix: 'export fewer periods or lines' });
+      throw e;
+    }
   };
   route('GET', '/db/:db/export.xlsx', 'read', exportRoute);
   route('POST', '/db/:db/export.xlsx', 'read', exportRoute);   // body: { model?, dashboards?: DashboardExport[] } — the hosted service adds its dashboards

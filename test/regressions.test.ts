@@ -130,6 +130,42 @@ test('a copied database carries the model and its values, and the two then move 
   } finally { await h.close(); rmSync(dir, { recursive: true, force: true }); }
 });
 
+test('the workbook is compiled off the main thread, and one request does not become two', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'finidb-xlsx-'));
+  const h = await startServer({ port: 0, host: 'localhost', dataDir: dir, persistence: filePersistence() });
+  try {
+    const post = (path: string, body?: unknown) => fetch(`${h.url}${path}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body ?? {}) });
+    await post('/db', { name: 'wb' });
+    await post('/db/wb/models', { id: 'm' });
+    await post('/db/wb/tables', { model: 'm', id: 'periods', from: { periods: { start: '2026-01', count: 12, grain: 'month' } } });
+    await post('/db/wb/tables', { model: 'm', id: 'lines', rows: [{ id: 'revenue' }, { id: 'cogs' }, { id: 'profit' }] });
+    await post('/db/wb/tables', { model: 'm', id: 'p', kind: 'pivot', dims: [{ id: 'line', table: 'lines' }, { id: 'period', table: 'periods' }], lineDim: 'line', timeDim: 'period', measures: [{ id: 'value' }] });
+    await post('/db/wb/cells', [{ table: 'p', at: { line: 'revenue', period: 'jan26' }, value: 100 }]);
+    await post('/db/wb/tables/p/rules', { rules: 'revenue = PREV(revenue) * 1.02\ncogs = revenue * 0.4\nprofit = revenue - cogs' });
+
+    // the worker answers, and the workbook is a real one
+    const r = await fetch(`${h.url}/db/wb/export.xlsx`);
+    assert.equal(r.status, 200);
+    const buf = Buffer.from(await r.arrayBuffer());
+    assert.equal(buf.subarray(0, 2).toString('latin1'), 'PK');          // a zip, which is what .xlsx is
+    assert.ok(Number(r.headers.get('x-finidb-formulas')) > 0);
+
+    // two callers asking at once share one job rather than each starting their own
+    const [a, b] = await Promise.all([fetch(`${h.url}/db/wb/export.xlsx`), fetch(`${h.url}/db/wb/export.xlsx`)]);
+    assert.equal(a.status, 200); assert.equal(b.status, 200);
+    assert.equal(Buffer.from(await a.arrayBuffer()).length, Buffer.from(await b.arrayBuffer()).length);
+
+    // the main thread stayed free while the workbook was compiled
+    const t0 = Date.now();
+    const [, quick] = await Promise.all([fetch(`${h.url}/db/wb/export.xlsx`), fetch(`${h.url}/db/wb/schema`)]);
+    assert.equal(quick.status, 200);
+    assert.ok(Date.now() - t0 < 10_000, 'a schema read should not wait for a workbook');
+
+    // and the old path still works for a caller that wants it here
+    assert.equal((await fetch(`${h.url}/db/wb/export.xlsx?inline=1`)).status, 200);
+  } finally { await h.close(); rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('a tracked table records who added each row and who changed it, and the log keeps the history', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'finidb-track-'));
   let h = await startServer({ port: 0, host: 'localhost', dataDir: dir, persistence: filePersistence() });

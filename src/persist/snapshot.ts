@@ -113,7 +113,8 @@ export function topoSortTables(tables: Table[]): Table[] {
 }
 
 /** Serialize `f` (inputs only) to `path`. Written atomically via a temp file. */
-export function saveSnapshot(f: FiniDB, path: string, opts: { seq?: number } = {}): void {
+/** Write a snapshot to `path`, or, with an empty path, hand the bytes back (see `snapshotBuffer`). */
+export function saveSnapshot(f: FiniDB, path: string, opts: { seq?: number } = {}): Buffer {
   const payload = new Payload();
   const models: ModelHeader[] = [];
   for (const m of f.db.models.values()) {
@@ -142,19 +143,25 @@ export function saveSnapshot(f: FiniDB, path: string, opts: { seq?: number } = {
   };
   const headerBuf = Buffer.from(JSON.stringify(header), 'utf8');
   const len = Buffer.alloc(4); len.writeUInt32LE(headerBuf.length, 0);
+  const buf = Buffer.concat([Buffer.from(MAGIC, 'latin1'), len, headerBuf, ...payload.chunks]);
+  if (!path) return buf;
   const tmp = path + '.tmp';
-  fs.writeFileSync(tmp, Buffer.concat([Buffer.from(MAGIC, 'latin1'), len, headerBuf, ...payload.chunks]));
+  fs.writeFileSync(tmp, buf);
   const fd = fs.openSync(tmp, 'r+');
   try { fs.fsyncSync(fd); } finally { fs.closeSync(fd); }
   fs.renameSync(tmp, path);
+  return buf;
 }
+
+/** The same bytes, handed back instead of written: what a worker thread is given to load a model from. */
+export function snapshotBuffer(f: FiniDB, opts: { seq?: number } = {}): Buffer { return saveSnapshot(f, '', opts); }
 
 // ---------- load ----------
 
 /** Parse the container: header plus a payload view. */
-export function readSnapshotHeader(path: string): { header: SnapshotHeader; payload: Buffer } {
-  const buf = fs.readFileSync(path);
-  if (buf.length < 8 || buf.toString('latin1', 0, 4) !== MAGIC) throw new Error(`SNAPSHOT_BAD_MAGIC: ${path}`);
+export function readSnapshotHeader(path: string | Buffer): { header: SnapshotHeader; payload: Buffer } {
+  const buf = Buffer.isBuffer(path) ? path : fs.readFileSync(path);
+  if (buf.length < 8 || buf.toString('latin1', 0, 4) !== MAGIC) throw new Error(`SNAPSHOT_BAD_MAGIC: ${Buffer.isBuffer(path) ? '(buffer)' : path}`);
   const hlen = buf.readUInt32LE(4);
   const header = JSON.parse(buf.toString('utf8', 8, 8 + hlen)) as SnapshotHeader;
   if (header.version !== FORMAT_VERSION) throw new Error(`SNAPSHOT_BAD_VERSION: ${header.version}`);
@@ -191,8 +198,8 @@ function restoreRules(f: FiniDB, m: Model, t: Table | Pivot, rules: RuleHeader[]
   t.rules.forEach((r, i) => { r.status = rules[i].status; r.error = rules[i].error; });
 }
 
-/** Rebuild a working FiniDB from a snapshot file. */
-export function loadSnapshot(path: string, opts: { engine?: 'incremental' | 'reference' } = {}): FiniDB {
+/** Rebuild a working FiniDB from a snapshot file, or from the bytes of one. */
+export function loadSnapshot(path: string | Buffer, opts: { engine?: 'incremental' | 'reference' } = {}): FiniDB {
   const { header, payload } = readSnapshotHeader(path);
   const f = new FiniDB({ engine: opts.engine ?? header.engine });
   const db: Database = f.db;
