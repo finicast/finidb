@@ -114,3 +114,50 @@ test('incremental engine agrees with the reference evaluator over random edit se
     }
   }
 });
+
+/**
+ * The same agreement, but with an engine that has only been asked for part of the model. An engine that
+ * computes what it is asked for and no more must still be right about the cells nobody looked at until now:
+ * this reads a handful of cells between edits, leaving the rest of the model untouched, and only at the end
+ * asks for everything.
+ */
+test('incremental agrees after edits nobody looked at in between', () => {
+  for (const seed of Array.from({ length: Number(process.env.DIFF_SEEDS ?? 3) }, (_, i) => i + 1)) {
+    const ref = new FiniDB({ engine: 'reference' });
+    const inc = new FiniDB({ engine: 'incremental' });
+    const { rnd, per } = buildModel(ref, seed);
+    buildModel(inc, seed);
+    const regions = ['world', 'na', 'eu', 'us', 'ca'];
+    const lines = ['points', 'amount', 'per_point', 'growth', 'fcst', 'cum', 'subs', 'share'];
+    /** Ask for a few cells, and nothing else: the engine is left holding a model it has half computed. */
+    const peek = (f: FiniDB, n: number) => {
+      for (let i = 0; i < n; i++) {
+        const which = rnd();
+        if (which < 0.6) f.get('m', 'scores', { region: regions[(rnd() * 5) | 0], line: lines[(rnd() * 8) | 0], period: per[(rnd() * 6) | 0] });
+        else if (which < 0.8) f.get('m', 'fin', { line: ['ebitda', 'interest', 'debt', 'cash'][(rnd() * 4) | 0], period: per[(rnd() * 6) | 0] });
+        else f.getField('m', 'acts', `a${(rnd() * 300) | 0}`, ['score', 'weighted', 'running'][(rnd() * 3) | 0]);
+      }
+    };
+    peek(inc, 8);
+    for (let step = 0; step < Number(process.env.DIFF_STEPS ?? 60); step++) {
+      const kind = (rnd() * 8) | 0;
+      const draws = [rnd(), rnd()];
+      const apply = (f: FiniDB) => {
+        const [x, y] = draws;
+        switch (kind) {
+          case 0: f.setCell('m', 'acts', `a${(x * 300) | 0}`, 'amount', Math.round(y * 100)); break;
+          case 1: f.setCell('m', 'acts', `a${(x * 300) | 0}`, 'type', ['call', 'email', 'demo'][(y * 3) | 0]); break;
+          case 2: f.setCell('m', 'types', ['call', 'email', 'demo'][(x * 3) | 0], 'score', Math.round(y * 10)); break;
+          case 3: f.setCell('m', 'reps', `r${(x * 8) | 0}`, 'region', ['us', 'ca', 'eu'][(y * 3) | 0]); break;
+          case 4: f.setValue('m', 'scores', { region: regions[(x * 5) | 0], line: 'growth', period: per[(y * 6) | 0] }, Math.round(y * 50) / 100); break;
+          case 5: f.setCell('m', 'periods', per[(x * 6) | 0], 'frame', y < 0.5 ? 'hist' : 'fcst'); break;
+          case 6: f.setCell('m', 'regions', regions[(x * 5) | 0], 'weight', Math.round(y * 10) / 10); break;
+          case 7: f.setValue('m', 'fin', { line: x < 0.5 ? 'ebitda' : 'capex', period: per[1 + ((y * 5) | 0)] }, Math.round(x * y * 1500)); break;
+        }
+      };
+      apply(ref); apply(inc);
+      peek(inc, 4);                     // a reader looking at one corner of the model, never the whole of it
+    }
+    assertSame(snapshot(ref), snapshot(inc), `seed ${seed} after peeking only`);
+  }
+});

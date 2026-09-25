@@ -17,7 +17,6 @@ type Ver = number | string;
 type DepKey = Field | ColState | AggState | string;
 
 interface Tracker { gen: number; deps: Map<DepKey, Ver> }
-interface Snapshot { values: Float64Array; state: Uint8Array; other: Map<number, Value>; size: number; computedOnce: boolean; version: number }
 
 interface ColState extends Tracker {
   uid: number;                    // for cycle-iteration keys
@@ -28,9 +27,11 @@ interface ColState extends Tracker {
   state: Uint8Array;              // 0 not computed · 1 number · 2 other · 3 blank · 4 visiting
   size: number;
   version: number;
-  computedOnce: boolean;
+  /** allocated, its dependencies recorded, and holding whatever cells have been asked for so far */
+  open: boolean;
   checkedAt: number;
-  computing: boolean;
+  /** how many cells of this column are being computed right now: while any is, the column holds still */
+  busy: number;
   checking: boolean;
   noPartial: boolean;             // reads its own column or other rows → never partial
   dirtyRows: DirtyRows;
@@ -88,7 +89,7 @@ export class IncrementalEngine extends EvalCore {
   private stack: Tracker[] = [];
   /** per-engine property tag so several engines can share one schema (differential tests) */
   private tag = Symbol('finidb.colstate');
-  stats = { fullRecomputes: 0, partialRecomputes: 0, aggRescans: 0, aggDeltas: 0, cellsComputed: 0, iterations: 0 };
+  stats = { invalidations: 0, partialRecomputes: 0, aggRescans: 0, aggDeltas: 0, cellsComputed: 0, iterations: 0 };
   private colUid = 0;
   /** Cycle iteration, as in the reference evaluator (doc 05): frames per cell computation, provisional values of
    *  cycle roots, and the cells computed from a provisional (reset to "not computed" before the next pass). */
@@ -145,6 +146,7 @@ export class IncrementalEngine extends EvalCore {
   private recordObj(o: Field | ColState | AggState, ver: Ver) {
     const top = this.stack[this.stack.length - 1];
     if (!top) return;
+    if (o === top && (o as ColState | AggState).kind !== 'agg') (o as ColState).noPartial = true;   // reads its own column
     const seen = (o as any)._seen;
     if (seen === top.gen) return;
     (o as any)._seen = top.gen;
@@ -209,7 +211,7 @@ export class IncrementalEngine extends EvalCore {
     return cs;
   }
   private newCol(kind: 'measure' | 'field', size: number): ColState {
-    return { uid: ++this.colUid, kind, gen: 0, deps: new Map(), values: new Float64Array(size), other: new Map(), state: new Uint8Array(size), size, version: 0, computedOnce: false, checkedAt: -1, computing: false, checking: false, noPartial: false, dirtyRows: new DirtyRows(), _seen: 0 };
+    return { uid: ++this.colUid, kind, gen: 0, deps: new Map(), values: new Float64Array(size), other: new Map(), state: new Uint8Array(size), size, version: 0, open: false, checkedAt: -1, busy: 0, checking: false, noPartial: false, dirtyRows: new DirtyRows(), _seen: 0 };
   }
   private read(cs: ColState, i: number): Value {
     const st = cs.state[i];
@@ -231,78 +233,78 @@ export class IncrementalEngine extends EvalCore {
 
   // ---------- freshness ----------
 
-  /** Columns whose full recompute was started lazily while another column was computing (doc 05 §8). */
-  private pending = new Map<ColState, Snapshot>();
-  /** Number of ensureFresh checks in progress; pending columns are only finished when this is zero. */
-  private checkingDepth = 0;
-
+  /**
+   * A column is kept, not computed.
+   *
+   * It holds the cells someone has asked for, and the rest stay blank until someone does. Freshness is
+   * decided for the column as a whole: when anything it depends on moves, every cell it is holding is
+   * dropped and its version rises, so that whoever read one of those values learns to ask again. Filling it
+   * back in is the readers' business, a cell at a time — which is why a card that wants five lines of one
+   * company no longer computes the other two hundred, and why an edit costs what is being looked at rather
+   * than what the model contains.
+   *
+   * A computed field of a table keeps its row-level path: when every changed dependency is one whose rows we
+   * track, the rows that changed are recomputed in place and the rest are left standing, so an aggregate over
+   * ninety thousand rows is not rebuilt because one of them moved.
+   */
   private ensureFresh(cs: ColState) {
-    if (cs.computing) return;
-    if (cs.checking) {
-      // read (or version-checked) while we are still deciding whether we are fresh: a cycle in the column graph
-      // (statements referencing each other across periods). Assume stale and start computing now, cell by cell on
-      // demand, so every reader in the cycle sees values derived from the current inputs.
-      this.pending.set(cs, this.startFull(cs));
-      return;
-    }
+    if (cs.busy) return;                   // a cell of this column is being computed: it must hold still
+    if (cs.checking) { this.invalidate(cs); return; }   // asked about mid-check: a cycle in the column graph
     // A pivot's cells are a flat array indexed by the dimensions' member positions, so the moment a dimension
     // table gains or loses a row every index means something else. Size is the tell, and checking it here covers
     // every way rows come and go: a delete, a load, a replace, a refresh of a linked table.
     const wanted = cs.kind === 'measure' ? cs.pivot!.totalCells() : cs.table!.rowCount;
-    const resized = cs.computedOnce && cs.size !== wanted;
-    if (!resized && cs.checkedAt === this.db.version && cs.computedOnce) return;
-    cs.checking = true; this.checkingDepth++;
+    const resized = cs.open && cs.size !== wanted;
+    if (!resized && cs.open && cs.checkedAt === this.db.version) return;
+    cs.checking = true;
     const gen0 = cs.gen;
     try {
-      let stale = !cs.computedOnce || resized;
+      let stale = !cs.open || resized;
       let allBase = true;
       if (!stale) {
         for (const [k, v] of cs.deps) {
           if (k === cs) continue;   // a self-reference (PREV on the same line) records our own provisional version
           if (this.currentVersion(k) !== v) { stale = true; if (!this.rowTracked(k, cs.table)) allBase = false; }
-          if (cs.gen !== gen0) break;   // a dependency's recompute forced ours (cycle) — possibly finished already
+          if (cs.gen !== gen0) break;   // a dependency's check forced ours: it has been dropped already
         }
       }
-      if (cs.gen !== gen0) {
-        // forced into a full recompute during our own check (a column cycle): it is pending and finishes in
-        // drainPending once no column is computing or checking, so nothing can force it a second time
-      } else if (stale) {
-        const partial = !resized && cs.computedOnce && cs.kind === 'field' && !cs.noPartial && !cs.dirtyRows.all && allBase && cs.table!.rowCount === cs.size;
-        if (partial) { this.recomputeRows(cs, cs.dirtyRows.rows()); cs.dirtyRows.clear(); cs.checkedAt = this.db.version; }
-        else if (this.stack.length > 0) {
-          // nested under another column's computation: compute this column's cells on demand and finish it later,
-          // so mutually dependent columns (statements referencing each other across periods) resolve cell by cell
-          this.pending.set(cs, this.startFull(cs));
-          return;
-        } else {
-          const snap = this.startFull(cs);
-          for (let i = 0; i < cs.size; i++) if (cs.state[i] === 0) this.computeOne(cs, i);
-          this.finishFull(cs, snap);
-        }
-      } else { cs.dirtyRows.clear(); cs.checkedAt = this.db.version; }
-    } finally { cs.checking = false; this.checkingDepth--; }
-    if (this.stack.length === 0 && this.checkingDepth === 0) this.drainPending();
-  }
-  /** Finish every lazily started column: compute the cells nobody asked for yet, then diff and bump versions. */
-  private drainPending() {
-    while (this.pending.size) {
-      const [cs, snap] = this.pending.entries().next().value as [ColState, Snapshot];
-      for (let i = 0; i < cs.size; i++) if (cs.state[i] === 0) this.computeOne(cs, i);
-      this.pending.delete(cs);
-      this.finishFull(cs, snap);
-    }
+      if (cs.gen !== gen0) return;
+      if (!stale) { cs.dirtyRows.clear(); cs.checkedAt = this.db.version; return; }
+      const partial = !resized && cs.open && cs.kind === 'field' && !cs.noPartial && !cs.dirtyRows.all && allBase && cs.table!.rowCount === cs.size;
+      if (partial) { this.recomputeRows(cs, cs.dirtyRows.rows()); cs.dirtyRows.clear(); cs.checkedAt = this.db.version; }
+      else this.invalidate(cs);
+    } finally { cs.checking = false; }
   }
 
-  /** A changed dependency whose affected rows are known to be in our dirty set: any base column (propagated through refs), or a computed column of the same table (noteRowsChanged). */
-  private rowTracked(dep: DepKey, table: Table | undefined): boolean {
-    if (dep instanceof Field) return dep.computed ? this.fieldTables.get(dep) === table : this.notedVersions.get(dep) === dep.column.version;
-    if (typeof dep === 'string') return false;
-    if ((dep as AggState).kind === 'agg') return false;
-    return (dep as ColState).kind === 'field' && (dep as ColState).table === table;
+  /**
+   * Let go of everything this column is holding, and say so.
+   *
+   * The version rises even though nothing has been recomputed yet, because a reader that took one of these
+   * values may be holding a number that is no longer true and this is the only way it finds out. It is the
+   * price of not recomputing the column to find out whether anything actually changed: a reader that asks
+   * again pays for the cells it asks for, and nobody pays for the rest.
+   */
+  private invalidate(cs: ColState) {
+    this.stats.invalidations++;
+    const size = cs.kind === 'measure' ? cs.pivot!.totalCells() : cs.table!.rowCount;
+    if (size !== cs.size) { cs.values = new Float64Array(size); cs.state = new Uint8Array(size); cs.size = size; }
+    else cs.state.fill(0);
+    cs.other.clear();
+    cs.noPartial = false;
+    cs.version++;
+    cs.open = true;
+    cs.dirtyRows.clear();
+    cs.checkedAt = this.db.version;
+    if (cs.kind === 'field') this.noteRowsChanged(cs.table!, 'all', cs);
+    this.recordStructural(cs, false);
   }
-  /** Mark a column as computing and record its structural dependencies. Cells are computed by computeOne, which pushes the column while it runs. */
-  private beginCompute(cs: ColState, keepDeps: boolean) {
-    cs.computing = true;
+
+  /**
+   * What a column depends on beyond the cells it reads: its rules, the shape of its pivot, the membership of
+   * its dimensions, the inputs pinned into it. Recorded when the column is opened, since none of it is
+   * discovered by computing a single cell.
+   */
+  private recordStructural(cs: ColState, keepDeps: boolean) {
     cs.gen = GEN++;
     if (!keepDeps) cs.deps = new Map();
     this.stack.push(cs);
@@ -320,56 +322,37 @@ export class IncrementalEngine extends EvalCore {
       }
     } finally { this.stack.pop(); }
   }
-  private endCompute(cs: ColState) {
-    cs.computing = false;
-    cs.computedOnce = true;
-    if (cs.deps.has(cs)) cs.noPartial = true;
+
+  /** A changed dependency whose affected rows are known to be in our dirty set: any base column (propagated through refs), or a computed column of the same table (noteRowsChanged). */
+  private rowTracked(dep: DepKey, table: Table | undefined): boolean {
+    if (dep instanceof Field) return dep.computed ? this.fieldTables.get(dep) === table : this.notedVersions.get(dep) === dep.column.version;
+    if (typeof dep === 'string') return false;
+    if ((dep as AggState).kind === 'agg') return false;
+    return (dep as ColState).kind === 'field' && (dep as ColState).table === table;
   }
 
-  /** Allocate fresh result arrays (keeping the old ones for the diff) and begin a full recompute. */
-  private startFull(cs: ColState): Snapshot {
-    this.stats.fullRecomputes++;
-    const size = cs.kind === 'measure' ? cs.pivot!.totalCells() : cs.table!.rowCount;
-    const snap: Snapshot = { values: cs.values, state: cs.state, other: cs.other, size: cs.size, computedOnce: cs.computedOnce, version: cs.version };
-    cs.values = new Float64Array(size); cs.state = new Uint8Array(size); cs.other = new Map(); cs.size = size;
-    cs.noPartial = false;
-    // provisional version: anything that reads our cells while this pass runs (nested columns, aggregates) sees final
-    // values for this pass and must record a version that survives finishFull; restored below if nothing changed
-    cs.version++;
-    this.beginCompute(cs, false);
-    return snap;
-  }
-  /** Diff against the previous contents, bump the version when anything changed, propagate changed rows. */
-  private finishFull(cs: ColState, snap: Snapshot) {
-    this.endCompute(cs);
-    const size = cs.size;
-    let changed: Set<number> | 'all' = new Set();
-    if (snap.size !== size || !snap.computedOnce) changed = 'all';
-    else for (let i = 0; i < size; i++) if (!this.sameValue(snap.state[i], snap.values[i], snap.state[i] === 2 ? snap.other.get(i) : undefined, cs.state[i], cs.values[i], cs.state[i] === 2 ? cs.other.get(i) : undefined)) changed.add(i);
-    if (changed === 'all' || changed.size) {
-      if (cs.kind === 'field') this.noteRowsChanged(cs.table!, changed, cs);
-    } else cs.version = snap.version;   // unchanged: dependents that read the old values stay fresh
-    cs.dirtyRows.clear();
-    cs.checkedAt = this.db.version;
-  }
+  /** Recompute named rows in place, keeping the rest: the column's version moves only if a value does. */
   private recomputeRows(cs: ColState, rows: Iterable<number>) {
     this.stats.partialRecomputes++;
-    this.beginCompute(cs, true);   // keep previously recorded deps: a partial pass may not exercise every branch
+    this.recordStructural(cs, true);   // keep previously recorded deps: a partial pass may not exercise every branch
     const changed = new Set<number>();
-    try {
-      for (const r of rows) {
-        if (r >= cs.size) continue;
-        const oSt = cs.state[r], oVal = cs.values[r], oOther = oSt === 2 ? cs.other.get(r) : undefined;
-        cs.state[r] = 0;
-        this.computeOne(cs, r);
-        if (!this.sameValue(oSt, oVal, oOther, cs.state[r], cs.values[r], cs.state[r] === 2 ? cs.other.get(r) : undefined)) changed.add(r);
-      }
-    } finally { this.endCompute(cs); }
+    for (const r of rows) {
+      if (r >= cs.size) continue;
+      const oSt = cs.state[r], oVal = cs.values[r], oOther = oSt === 2 ? cs.other.get(r) : undefined;
+      if (oSt === 0) continue;                     // never computed: nobody is holding it, so nobody need be told
+      cs.state[r] = 0;
+      this.computeOne(cs, r);
+      if (!this.sameValue(oSt, oVal, oOther, cs.state[r], cs.values[r], cs.state[r] === 2 ? cs.other.get(r) : undefined)) changed.add(r);
+    }
     // refresh the recorded versions of everything we depend on
     for (const k of cs.deps.keys()) if (k !== cs) cs.deps.set(k, this.currentVersion(k));
     if (changed.size) { cs.version++; this.noteRowsChanged(cs.table!, changed, cs); }
   }
   private computeOne(cs: ColState, i: number) {
+    cs.busy++;
+    try { this.computeOneNow(cs, i); } finally { cs.busy--; }
+  }
+  private computeOneNow(cs: ColState, i: number) {
     const key = `${cs.uid}:${i}`;
     let { v, self } = this.pass(cs, i, key);
     this.write(cs, i, v);
@@ -381,7 +364,7 @@ export class IncrementalEngine extends EvalCore {
     for (let n = 0; n < it.maxIterations; n++) {
       this.stats.iterations++;
       const t = this.tainted.get(key);
-      if (t) { for (const k of t) { const c = this.cellOf.get(k); if (c && c.cs.computing && c.cs.state[c.i] !== 4) { c.cs.state[c.i] = 0; c.cs.other.delete(c.i); } } t.clear(); }
+      if (t) { for (const k of t) { const c = this.cellOf.get(k); if (c && c.cs.state[c.i] !== 4) { c.cs.state[c.i] = 0; c.cs.other.delete(c.i); } } t.clear(); }
       const r = this.pass(cs, i, key);
       this.write(cs, i, r.v);
       if (converged(v, r.v, it.tolerance)) { v = r.v; done = true; break; }
@@ -391,7 +374,7 @@ export class IncrementalEngine extends EvalCore {
     if (!done) {
       v = err('ITER', `${cs.pivot ? `${cs.pivot.id}.${cs.measure!.id}` : `${cs.table!.id}.${cs.field!.id}`} did not converge in ${it.maxIterations} iterations (change still above ${it.tolerance})`);
       this.write(cs, i, v);
-      const t = this.tainted.get(key); if (t) for (const k of t) { const c = this.cellOf.get(k); if (c && c.cs.computing) this.write(c.cs, c.i, v); }
+      const t = this.tainted.get(key); if (t) for (const k of t) { const c = this.cellOf.get(k); if (c) this.write(c.cs, c.i, v); }
     }
     this.tainted.delete(key);
   }
@@ -466,14 +449,12 @@ export class IncrementalEngine extends EvalCore {
   cell(pivot: Pivot, measure: Measure, coord: Int32Array): Value {
     const cs = this.colForMeasure(pivot, measure);
     const addr = this.encode(pivot, coord);
-    if (!cs.computing) this.ensureFresh(cs);   // may leave cs computing (started lazily under another column)
+    this.ensureFresh(cs);
     this.recordObj(cs, cs.version);
     if (addr >= cs.size) return null;
-    if (cs.computing) {
-      const st = cs.state[addr];
-      if (st === 4) return this.reentry(cs, addr, `${pivot.id}.${measure.id}`);
-      if (st === 0) this.computeOne(cs, addr);
-    }
+    const st = cs.state[addr];
+    if (st === 4) return this.reentry(cs, addr, `${pivot.id}.${measure.id}`);
+    if (st === 0) this.computeOne(cs, addr);
     return this.read(cs, addr);
   }
 
@@ -483,14 +464,12 @@ export class IncrementalEngine extends EvalCore {
       return field.column.get(row);
     }
     const cs = this.colForField(table, field);
-    if (!cs.computing) this.ensureFresh(cs);   // may leave cs computing (started lazily under another column)
+    this.ensureFresh(cs);
     this.recordObj(cs, cs.version);
     if (row >= cs.size) return null;
-    if (cs.computing) {
-      const st = cs.state[row];
-      if (st === 4) return this.reentry(cs, row, `${table.id}.${field.id}`);
-      if (st === 0) this.computeOne(cs, row);
-    }
+    const st = cs.state[row];
+    if (st === 4) return this.reentry(cs, row, `${table.id}.${field.id}`);
+    if (st === 0) this.computeOne(cs, row);
     return this.read(cs, row);
   }
 
