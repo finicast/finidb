@@ -245,11 +245,16 @@ export class IncrementalEngine extends EvalCore {
       this.pending.set(cs, this.startFull(cs));
       return;
     }
-    if (cs.checkedAt === this.db.version && cs.computedOnce) return;
+    // A pivot's cells are a flat array indexed by the dimensions' member positions, so the moment a dimension
+    // table gains or loses a row every index means something else. Size is the tell, and checking it here covers
+    // every way rows come and go: a delete, a load, a replace, a refresh of a linked table.
+    const wanted = cs.kind === 'measure' ? cs.pivot!.totalCells() : cs.table!.rowCount;
+    const resized = cs.computedOnce && cs.size !== wanted;
+    if (!resized && cs.checkedAt === this.db.version && cs.computedOnce) return;
     cs.checking = true; this.checkingDepth++;
     const gen0 = cs.gen;
     try {
-      let stale = !cs.computedOnce;
+      let stale = !cs.computedOnce || resized;
       let allBase = true;
       if (!stale) {
         for (const [k, v] of cs.deps) {
@@ -262,7 +267,7 @@ export class IncrementalEngine extends EvalCore {
         // forced into a full recompute during our own check (a column cycle): it is pending and finishes in
         // drainPending once no column is computing or checking, so nothing can force it a second time
       } else if (stale) {
-        const partial = cs.computedOnce && cs.kind === 'field' && !cs.noPartial && !cs.dirtyRows.all && allBase && cs.table!.rowCount === cs.size;
+        const partial = !resized && cs.computedOnce && cs.kind === 'field' && !cs.noPartial && !cs.dirtyRows.all && allBase && cs.table!.rowCount === cs.size;
         if (partial) { this.recomputeRows(cs, cs.dirtyRows.rows()); cs.dirtyRows.clear(); cs.checkedAt = this.db.version; }
         else if (this.stack.length > 0) {
           // nested under another column's computation: compute this column's cells on demand and finish it later,

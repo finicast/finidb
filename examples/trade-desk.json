@@ -655,7 +655,7 @@
     },
     {
      "kind": "text",
-     "text": "Every row in the blotter and on the watchlist carries the person who entered it and the person who last changed it. The engine fills those columns; nobody types them, and a client that sends them is ignored. They are ordinary fields, so the Activity page charts them like any other dimension.\nLog a trade below and it lands in the blotter with your name on it; double-click a cell in the blotter to change one."
+     "text": "Every row in the blotter and on the watchlist carries the person who entered it and the person who last changed it. The engine fills those columns; nobody types them, and a client that sends them is ignored. They are ordinary fields, so the Activity page charts them like any other dimension.\nLog a trade below and it lands in the blotter with your name on it; double-click a cell in the blotter to change one. A name the desk has not traded before needs a ticker first: the symbol is its id, and it shows up in the pickers at once."
     },
     {
      "kind": "kpi",
@@ -740,7 +740,7 @@
      "kind": "form",
      "table": "trades",
      "title": "Log a trade",
-     "w": 12,
+     "w": 6,
      "h": 5,
      "form": {
       "fields": [
@@ -753,6 +753,23 @@
        "note"
       ],
       "button": "Add it to the blotter"
+     }
+    },
+    {
+     "kind": "form",
+     "table": "tickers",
+     "title": "Add a ticker",
+     "w": 6,
+     "h": 5,
+     "form": {
+      "fields": [
+       "id",
+       "name",
+       "sector",
+       "last",
+       "covered_by"
+      ],
+      "button": "Add the ticker"
      }
     },
     {
@@ -839,7 +856,7 @@
      "table": "watchlist",
      "title": "Put a name on the list",
      "w": 12,
-     "h": 5,
+     "h": 4,
      "form": {
       "fields": [
        "ticker",

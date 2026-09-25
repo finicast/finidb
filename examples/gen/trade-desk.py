@@ -136,7 +136,8 @@ doc = {
       {'kind': 'text', 'text': 'Every row in the blotter and on the watchlist carries the person who entered it and the person who last changed it. '
                                'The engine fills those columns; nobody types them, and a client that sends them is ignored. '
                                'They are ordinary fields, so the Activity page charts them like any other dimension.\n'
-                               'Log a trade below and it lands in the blotter with your name on it; double-click a cell in the blotter to change one.'},
+                               'Log a trade below and it lands in the blotter with your name on it; double-click a cell in the blotter to change one. '
+                               'A name the desk has not traded before needs a ticker first: the symbol is its id, and it shows up in the pickers at once.'},
       {'kind': 'kpi', 'pivot': 'fund', 'line': 'market_value', 'title': 'Market value'},
       {'kind': 'kpi', 'pivot': 'fund', 'line': 'unrealised', 'title': 'Unrealised gain'},
       {'kind': 'kpi', 'pivot': 'fund', 'line': 'names', 'title': 'Names held'},
@@ -144,8 +145,10 @@ doc = {
       {'kind': 'chart', 'type': 'bar', 'pivot': 'coverage', 'rows': ['line'], 'cols': ['person'], 'lines': ['market_value'], 'title': 'The book, by the analyst who covers it', 'w': 4},
       {'kind': 'chart', 'type': 'bar', 'pivot': 'position', 'rows': ['line'], 'cols': ['ticker'], 'lines': ['market_value'], 'title': 'Market value by name', 'w': 4},
       {'kind': 'chart', 'type': 'bar', 'pivot': 'position', 'rows': ['line'], 'cols': ['ticker'], 'lines': ['unrealised'], 'title': 'Unrealised gain by name', 'w': 4},
-      {'kind': 'form', 'table': 'trades', 'title': 'Log a trade', 'w': 12, 'h': 5,
+      {'kind': 'form', 'table': 'trades', 'title': 'Log a trade', 'w': 6, 'h': 5,
        'form': {'fields': ['date', 'ticker', 'side', 'quantity', 'price', 'entered_by', 'note'], 'button': 'Add it to the blotter'}},
+      {'kind': 'form', 'table': 'tickers', 'title': 'Add a ticker', 'w': 6, 'h': 5,
+       'form': {'fields': ['id', 'name', 'sector', 'last', 'covered_by'], 'button': 'Add the ticker'}},
       {'kind': 'data', 'table': 'trades', 'title': 'The blotter, newest first',
        'fields': ['date', 'ticker', 'side', 'quantity', 'price', 'value', 'added_by', 'added_at', 'changed_by', 'changed_at', 'note'],
        'sort': '-date', 'limit': 50, 'h': 10},
@@ -158,7 +161,7 @@ doc = {
       {'kind': 'chart', 'type': 'stackedBar', 'pivot': 'contributions', 'rows': ['person'], 'cols': ['period'], 'pages': {'line': 'trades_entered'}, 'title': 'Trades by month, and who entered them', 'w': 6},
       {'kind': 'chart', 'type': 'stackedBar', 'pivot': 'contributions', 'rows': ['person'], 'cols': ['period'], 'pages': {'line': 'traded_value'}, 'title': 'Value traded by month, and who entered it', 'w': 6},
       {'kind': 'table', 'pivot': 'coverage', 'rows': ['person'], 'cols': ['line'], 'title': 'By analyst', 'sort': '-market_value'},
-      {'kind': 'form', 'table': 'watchlist', 'title': 'Put a name on the list', 'w': 12, 'h': 5,
+      {'kind': 'form', 'table': 'watchlist', 'title': 'Put a name on the list', 'w': 12, 'h': 4,
        'form': {'fields': ['ticker', 'status', 'owner', 'note'], 'button': 'Add the note'}},
       {'kind': 'data', 'table': 'watchlist', 'title': 'The watchlist: whose note, and when it was last touched',
        'fields': ['ticker', 'status', 'owner', 'note', 'added_by', 'added_at', 'changed_by', 'changed_at'], 'sort': '-changed_at', 'limit': 50, 'h': 9},

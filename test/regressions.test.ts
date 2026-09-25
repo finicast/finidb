@@ -74,6 +74,31 @@ test('two dimensions over the same member table resolve selectors by dimension i
   }
 });
 
+test('deleting a member of a dimension does not leave other cells reading the wrong row', async () => {
+  const { FiniDB } = await import('../src/index.js');
+  for (const engine of ['incremental', 'reference'] as const) {
+    const f = new FiniDB({ engine });
+    f.createModel('m');
+    f.createTable('m', 'names', [{ id: 'name' }], { rows: [{ id: 'a' }, { id: 'b' }, { id: 'c' }, { id: 'd' }] });
+    f.createTable('m', 'quotes', [{ id: 'name', ref: 'names' }, { id: 'px', type: 'number' }],
+      { rows: [{ id: 'q1', name: 'a', px: 1 }, { id: 'q2', name: 'b', px: 2 }, { id: 'q3', name: 'c', px: 3 }, { id: 'q4', name: 'd', px: 4 }] });
+    f.createPivot('m', 'p', { dims: [{ id: 'name', table: 'names' }], lineDim: 'name', measures: [{ id: 'value' }] });
+    f.setRules('m', 'p', 'value = SUM(quotes.px[name=@name])');
+    const px = (id: string) => f.get('m', 'p', { name: id });
+    assert.deepEqual([px('a'), px('b'), px('c'), px('d')], [1, 2, 3, 4], engine);
+
+    // drop a member (and its quote): the cells of the survivors must still read their own rows
+    f.deleteRows('m', 'quotes', ['q2']);
+    f.deleteRows('m', 'names', ['b']);
+    assert.deepEqual([px('a'), px('c'), px('d')], [1, 3, 4], `${engine}: after a delete`);
+
+    // and the same when a member arrives, which moves the indexes the other way
+    f.insertRows(f.model('m').table('names') as never, [{ id: 'e' }]);
+    f.insertRows(f.model('m').table('quotes') as never, [{ id: 'q5', name: 'e', px: 5 }]);
+    assert.deepEqual([px('a'), px('c'), px('d'), px('e')], [1, 3, 4, 5], `${engine}: after an insert`);
+  }
+});
+
 test('a copied database carries the model and its values, and the two then move apart', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'finidb-copy-'));
   let h = await startServer({ port: 0, host: 'localhost', dataDir: dir, persistence: filePersistence() });
