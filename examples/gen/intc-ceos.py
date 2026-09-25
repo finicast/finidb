@@ -1,5 +1,5 @@
 """Intel share price under five CEOs: a stock chart annotated with each appointment, a tenure scorecard, and
-the daily closes behind every month. Prices come from Financial Modeling Prep at generation time and are frozen
+the daily closes behind every month. Prices are fetched at generation time and frozen
 in the document with an as-of date. Run: FMP_API_KEY=… python3 intc-ceos.py (or the key is read from ../../../.env)."""
 import json, os, sys, urllib.request, datetime as dt
 
@@ -67,7 +67,7 @@ doc = {
   'outputs': [{'pivot': 'tenure', 'rows': ['ceo'], 'cols': ['line'], 'title': 'Tenure scorecard'}, {'pivot': 'stock', 'rows': ['line'], 'cols': ['period'], 'lines': ['close', 'return_mom'], 'title': 'INTC by month'}],
   'dashboards': [
     {'id': 'overview', 'name': 'Intel under five CEOs', 'theme': 'research', 'cards': [
-      {'kind': 'text', 'w': 12, 'h': 2, 'text': f'Intel\'s share price by month since 2013, with every chief executive appointment marked. **Click any month** on the chart for the daily closes behind it. The scorecard measures each tenure from the appointment month to the month the successor took over (the current CEO to {asof}). Prices from Financial Modeling Prep as of {asof}; this is a market chart, not a verdict on the people.'},
+      {'kind': 'text', 'w': 12, 'h': 2, 'text': f'Intel\'s share price by month since 2013, with every chief executive appointment marked. **Click any month** on the chart for the daily closes behind it. The scorecard measures each tenure from the appointment month to the month the successor took over (the current CEO to {asof}). Prices as of {asof}; this is a market chart, not a verdict on the people.'},
       {'kind': 'kpi', 'pivot': 'stock', 'line': 'close', 'title': 'INTC, latest month-end close', 'unit': '$', 'w': 3},
       {'kind': 'kpi', 'pivot': 'stock', 'line': 'return_ytd', 'title': 'Return since January 2013', 'w': 3},
       {'kind': 'kpi', 'pivot': 'tenure', 'line': 'total_return', 'cols': ['ceo'], 'filters': {'ceo': ['gelsinger', 'tan']}, 'title': 'Return under Lip-Bu Tan (vs Gelsinger)', 'w': 3},
