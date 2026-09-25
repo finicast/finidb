@@ -512,6 +512,31 @@ export abstract class EvalCore {
   }
 
   /** Build the per-dimension member sets for a pivot reference. */
+  /**
+   * Which members of a dimension satisfy a selector. A rule like `market.close[member.subject=@company]` asks
+   * this of every cell it computes, and the answer depends on the dimension's data, not on the cell — so when
+   * the attribute path is plain columns (inputs, which hold still within a version) the scan is done once per
+   * distinct question and kept. The cell that used to scan 206 members now looks one up.
+   */
+  private selCache = new Map<string, number[]>();
+  private selCacheAt = -1;
+  protected members(t: Table, path: string[], key: string, scan: () => number[]): number[] {
+    let plain = true;
+    let cur: Table = t;
+    for (const name of path) {
+      const f = cur.fieldById.get(name);
+      if (!f || f.computed) { plain = false; break; }
+      if (f.type === 'ref') cur = f.refTable!;
+    }
+    if (!plain) return scan();
+    const at = this.db.version * 1e6 + this.db.schemaVersion;
+    if (this.selCacheAt !== at) { this.selCache.clear(); this.selCacheAt = at; }
+    const ck = `${t.iid}|${path.join('.')}|${key}`;
+    let hit = this.selCache.get(ck);
+    if (hit === undefined) { hit = scan(); this.selCache.set(ck, hit); }
+    return hit;
+  }
+
   protected pivotCells(p: Pivot, m: Measure, selectors: Selector[], implicit: Selector[], ctx: Ctx, inAggregate: boolean, path: string[]): Resolved {
     const sets: (number[] | 'all')[] = [];
     // defaults
@@ -573,7 +598,8 @@ export abstract class EvalCore {
           } else {
             const want = s.value.k === 'kw' ? null : s.value.v;
             if (want === null) throw new CompileError('BAD_SELECTOR', 'attribute selectors take a literal');
-            const members = range(n).filter(i => eq(this.followPath(d.table, i, attrPath), want as Scalar) === (s.op === '='));
+            const members = this.members(d.table, attrPath, `eq|${s.op}|${vkey(want as Scalar)}`,
+              () => range(n).filter(i => eq(this.followPath(d.table, i, attrPath), want as Scalar) === (s.op === '=')));
             sets[di] = intersect(sets[di], members, n);
           }
           break;
@@ -581,16 +607,17 @@ export abstract class EvalCore {
         case 'in': {
           let members: number[];
           if (attrPath.length === 0) members = s.values.map(v => { const i = d.table.memberIndex(String(v)); if (i < 0) throw new CompileError('NO_MEMBER', `'${v}' is not a member of ${d.id}`); return i; });
-          else members = range(n).filter(i => s.values.some(v => eq(this.followPath(d.table, i, attrPath), v)));
-          sets[di] = s.not ? complement(members, n) : members;
+          else members = this.members(d.table, attrPath, `in|${s.values.map(vkey).join('\u0001')}`,
+            () => range(n).filter(i => s.values.some(v => eq(this.followPath(d.table, i, attrPath), v))));
+          sets[di] = s.not ? complement(members, n) : members.slice();
           break;
         }
         case 'cmp': {
-          const members = range(n).filter(i => {
+          const members = this.members(d.table, attrPath, `cmp|${s.op}|${vkey(s.value as Scalar)}`, () => range(n).filter(i => {
             const v = attrPath.length ? this.followPath(d.table, i, attrPath) : d.table.rowId(i);
             const c = cmp(v, s.value as Scalar); if (isError(c)) return false;
             return s.op === '<' ? c < 0 : s.op === '<=' ? c <= 0 : s.op === '>' ? c > 0 : c >= 0;
-          });
+          }));
           sets[di] = intersect(sets[di], members, n);
           break;
         }
@@ -607,7 +634,8 @@ export abstract class EvalCore {
           const rv = this.evalAt(s.right, ctx); // ctx-side value (member id string or attribute value)
           if (isError(rv)) return { k: 'value', v: rv };
           if (attrPath.length === 0) { const i = rv === null ? -1 : d.table.memberIndex(String(rv)); sets[di] = i < 0 ? [] : [i]; }
-          else sets[di] = intersect(sets[di], range(n).filter(i => eq(this.followPath(d.table, i, attrPath), rv as Scalar)), n);
+          else sets[di] = intersect(sets[di], this.members(d.table, attrPath, `corr|${vkey(rv as Scalar)}`,
+            () => range(n).filter(i => eq(this.followPath(d.table, i, attrPath), rv as Scalar))), n);
           break;
         }
       }
@@ -731,6 +759,8 @@ export abstract class EvalCore {
 function range(n: number): number[] { const a = new Array(n); for (let i = 0; i < n; i++) a[i] = i; return a; }
 function complement(s: number[] | 'all', n: number): number[] { if (s === 'all') return []; const set = new Set(s); return range(n).filter(i => !set.has(i)); }
 function intersect(a: number[] | 'all', b: number[], _n: number): number[] { if (a === 'all') return b; const set = new Set(a); return b.filter(i => set.has(i)); }
+/** A cache key that tells one value from another exactly: 1 and "1" are different questions, both answered by a scan. */
+function vkey(v: Scalar | Value): string { return v === null || v === undefined ? 'null' : `${typeof v}:${String(v)}`; }
 function keyOf(v: Value): string { if (v === null || v === undefined) return '\u0000'; if (isError(v)) return '\u0002'; return typeof v === 'string' ? v.toLowerCase() : String(v); }
 
 

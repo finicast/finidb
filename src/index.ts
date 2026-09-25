@@ -20,7 +20,8 @@ export { createMcpServer, toToolError, ruleText, HELP } from './mcp/server.js';
 export type { ToolError } from './mcp/server.js';
 
 // Server (doc 07 §1–§3): `finidb serve`, the multi-database HTTP API, users and grants.
-export { startServer, runQuery, describeTable, HttpError, ROUTES } from './server/server.js';
+export { startServer, runQuery, HttpError, ROUTES } from './server/server.js';
+export { describeTable, describeRules } from './view/describe.js';
 export type { ServerOptions, ServerHandle, PersistenceHook, Op, DbEntry, ColumnarWindow, ServerQuery } from './server/server.js';
 export { AuthStore, AuthError } from './server/auth.js';
 export type { Role, Grant, Principal } from './server/auth.js';

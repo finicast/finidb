@@ -19,7 +19,11 @@ import { readOplog, type OpRecord } from '../persist/oplog.js';
 import { runJob } from './jobs.js';
 import { snapshotBuffer } from '../persist/snapshot.js';
 import { columnar, WindowError, type ColumnarWindow } from '../view/window.js';
+import { readRows, RowsError, type Where } from '../view/rows.js';
+import { describeTable, describeRules } from '../view/describe.js';
+export { describeTable } from '../view/describe.js';
 export type { ColumnarWindow } from '../view/window.js';
+export type { Where } from '../view/rows.js';
 import { parseCsv, planLoad, slug, coerce, type ParsedCsv } from '../store/csv.js';
 import { fetchSource, envSecrets, secretNamesOf } from '../source/fetch.js';
 import { requestsOf, describePresets } from '../source/presets.js';
@@ -93,6 +97,7 @@ export class HttpError extends Error {
 function toHttpError(e: unknown): HttpError {
   if (e instanceof HttpError) return e;
   if (e instanceof AuthError) return new HttpError(e.status, e.code, e.message);
+  if (e instanceof RowsError || e instanceof WindowError) return new HttpError(400, e.code, e.message, 'fix' in e && e.fix ? { fix: e.fix } : {});
   if (e instanceof CompileError) return new HttpError(400, e.code, e.detail, e.fix ? { fix: e.fix } : {});
   if (e instanceof ParseError) return new HttpError(400, 'PARSE_ERROR', e.message, { pos: e.pos });
   if (e instanceof SourceError) return new HttpError(e.code === 'SOURCE_NO_SECRET' || e.code === 'SOURCE_UNAUTHORIZED' ? 401 : /^SOURCE_(BAD|UNKNOWN|EMPTY|TOO_MANY|PRIVATE)/.test(e.code) ? 400 : 502, e.code, e.message, { fix: e.fix, ...e.extra });
@@ -233,91 +238,11 @@ function cartesian(lists: number[][]): number[][] {
 // Schema description (§3 `GET /db/:db/schema`, `GET /db/:db/tables/:table`)
 // ---------------------------------------------------------------------------------------------
 
-function describeRules(t: AnyTable) {
-  return t.rules.map(r => ({ order: r.order, target: r.target, when: r.when, formula: r.formula, name: r.name, status: r.status, error: r.error }));
-}
-export function describeTable(t: AnyTable) {
-  if (t.kind === 'tabular') return {
-    id: t.id, name: t.name, kind: 'tabular' as const, model: t.model.id, rowCount: t.rowCount, version: t.version,
-    fields: t.fields.map(fl => ({ id: fl.id, name: fl.name, type: fl.type, ref: fl.refTable?.id, computed: fl.computed, format: fl.format, ...(t.track && TRACK_FIELDS.some(k => k.id === fl.id) ? { managed: true } : {}) })),
-    track: t.track || undefined,
-    distinctOf: t.distinctOf ? { table: t.distinctOf.table.id, field: t.distinctOf.field.id } : undefined,
-    source: t.source,
-    rules: describeRules(t),
-  };
-  return {
-    id: t.id, name: t.name, kind: 'pivot' as const, model: t.model.id, cells: t.totalCells(), version: t.version,
-    dims: t.dims.map(d => ({ id: d.id, name: d.name, table: d.table.id, memberCount: d.table.rowCount, members: d.table.rowCount <= 2000 ? Array.from({ length: d.table.rowCount }, (_, i) => d.table.rowId(i)) : undefined, memberNames: d.table.rowCount <= 2000 && d.table.hasField('name') ? Array.from({ length: d.table.rowCount }, (_, i) => { const n = d.table.field('name').column.get(i); return n === null || n === '' ? d.table.rowId(i) : String(n); }) : undefined, attributes: d.table.fields.filter(f => f.id !== 'id').map(f => f.id) })),
-    measures: t.measures.map(m => ({ id: m.id, name: m.name, type: m.type, format: m.format })),
-    lineDim: t.lineDim?.id, timeDim: t.timeDim?.id,
-    rules: describeRules(t),
-  };
-}
 function describeDb(db: DbEntry) {
   return {
     name: db.name, created: db.created, version: db.f.db.version, schemaVersion: db.f.db.schemaVersion,
     models: [...db.f.db.models.values()].map(m => ({ id: m.id, name: m.name, ...(m.iterate ? { iterate: m.iterate } : {}), tables: [...m.tables.values()].map(describeTable) })),
   };
-}
-/** A row filter for GET /rows: field → value (equals; an array = any of), or { op: value } with gt gte lt lte ne contains. */
-export type Where = Record<string, Scalar | Scalar[] | Partial<Record<'eq' | 'ne' | 'gt' | 'gte' | 'lt' | 'lte' | 'contains' | 'in', Scalar | Scalar[]>>>;
-function rowMatches(f: FiniDB, t: Table, i: number, where: Where, q: string | undefined): boolean {
-  const id = t.rowId(i);
-  const get = (field: string): Value => field === 'id' ? id : f.getField(t.model.id, t.id, id, field);
-  const norm = (v: Value): Scalar => (v === null || v === undefined || typeof v === 'object') ? null : v;
-  const cmp = (a: Scalar, b: Scalar) => { if (a === null || b === null) return NaN; if (typeof a === 'number' && typeof b === 'number') return a - b; const x = String(a), y = String(b); return x < y ? -1 : x > y ? 1 : 0; };
-  const eq = (a: Scalar, b: Scalar) => a === b || (a !== null && b !== null && String(a).toLowerCase() === String(b).toLowerCase());
-  for (const [field, cond] of Object.entries(where)) {
-    if (field !== 'id' && !t.hasField(field)) throw new HttpError(400, 'SCHEMA_NO_FIELD', `${t.id} has no field ${field}`, { fix: `one of: id, ${t.fields.filter(x => x.id !== 'id').map(x => x.id).join(', ')}` });
-    const v = norm(get(field));
-    const test = (op: string, want: Scalar | Scalar[]): boolean => {
-      switch (op) {
-        case 'eq': return Array.isArray(want) ? want.some(w => eq(v, w)) : eq(v, want);
-        case 'in': return (Array.isArray(want) ? want : [want]).some(w => eq(v, w));
-        case 'ne': return Array.isArray(want) ? !want.some(w => eq(v, w)) : !eq(v, want);
-        case 'gt': return cmp(v, want as Scalar) > 0; case 'gte': return cmp(v, want as Scalar) >= 0;
-        case 'lt': return cmp(v, want as Scalar) < 0; case 'lte': return cmp(v, want as Scalar) <= 0;
-        case 'contains': return v !== null && String(v).toLowerCase().includes(String(want).toLowerCase());
-        default: throw new HttpError(400, 'BAD_REQUEST', `unknown where operator ${op}`, { fix: 'eq, ne, gt, gte, lt, lte, contains, in' });
-      }
-    };
-    if (cond !== null && typeof cond === 'object' && !Array.isArray(cond)) { for (const [op, want] of Object.entries(cond)) if (!test(op, want as Scalar | Scalar[])) return false; }
-    else if (!test('eq', cond as Scalar | Scalar[])) return false;
-  }
-  if (q) {
-    const needle = q.toLowerCase();
-    if (!t.fields.some(fl => { const v = get(fl.id); return v !== null && v !== undefined && typeof v !== 'object' && String(v).toLowerCase().includes(needle); })) return false;
-  }
-  return true;
-}
-/** The rows of a table, optionally filtered (`where`, free-text `q`) and sorted (`sort`: "field" or "-field", comma-separated); `count` is the filtered total. */
-function readRows(f: FiniDB, t: Table, offset: number, limit: number, opts: { where?: Where; q?: string; sort?: string } = {}): { rows: Record<string, Value>[]; count: number } {
-  let idx = Array.from({ length: t.rowCount }, (_, i) => i);
-  if ((opts.where && Object.keys(opts.where).length) || opts.q) idx = idx.filter(i => rowMatches(f, t, i, opts.where ?? {}, opts.q));
-  if (opts.sort) {
-    const keys = opts.sort.split(',').map(s => s.trim()).filter(Boolean).map(s => ({ field: s.replace(/^-/, ''), desc: s.startsWith('-') }));
-    for (const k of keys) if (k.field !== 'id' && !t.hasField(k.field)) throw new HttpError(400, 'SCHEMA_NO_FIELD', `${t.id} has no field ${k.field}`);
-    const val = (i: number, field: string): Scalar => { const v = field === 'id' ? t.rowId(i) : f.getField(t.model.id, t.id, t.rowId(i), field); return v === null || v === undefined || typeof v === 'object' ? null : v; };
-    const cache = new Map<string, Scalar>();
-    const at = (i: number, field: string) => { const k = `${i}|${field}`; if (!cache.has(k)) cache.set(k, val(i, field)); return cache.get(k)!; };
-    idx.sort((a, b) => {
-      for (const k of keys) {
-        const x = at(a, k.field), y = at(b, k.field);
-        if (x === y) continue;
-        if (x === null) return 1; if (y === null) return -1;   // blanks last either way
-        const c = typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y), undefined, { numeric: true, sensitivity: 'base' });
-        if (c) return k.desc ? -c : c;
-      }
-      return a - b;
-    });
-  }
-  const out: Record<string, Value>[] = [];
-  for (const i of idx.slice(offset, offset + limit)) {
-    const row: Record<string, Value> = {};
-    for (const fl of t.fields) row[fl.id] = f.getField(t.model.id, t.id, t.rowId(i), fl.id);
-    out.push(row);
-  }
-  return { rows: out, count: idx.length };
 }
 
 // ---------------------------------------------------------------------------------------------

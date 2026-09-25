@@ -292,7 +292,7 @@ export class FiniDB {
   }
 
   /** Add rules from text (one per line) or structured form. Returns per-rule results. */
-  setRules(modelId: string, tableId: string, rules: string | { target: string; when?: Clause[]; formula: string; name?: string }[], opts: { strict?: boolean; replace?: boolean } = {}) {
+  setRules(modelId: string, tableId: string, rules: string | { target: string; when?: Clause[]; formula: string; name?: string }[], opts: { strict?: boolean; replace?: boolean; smoke?: boolean } = {}) {
     const m = this.model(modelId);
     const t = m.table(tableId);
     const strict = opts.strict ?? true;
@@ -331,7 +331,7 @@ export class FiniDB {
     t.rulesVersion++;
     if (t.kind === 'tabular') for (const r of t.rules) { const f = t.field(r.target); f.computed = true; }
     this.db.touch();
-    const problems = this.smokeTest(t, parsed.map(p => p.rule));
+    const problems = opts.smoke === false ? [] : this.smokeTest(t, parsed.map(p => p.rule));
     if (problems.length && strict) {
       t.rules = prevRules; prevRules.forEach((r, i) => { r.status = prevStatus[i][0]; r.error = prevStatus[i][1]; });
       if (t.kind === 'tabular') t.fields.forEach((f, i) => { f.computed = prevComputed[i]; });

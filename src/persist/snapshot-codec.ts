@@ -193,8 +193,10 @@ function fillColumn(f: Field, h: FieldHeader, n: number, secs: SectionRef[], pay
 
 function restoreRules(f: FiniDB, m: Model, t: Table | Pivot, rules: RuleHeader[]) {
   if (rules.length === 0) return;
-  // Non-strict so that a rule recorded as invalid does not abort the load; status is then restored verbatim.
-  f.setRules(m.id, t.id, rules.map(r => ({ target: r.target, when: r.when, formula: r.formula, name: r.name })), { strict: false, replace: true });
+  // Non-strict so that a rule recorded as invalid does not abort the load; status is then restored verbatim,
+  // which is also why there is nothing to smoke-test: the verdict is in the file, and evaluating a cell per
+  // rule to reach it again is most of what loading a large model used to cost.
+  f.setRules(m.id, t.id, rules.map(r => ({ target: r.target, when: r.when, formula: r.formula, name: r.name })), { strict: false, replace: true, smoke: false });
   t.rules.forEach((r, i) => { r.status = rules[i].status; r.error = rules[i].error; });
 }
 
