@@ -17,6 +17,9 @@ import type { QueryOptions, FieldSpec, PeriodsSpec, Scalar, Value, Grid, Clause 
 import type { AnyTable, Table, Pivot, Dim, Measure, Model } from '../schema/schema.js';
 import { readOplog, type OpRecord } from '../persist/oplog.js';
 import { runJob } from './jobs.js';
+import { snapshotBuffer } from '../persist/snapshot.js';
+import { columnar, WindowError, type ColumnarWindow } from '../view/window.js';
+export type { ColumnarWindow } from '../view/window.js';
 import { parseCsv, planLoad, slug, coerce, type ParsedCsv } from '../store/csv.js';
 import { fetchSource, envSecrets, secretNamesOf } from '../source/fetch.js';
 import { requestsOf, describePresets } from '../source/presets.js';
@@ -213,45 +216,13 @@ export function runQuery(f: FiniDB, model: string, q: ServerQuery): string | Col
   if (q.measure && !p.measure(q.measure)) throw new HttpError(400, 'QUERY_NO_MEASURE', `${q.table} has no measure '${q.measure}'`);
   const { format, ...rest } = q;
   const opts: QueryOptions = { ...rest, rows: q.rows ?? [], cols: q.cols ?? [] };
-  if (format === 'json' || format === 'grid') return columnar(f, p, opts);
+  if (format === 'json' || format === 'grid') {
+    try { return columnar(f, p, opts); }
+    catch (e) { if (e instanceof WindowError) throw new HttpError(400, e.code, e.message); throw e; }
+  }
   return f.query(model, { ...opts, format: 'markdown' }) as string;
 }
 
-/** Doc 05 §10: rows/cols as member-id tuples, values row-major, state 0 empty · 1 computed · 2 input · 3 error. */
-export interface ColumnarWindow {
-  version: number;
-  rows: string[][]; cols: string[][];            // member id tuples
-  rowLabels: string[][]; colLabels: string[];    // display names
-  rowDims: string[]; colDims: string[];          // dim ids on rows / cols
-  rowHeaderNames: string[];                      // display names of the row dims
-  measure: string;
-  values: Value[]; state: number[];              // row-major; state 0 blank · 1 computed · 2 input · 3 error
-  formats: (string | undefined)[];               // per row: the row's own format (member `format` attribute or query override), else the measure's
-  colFormats?: (string | undefined)[];           // per column: a column member's own format (e.g. a percent line placed on columns); a row's own format wins over it
-  measureFormat?: string;                        // the measure's default, so a reader can tell a row's own format from the fallback
-  errors: Record<string, { code: string; message?: string; fix?: string }>;
-}
-/** Columnar window from the facade grid (doc 05 §10). Every non-row/col dim must be paged. */
-function columnar(f: FiniDB, p: Pivot, q: QueryOptions): ColumnarWindow {
-  for (const d of p.dims) if (!q.rows.includes(d.id) && !q.cols.includes(d.id) && q.pages?.[d.id] === undefined) throw new HttpError(400, 'QUERY_UNPINNED_DIM', `${d.id} must be on rows, cols or pages`);
-  const grid = f.query(p.model.id, { ...q, format: 'grid' }) as Grid;
-  const measure: Measure = q.measure ? p.measure(q.measure)! : p.defaultMeasure;
-  const values: Value[] = [], state: number[] = [], errors: ColumnarWindow['errors'] = {};
-  grid.values.forEach((row, r) => row.forEach((v, c) => {
-    const idx = values.length;
-    values.push(v); state.push(grid.state![r][c]);
-    if (isError(v)) errors[idx] = { code: v.error, message: v.message, ...(v.fix ? { fix: v.fix } : {}) };
-  }));
-  // a paged member's own format (a percent line chosen as the page of a chart card) is the fallback before the measure's
-  const pageFormat = p.dims.map(d => { const m = q.pages?.[d.id]; if (m === undefined || q.rows.includes(d.id) || q.cols.includes(d.id) || !d.table.hasField('format')) return undefined; const i = d.table.memberIndex(m); const v = i >= 0 ? d.table.field('format').column.get(i) : null; return v ? String(v) : undefined; }).find(Boolean);
-  return {
-    version: f.db.version,
-    rows: grid.rowIds!, cols: grid.colIds!,
-    rowLabels: grid.rowHeaders, colLabels: grid.colHeaders,
-    rowDims: q.rows, colDims: q.cols, rowHeaderNames: grid.rowHeaderNames, measure: measure.id,
-    values, state, formats: grid.rowFormats!.map(f => f ?? pageFormat ?? measure.format), colFormats: grid.colFormats, measureFormat: pageFormat ?? measure.format, errors,
-  };
-}
 function cartesian(lists: number[][]): number[][] {
   let out: number[][] = [[]];
   for (const l of lists) { const next: number[][] = []; for (const o of out) for (const x of l) next.push([...o, x]); out = next; }
@@ -968,6 +939,20 @@ export async function startServer(opts: ServerOptions = {}): Promise<ServerHandl
    * `table` and `row` narrow it; `limit` caps the answer (200 by default). The log is the record of every
    * change ever made, including the ones since overwritten, which a table's own columns cannot show.
    */
+  /**
+   * `GET /db/:db/snapshot` — the model's inputs as the binary snapshot, for a client that means to compute
+   * for itself: a browser tab, a worker, another engine. Schema, columns, pivot inputs and rules; nothing
+   * computed, because the reader recomputes it.
+   */
+  route('GET', '/db/:db/snapshot', 'read', c => {
+    const bytes = snapshotBuffer(c.db!.f, { seq: 0 });
+    return new Reply(200, bytes as unknown as object, 'application/octet-stream', {
+      'Content-Disposition': `attachment; filename="${c.params.db}.fdb"`,
+      'X-Finidb-Version': String(version(c.db!)),
+      'Cache-Control': 'no-store',
+    });
+  });
+
   route('GET', '/db/:db/history', 'read', c => {
     const dir = join(dataDir, c.params.db);
     const limit = Math.min(1000, Math.max(1, Number(c.query.get('limit') ?? 200)));
