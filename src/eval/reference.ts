@@ -99,7 +99,7 @@ export abstract class EvalCore {
   governingRule(rules: Rule[], target: string, ctx: Ctx): Rule | undefined {
     for (let i = rules.length - 1; i >= 0; i--) {
       const r = rules[i];
-      if (r.target !== target || r.status !== 'ok' || !r.ast) continue;
+      if (r.kind === 'format' || r.target !== target || r.status !== 'ok' || !r.ast) continue;
       if (this.whenMatches(r.when, ctx)) return r;
     }
     return undefined;

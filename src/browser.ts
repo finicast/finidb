@@ -9,6 +9,8 @@ export type { QueryOptions, Grid } from './core.js';
 export { columnar, WindowError } from './view/window.js';
 export type { ColumnarWindow } from './view/window.js';
 export { readRows, RowsError } from './view/rows.js';
+export { formatValue, formatNumber, parseFormat, isPercent, toPattern, formatOf } from './view/format.js';
+export type { FormatSpec } from './view/format.js';
 export { describeTable, describeRules } from './view/describe.js';
 export { applyRecord, applyRecords } from './persist/apply.js';
 export type { OpRecord } from './persist/apply.js';

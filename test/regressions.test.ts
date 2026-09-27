@@ -4,6 +4,9 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { FiniDB, startServer, filePersistence } from '../src/index.js';
+import type { Pivot } from '../src/schema/schema.js';
+import { columnar } from '../src/view/window.js';
+import { formatValue, parseFormat, toPattern } from '../src/view/format.js';
 
 test('a rejected strict setRules append leaves the previous rules and values untouched', () => {
   for (const engine of ['reference', 'incremental'] as const) {
@@ -227,4 +230,72 @@ test('server persists databases across restarts through filePersistence', async 
     assert.match(t, /rowCount":2|"rows":2/);
     await h.close();
   } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+/**
+ * Formats: what a model says about how its numbers are written, and the one resolution of it. The awkward
+ * case is a variance % column crossing a money line — the cell is a percentage, the line is money, and until
+ * there were format rules the two renderers we ship disagreed about which won.
+ */
+test('a format is resolved from the rules, then the members, then the measure', () => {
+  const f = new FiniDB();
+  f.createModel('m');
+  f.createTable('m', 'lines', [{ id: 'name' }, { id: 'format' }], { rows: [
+    { id: 'revenue', name: 'Revenue', format: 'currency' },
+    { id: 'headcount', name: 'Headcount', format: 'int' },
+    { id: 'margin', name: 'Margin', format: 'percent' },
+  ] });
+  f.createTable('m', 'versions', [{ id: 'name' }, { id: 'format' }], { rows: [
+    { id: 'actual', name: 'Actual' }, { id: 'variance_pct', name: 'Variance %', format: 'percent' },
+  ] });
+  f.createPivot('m', 'bva', { dims: [{ id: 'line', table: 'lines' }, { id: 'version', table: 'versions' }], lineDim: 'line', measures: [{ id: 'value' }] });
+  for (const [line, version, v] of [['revenue', 'actual', 1234567.8], ['revenue', 'variance_pct', 0.1223],
+    ['headcount', 'actual', 42], ['headcount', 'variance_pct', 0.05], ['margin', 'actual', 0.312], ['margin', 'variance_pct', 0.04]] as [string, string, number][]) {
+    f.setValue('m', 'bva', { line, version }, v);
+  }
+  const p = f.model('m').table('bva') as Pivot;
+  const win = () => columnar(f, p, { table: 'bva', rows: ['line'], cols: ['version'], pages: {} } as never);
+  const shown = (w: ReturnType<typeof win>) => w.rows.map((_, r) => w.cols.map((__, c) => {
+    const i = r * w.cols.length + c;
+    return formatValue(w.values[i], w.formatTable?.[(w.cellFormats?.[i] ?? 0) - 1]);
+  }));
+
+  // members alone: a percentage anywhere in the cell's coordinates wins, so the variance % of a money line is a percentage
+  assert.deepEqual(shown(win()), [['$1,234,568', '12.2%'], ['42', '5.0%'], ['31.2%', '4.0%']]);
+
+  // a rule wins over what the members say, last matching first, exactly as a value rule does
+  f.setRules('m', 'bva', 'format headcount = int\nformat headcount[version=variance_pct] = "0.00%"', { replace: false });
+  assert.deepEqual(shown(win())[1], ['42', '5.00%']);
+
+  // a general rule applies to every cell it selects: without the override above, the percentage is swallowed
+  f.setRules('m', 'bva', 'format headcount = int', { replace: true });
+  assert.deepEqual(shown(win())[1], ['42', '0']);
+
+  // a format rule is not a value rule: it computes nothing and makes nothing computed
+  assert.equal(f.get('m', 'bva', { line: 'headcount', version: 'actual' }), 42);
+  assert.equal(p.rules.filter(r => r.kind === 'format').length, 1);
+
+  // and it is checked when it is set
+  assert.throws(() => f.setRules('m', 'bva', 'format revenue = sideways'), /BAD_FORMAT|not a format/);
+});
+
+test('the format vocabulary reads names and patterns alike', () => {
+  const cases: [number, string | undefined, string][] = [
+    [343669.79, 'currency', '$343,670'],
+    [343669.79, '$#,##0.00', '$343,669.79'],
+    [1234.5, 'currency:EUR', '€1,235'],
+    [1234.5, '[$CHF]#,##0', 'CHF 1,235'],
+    [0.0985, 'percent', '9.9%'],
+    [0.0985, '0.00%', '9.85%'],
+    [4, 'int', '4'],
+    [4, undefined, '4'],                    // unannotated: as many decimals as the size warrants, as before
+    [123.456, undefined, '123.5'],
+    [1234.56, undefined, '1,235'],
+    [0.0985, '0.0%', '9.9%'],               // the double is 9.84999…; a reader typed 9.85 and expects 9.9
+    [-1234.5, 'currency', '-$1,235'],
+  ];
+  for (const [v, spec, want] of cases) assert.equal(formatValue(v, spec), want, `${v} as ${spec}`);
+  assert.equal(formatValue(-1234.5, 'currency', { parens: true }), '($1,235)');
+  assert.equal(toPattern('currency:EUR'), '€#,##0');
+  assert.equal(parseFormat('nonsense'), undefined);
 });

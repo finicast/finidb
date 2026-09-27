@@ -206,8 +206,26 @@ class Parser {
     throw new ParseError(`Expected a literal but found '${t.v}'`, t.pos);
   }
 
-  /** rule := reference '=' expr */
+  /**
+   * rule := [ 'format' ] reference '=' ( expr | literal )
+   *
+   * A rule says what cells are; the same line under `format` says how they are written, over the same
+   * selectors, with the same last-one-wins precedence. Its right-hand side is a literal — a name or a
+   * pattern — because a format is a fact about presentation and not something to compute.
+   */
   rule(): ParsedRule {
+    if (this.peek().t === 'ident' && String(this.peek().v).toLowerCase() === 'format' && !this.isPunct('=', 1) && !this.isPunct('[', 1)) {
+      this.i++;
+      const target = this.reference();
+      if (target.k !== 'ref') this.fail('Expected a rule target');
+      if (target.path.length) this.fail('A format rule cannot have an attribute path');
+      this.expectPunct('=');
+      const t = this.next();
+      if (t.t !== 'str' && t.t !== 'ident' && t.t !== 'qname' && t.t !== 'num') this.fail('A format is a name or a pattern, such as currency or "0.0%"');
+      const text = String(t.v);
+      if (this.peek().t !== 'eof') this.fail(`Unexpected '${this.peek().v}' after the format`);
+      return { target: target.parts, when: target.selectors, formula: { k: 'str', v: text }, formulaText: text, kind: 'format' };
+    }
     const target = this.reference();
     if (target.k !== 'ref') this.fail('Expected a rule target');
     if (target.path.length) this.fail('A rule target cannot have an attribute path');

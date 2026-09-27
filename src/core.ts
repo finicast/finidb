@@ -9,6 +9,7 @@ import { ReferenceEvaluator, EvalCore, CompileError } from './eval/reference.js'
 import { IncrementalEngine } from './eval/incremental.js';
 import { TracingEvaluator, Precedent } from './eval/trace.js';
 import { Value, Scalar, FieldType, isError, toDays } from './store/column.js';
+import { parseFormat, formatOf } from './view/format.js';
 import type { TableSource } from './source/types.js';
 import { renderMarkdown, Grid } from './view/markdown.js';
 
@@ -292,31 +293,34 @@ export class FiniDB {
   }
 
   /** Add rules from text (one per line) or structured form. Returns per-rule results. */
-  setRules(modelId: string, tableId: string, rules: string | { target: string; when?: Clause[]; formula: string; name?: string }[], opts: { strict?: boolean; replace?: boolean; smoke?: boolean } = {}) {
+  setRules(modelId: string, tableId: string, rules: string | { target: string; when?: Clause[]; formula: string; name?: string; kind?: 'format' }[], opts: { strict?: boolean; replace?: boolean; smoke?: boolean } = {}) {
     const m = this.model(modelId);
     const t = m.table(tableId);
     const strict = opts.strict ?? true;
     const parsed: { rule: Rule; error?: string }[] = [];
-    const specs: { target: string; when: Clause[]; formula: string; name?: string }[] = [];
+    const specs: { target: string; when: Clause[]; formula: string; name?: string; kind?: 'format' }[] = [];
     if (typeof rules === 'string') {
       for (const raw of rules.split('\n')) {
         const line = raw.replace(/\/\/.*$/, '').trim();
         if (!line) continue;
         try {
           const pr = parseRule(line);
-          specs.push({ target: this.targetOf(t, pr), when: this.clausesOf(t, pr.when), formula: pr.formulaText });
+          specs.push({ target: this.targetOf(t, pr), when: this.clausesOf(t, pr.when), formula: pr.formulaText, kind: pr.kind });
         } catch (e) {
           if (strict) throw e;
           specs.push({ target: '?', when: [], formula: line, name: (e as Error).message });
         }
       }
-    } else specs.push(...rules.map(r => ({ target: r.target, when: r.when ?? [], formula: r.formula, name: r.name })));
+    } else specs.push(...rules.map(r => ({ target: r.target, when: r.when ?? [], formula: r.formula, name: r.name, kind: r.kind })));
     const existing = opts.replace === false ? t.rules : [];
     let order = existing.length;
     for (const s of specs) {
-      const rule: Rule = { iid: this.db.nextIid(), target: s.target, when: s.when, formula: s.formula, order: order++, name: s.name, status: 'ok' };
+      const rule: Rule = { iid: this.db.nextIid(), target: s.target, when: s.when, formula: s.formula, order: order++, name: s.name, status: 'ok', ...(s.kind ? { kind: s.kind } : {}) };
       try {
-        rule.ast = parseRule(`x = ${s.formula}`).formula;
+        // A format rule carries a literal, not an expression: it is checked against the vocabulary instead of compiled.
+        if (s.kind === 'format') {
+          if (!parseFormat(s.formula)) throw new CompileError('BAD_FORMAT', `'${s.formula}' is not a format`, 'a name (currency, percent, int, decimal, date, currency:EUR) or a pattern ("$#,##0.00", "0.0%")');
+        } else rule.ast = parseRule(`x = ${s.formula}`).formula;
         this.validateTarget(t, s.target);
       } catch (e) {
         rule.status = 'invalid'; rule.error = (e as Error).message;
@@ -329,7 +333,7 @@ export class FiniDB {
     const prevComputed = t.kind === 'tabular' ? t.fields.map(f => f.computed) : [];
     t.rules = [...existing, ...parsed.map(p => p.rule)];
     t.rulesVersion++;
-    if (t.kind === 'tabular') for (const r of t.rules) { const f = t.field(r.target); f.computed = true; }
+    if (t.kind === 'tabular') for (const r of t.rules) { if (r.kind === 'format') continue; const f = t.field(r.target); f.computed = true; }
     this.db.touch();
     const problems = opts.smoke === false ? [] : this.smokeTest(t, parsed.map(p => p.rule));
     if (problems.length && strict) {
@@ -389,7 +393,7 @@ export class FiniDB {
     const problems: { code: string; message: string; fix?: string }[] = [];
     const describe = (r: Rule) => `${r.target}${r.when.length ? '[' + r.when.map(c => `${c.left}${c.op}${c.right}`).join(', ') + ']' : ''} = ${r.formula}`;
     for (const r of candidates) {
-      if (r.status !== 'ok') continue;
+      if (r.status !== 'ok' || r.kind === 'format') continue;
       let v: Value = null;
       if (t.kind === 'pivot') {
         if (t.totalCells() === 0) continue;
@@ -520,11 +524,6 @@ export class FiniDB {
     }
     // a `format` attribute on a dimension's member table is that member's default number format (e.g. is_lines.format = percent)
     const fmtCols = p.dims.map(d => d.table.hasField('format') ? d.table.field('format').column : undefined);
-    const lineFormat = (rt: number[], ct: number[]): string | undefined => {
-      for (let k = 0; k < rowDims.length; k++) { const c = fmtCols[p.dimIndex(rowDims[k])]; if (c) { const v = c.get(rt[k]); if (v) return String(v); } }
-      for (let k = 0; k < colDims.length; k++) { const c = fmtCols[p.dimIndex(colDims[k])]; if (c) { const v = c.get(ct[k]); if (v) return String(v); } }
-      return undefined;
-    };
     const dimFormat = (dims: Dim[], t: number[]): string | undefined => {
       for (let k = 0; k < dims.length; k++) { const c = fmtCols[p.dimIndex(dims[k])]; if (c) { const v = c.get(t[k]); if (v) return String(v); } }
       return undefined;
@@ -551,7 +550,7 @@ export class FiniDB {
         row.push(v);
         st.push(isError(v) ? 3 : p.getInput(measure, coord) !== undefined ? 2 : v === null ? 0 : 1);
         const rowKey = rt.map((i, k) => rowDims[k].table.rowId(i)).join('/');
-        fmts.push(q.formats?.[rowKey] ?? lineFormat(rt, ct) ?? measure.format);
+        fmts.push(q.formats?.[rowKey] ?? formatOf(this.evaluator, p, measure, coord));
       }
       grid.values.push(row); grid.formats!.push(fmts); grid.state!.push(st);
     }

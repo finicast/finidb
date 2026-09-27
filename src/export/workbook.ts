@@ -14,7 +14,22 @@ import type { Rule } from '../schema/rules.js';
 import type { Node, Selector } from '../lang/ast.js';
 import { Value, isError } from '../store/column.js';
 import { ReferenceEvaluator, CompileError, type Ctx, type Resolved } from '../eval/reference.js';
+import { parseFormat, formatOf, isPercent } from '../view/format.js';
 import { writeXlsx, a1, colLetter, sheetRef, sheetName, excelSerial, type Cell, type Sheet, type StyleKey, type NumFmt, type Font, type Workbook, type ChartSpec } from './xlsx.js';
+
+/**
+ * A resolved format as a workbook writes it. The sheet's styles are a fixed set, so a currency becomes the
+ * money format at nought or two decimals; a pattern in a currency we do not have a style for falls back to
+ * the plain number formats, which is the number written correctly without its symbol.
+ */
+function numFmtFor(spec: string | undefined, allInt: boolean): NumFmt {
+  const f = parseFormat(spec);
+  if (!f) return allInt ? 'int' : 'dec';
+  if (f.percent) return 'pct';
+  if (f.date) return 'date';
+  if (f.prefix === '$') return (f.decimals ?? 0) >= 1 ? 'money2' : 'money';
+  return (f.decimals ?? (allInt ? 0 : 2)) >= 1 ? 'dec' : 'int';
+}
 
 export interface ExportOptions {
   /** write formulas without cached results, so a spreadsheet must recalculate on load (tests) */
@@ -140,11 +155,13 @@ class Compiler extends ReferenceEvaluator {
       const row = ps.rowOf.get(rt.join(','))!;
       const cells: { col: number; cell: Cell; input: boolean }[] = [];
       let allInt = true, pct = false;
+      let cellSpec: string | undefined;
       for (let ci = 0; ci < nCols; ci++) {
         const coord = new Int32Array(p.dims.length);
         rt.forEach((i, k) => { coord[p.dimIndex(ps.rowDims[k])] = i; });
         if (ps.colDim) coord[p.dimIndex(ps.colDim)] = ci;
-        for (let d = 0; d < p.dims.length; d++) { const c = fmtCols[d]; if (c && /percent|%/i.test(String(c.get(coord[d]) ?? ''))) pct = true; }
+        cellSpec = formatOf(this, p, m, coord) ?? cellSpec;
+        if (isPercent(cellSpec)) pct = true;
         const input = p.getInput(m, coord);
         const ctx: Ctx = { kind: 'pivot', pivot: p, coord };
         const cell: Cell = {};
@@ -161,7 +178,7 @@ class Compiler extends ReferenceEvaluator {
         if (typeof cell.v === 'number' && !Number.isInteger(cell.v)) allInt = false;
         cells.push({ col: ps.firstDataCol + ci, cell, input: isInput });
       }
-      const fmt: NumFmt = pct ? 'pct' : allInt ? 'int' : 'dec';
+      const fmt: NumFmt = pct ? 'pct' : numFmtFor(cellSpec, allInt);
       for (const c of cells) { c.cell.style = style(c.cell, fmt, c.input ? 'input' : 'normal'); sheet.cells.set(a1(row, c.col), c.cell); }
     }
   }
@@ -465,13 +482,15 @@ class Compiler extends ReferenceEvaluator {
         const rr = first + r;
         if (rt.length) rt.forEach((i, k) => { const same = r > 0 && k < rt.length - 1 && rt.slice(0, k + 1).every((j, q) => j === rowTuples[r - 1][q]); sheet.cells.set(a1(rr, 1 + k), { v: same ? '' : label(rowDims[k].table, i), style: 'general/normal' }); });
         else sheet.cells.set(a1(rr, 1), { v: m.name || m.id, style: 'general/normal' });
-        let pct = false, allInt = true; const made: { col: number; cell: Cell; pct: boolean }[] = [];
+        let pct = false, allInt = true, rowSpec: string | undefined; const made: { col: number; cell: Cell; pct: boolean }[] = [];
         colTuples.forEach((ct, c) => {
           const coord = base.slice();
           rt.forEach((i, k) => { coord[p.dimIndex(rowDims[k])] = i; });
           ct.forEach((i, k) => { coord[p.dimIndex(colDims[k])] = i; });
-          let cellPct = false;   // a percent member on either axis makes this cell a percent; a percent line on columns must not spill over the row
-          for (let di = 0; di < p.dims.length; di++) { const fc = fmtCols[di]; if (fc && /percent|%/i.test(String(fc.get(coord[di]) ?? ''))) cellPct = true; }
+          // the format the model resolved for this very cell: a percent line on columns must not spill over the row
+          const cellFormat = formatOf(this, p, m, coord);
+          const cellPct = isPercent(cellFormat);
+          if (!cellPct && cellFormat) rowSpec = cellFormat;
           if (cellPct) pct = true;
           const cell: Cell = { f: this.pivotAddr(p, m, coord, sheet) };
           this.setValue(cell, this.cell(p, m, coord));

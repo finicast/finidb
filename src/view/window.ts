@@ -24,6 +24,9 @@ export interface ColumnarWindow {
   formats: (string | undefined)[];               // per row: the row's own format (member `format` attribute or query override), else the measure's
   colFormats?: (string | undefined)[];           // per column: a column member's own format (e.g. a percent line placed on columns); a row's own format wins over it
   measureFormat?: string;                        // the measure's default, so a reader can tell a row's own format from the fallback
+  /** the distinct formats this window uses, and one index into them per cell (0 = none); row-major, as values */
+  formatTable?: string[];
+  cellFormats?: number[];
   errors: Record<string, { code: string; message?: string; fix?: string }>;
 }
 /** Columnar window from the facade grid (doc 05 §10). Every non-row/col dim must be paged. */
@@ -39,11 +42,27 @@ export function columnar(f: FiniDB, p: Pivot, q: QueryOptions): ColumnarWindow {
   }));
   // a paged member's own format (a percent line chosen as the page of a chart card) is the fallback before the measure's
   const pageFormat = p.dims.map(d => { const m = q.pages?.[d.id]; if (m === undefined || q.rows.includes(d.id) || q.cols.includes(d.id) || !d.table.hasField('format')) return undefined; const i = d.table.memberIndex(m); const v = i >= 0 ? d.table.field('format').column.get(i) : null; return v ? String(v) : undefined; }).find(Boolean);
+  // The formats the grid resolved for each cell, sent as the handful of distinct ones plus an index per
+  // cell, so a wide window costs a byte a cell rather than a string.
+  const formatTable: string[] = [];
+  const seen = new Map<string, number>();
+  const cellFormats: number[] = [];
+  for (const row of grid.formats ?? []) {
+    for (const spec of row) {
+      if (!spec) { cellFormats.push(0); continue; }
+      let at = seen.get(spec);
+      if (at === undefined) { formatTable.push(spec); at = formatTable.length; seen.set(spec, at); }
+      cellFormats.push(at);
+    }
+  }
+  const anyFormat = formatTable.length > 0;
+
   return {
     version: f.db.version,
     rows: grid.rowIds!, cols: grid.colIds!,
     rowLabels: grid.rowHeaders, colLabels: grid.colHeaders,
     rowDims: q.rows, colDims: q.cols, rowHeaderNames: grid.rowHeaderNames, measure: measure.id,
     values, state, formats: grid.rowFormats!.map(f => f ?? pageFormat ?? measure.format), colFormats: grid.colFormats, measureFormat: pageFormat ?? measure.format, errors,
+    ...(anyFormat ? { formatTable, cellFormats } : {}),
   };
 }

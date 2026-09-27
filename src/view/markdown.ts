@@ -1,4 +1,5 @@
 import { Value, isError } from '../store/column.js';
+import { parseFormat, formatNumber as sharedFormat } from './format.js';
 
 /** Fast number formatting with thousands separators (toLocaleString is ~50x slower). */
 export function formatNumber(v: number, decimals: number): string {
@@ -18,8 +19,11 @@ export function formatValue(v: Value, format?: string): string {
   if (isError(v)) return `#${v.error}`;
   if (typeof v === 'boolean') return v ? 'TRUE' : 'FALSE';
   if (typeof v === 'string') return v;
-  if (format === 'percent' || format === '%') return (v * 100).toFixed(1) + '%';
-  if (format === 'int' || Number.isInteger(v) || Math.abs(v) >= 1000) return formatNumber(v, 0);
+  // A format the model declared is written as the model asked, in the same words a browser and a workbook
+  // read. Without one, a number is written as it always has been here: whole when it is whole.
+  const spec = parseFormat(format);
+  if (spec) return sharedFormat(v, spec);
+  if (Number.isInteger(v) || Math.abs(v) >= 1000) return formatNumber(v, 0);
   return formatNumber(v, 2);
 }
 

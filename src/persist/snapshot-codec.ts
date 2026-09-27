@@ -36,7 +36,7 @@ export interface FieldHeader {
   /** section indexes: data (f64/i32/u8), nulls (u8), codes (i32), dict (json string[]) */
   data?: number; nulls?: number; codes?: number; dict?: number;
 }
-export interface RuleHeader { target: string; when: Clause[]; formula: string; name?: string; status: 'ok' | 'invalid'; error?: string }
+export interface RuleHeader { target: string; when: Clause[]; formula: string; name?: string; status: 'ok' | 'invalid'; error?: string; kind?: 'format' }
 export interface TableHeader {
   id: string; name: string; rowCount: number;
   fields: FieldHeader[]; rules: RuleHeader[];
@@ -84,7 +84,7 @@ class Payload {
 }
 
 function ruleHeader(r: Rule): RuleHeader {
-  return { target: r.target, when: r.when, formula: r.formula, name: r.name, status: r.status, error: r.error };
+  return { target: r.target, when: r.when, formula: r.formula, name: r.name, status: r.status, error: r.error, ...(r.kind ? { kind: r.kind } : {}) };
 }
 
 function fieldHeader(f: Field, n: number, p: Payload): FieldHeader {
@@ -196,7 +196,7 @@ function restoreRules(f: FiniDB, m: Model, t: Table | Pivot, rules: RuleHeader[]
   // Non-strict so that a rule recorded as invalid does not abort the load; status is then restored verbatim,
   // which is also why there is nothing to smoke-test: the verdict is in the file, and evaluating a cell per
   // rule to reach it again is most of what loading a large model used to cost.
-  f.setRules(m.id, t.id, rules.map(r => ({ target: r.target, when: r.when, formula: r.formula, name: r.name })), { strict: false, replace: true, smoke: false });
+  f.setRules(m.id, t.id, rules.map(r => ({ target: r.target, when: r.when, formula: r.formula, name: r.name, kind: r.kind })), { strict: false, replace: true, smoke: false });
   t.rules.forEach((r, i) => { r.status = rules[i].status; r.error = rules[i].error; });
 }
 

@@ -11,6 +11,8 @@ export interface Clause {
 
 export interface Rule {
   iid: number;
+  /** a format rule says how its cells are written, not what they are; it has no formula to evaluate */
+  kind?: 'format';
   /** measure id (pivot) or field id (tabular) */
   target: string;
   when: Clause[];

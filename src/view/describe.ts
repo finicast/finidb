@@ -6,7 +6,7 @@ import type { AnyTable } from '../schema/schema.js';
 import { TRACK_FIELDS } from '../core.js';
 
 export function describeRules(t: AnyTable) {
-  return t.rules.map(r => ({ order: r.order, target: r.target, when: r.when, formula: r.formula, name: r.name, status: r.status, error: r.error }));
+  return t.rules.map(r => ({ order: r.order, ...(r.kind ? { kind: r.kind } : {}), target: r.target, when: r.when, formula: r.formula, name: r.name, status: r.status, error: r.error }));
 }
 export function describeTable(t: AnyTable) {
   if (t.kind === 'tabular') return {

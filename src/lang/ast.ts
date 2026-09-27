@@ -36,4 +36,6 @@ export interface ParsedRule {
   when: Selector[];
   formula: Node;
   formulaText: string;
+  /** `format revenue[version=variance_pct] = "0.0%"`: how the cells are written, not what they are */
+  kind?: 'format';
 }
