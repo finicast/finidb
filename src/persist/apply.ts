@@ -37,6 +37,8 @@ export function applyRecord(f: FiniDB, rec: OpRecord, blob?: BlobReader) {
     case 'createTable': f.createTable(a.model, a.id, a.fields as FieldSpec[], { name: a.name, rows: a.rows, track: a.track === true }); break;
     case 'trackTable': f.trackTable(table()); break;
     case 'addField': f.addField(table(), a.field as FieldSpec); break;
+    case 'patchField': f.patchField(a.model, a.table, a.field, a.patch); break;
+    case 'patchMeasure': f.patchMeasure(a.model, a.table, a.measure, a.patch); break;
     case 'insertRows': f.insertRows(table(), rowsOf()); break;
     case 'upsertRows': f.upsertRows(table(), rowsOf()); break;
     case 'createDistinctTable': f.createDistinctTable(a.model, a.id, a.sourceTable, a.sourceField); break;

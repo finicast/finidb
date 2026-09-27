@@ -196,12 +196,12 @@ const MUTATIONS: Record<string, OpFn> = {
     return { ok: true };
   },
   /** PATCH /tables/:table/fields/:field — name, format, computed. */
+  patchMeasure: (f, model: string, table: string, measure: string, patch: { name?: string; format?: string }) => {
+    f.patchMeasure(model, table, measure, patch);
+    return { ok: true };
+  },
   patchField: (f, model: string, table: string, field: string, patch: { name?: string; format?: string; computed?: boolean }) => {
-    const fl = tabular(f, model, table).field(field);
-    if (patch.name !== undefined) fl.name = patch.name;
-    if (patch.format !== undefined) fl.format = patch.format;
-    if (patch.computed !== undefined) fl.computed = patch.computed;
-    f.db.touch();
+    f.patchField(model, table, field, patch);
     return { ok: true };
   },
 };
@@ -557,6 +557,8 @@ export async function startServer(opts: ServerOptions = {}): Promise<ServerHandl
       : { method: 'addField', args: [model.id, table.id, b] };
     return new Reply(201, { ...(await applyOp(c.db!, op, user(c)) as object), version: version(c.db!) });
   });
+  /** `PATCH /db/:db/tables/:table/measures/:measure` — a measure's name or the format its cells are written in. */
+  route('PATCH', '/db/:db/tables/:table/measures/:measure', 'write', async c => { const { model } = tableOf(c); await applyOp(c.db!, { method: 'patchMeasure', args: [model.id, c.params.table, c.params.measure, c.body ?? {}] }, user(c)); return { ok: true, version: version(c.db!) }; });
   route('PATCH', '/db/:db/tables/:table/fields/:field', 'write', async c => { const { model } = tableOf(c); await applyOp(c.db!, { method: 'patchField', args: [model.id, c.params.table, c.params.field, c.body ?? {}] }, user(c)); return { ok: true, version: version(c.db!) }; });
   route('DELETE', '/db/:db/tables/:table/fields/:field', 'write', async c => { const { model, table } = tableOf(c); return { ...(await applyOp(c.db!, { method: 'dropField', args: [model.id, table.id, c.params.field] }, user(c)) as object), version: version(c.db!) }; });
 
@@ -1037,7 +1039,7 @@ export const ROUTES = [
   ['GET', '/db', 'auth'], ['POST', '/db', 'auth'], ['DELETE', '/db/:db', 'admin'],
   ['GET', '/db/:db/schema', 'read'], ['GET', '/db/:db/explain', 'read'], ['GET', '/db/:db/models', 'read'], ['POST', '/db/:db/models', 'write'],
   ['GET', '/db/:db/tables', 'read'], ['POST', '/db/:db/tables', 'write'], ['GET', '/db/:db/tables/:table', 'read'], ['PATCH', '/db/:db/tables/:table', 'write'], ['DELETE', '/db/:db/tables/:table', 'write'],
-  ['POST', '/db/:db/tables/:table/fields', 'write'], ['PATCH', '/db/:db/tables/:table/fields/:field', 'write'], ['DELETE', '/db/:db/tables/:table/fields/:field', 'write'],
+  ['POST', '/db/:db/tables/:table/fields', 'write'], ['PATCH', '/db/:db/tables/:table/fields/:field', 'write'], ['PATCH', '/db/:db/tables/:table/measures/:measure', 'write'], ['DELETE', '/db/:db/tables/:table/fields/:field', 'write'],
   ['GET', '/db/:db/tables/:table/rows', 'read'], ['POST', '/db/:db/tables/:table/rows', 'write'], ['PUT', '/db/:db/tables/:table/rows', 'write'], ['PATCH', '/db/:db/tables/:table/rows', 'write'], ['DELETE', '/db/:db/tables/:table/rows', 'write'],
   ['POST', '/db/:db/tables/:table/load', 'write'], ['POST', '/db/:db/tables/:table/refresh', 'write'], ['PUT', '/db/:db/tables/:table/source', 'write'], ['DELETE', '/db/:db/tables/:table/source', 'write'], ['GET', '/source-presets', 'none'],
   ['GET', '/db/:db/tables/:table/rules', 'read'], ['PUT', '/db/:db/tables/:table/rules', 'write'], ['POST', '/db/:db/tables/:table/rules', 'write'], ['PATCH', '/db/:db/tables/:table/rules/:rule', 'write'], ['DELETE', '/db/:db/tables/:table/rules/:rule', 'write'],

@@ -293,6 +293,33 @@ export class FiniDB {
   }
 
   /** Add rules from text (one per line) or structured form. Returns per-rule results. */
+  /**
+   * Change what a field is called or how its values are written. A schema change like any other: it is
+   * recorded, so it survives a restart, which a direct assignment to the field would not.
+   */
+  patchField(modelId: string, tableId: string, fieldId: string, patch: { name?: string; format?: string; computed?: boolean }) {
+    const t = this.model(modelId).table(tableId);
+    if (t.kind !== 'tabular') throw new Error(`SCHEMA_NOT_TABULAR: ${tableId} has fields on its rows only`);
+    const f = t.field(fieldId);
+    if (patch.name !== undefined) f.name = patch.name;
+    if (patch.format !== undefined) f.format = patch.format;
+    if (patch.computed !== undefined) f.computed = patch.computed;
+    this.db.touch();
+    return f;
+  }
+
+  /** The same for a measure: its name, and the format its cells are written in. */
+  patchMeasure(modelId: string, tableId: string, measureId: string, patch: { name?: string; format?: string }) {
+    const t = this.model(modelId).table(tableId);
+    if (t.kind !== 'pivot') throw new Error(`SCHEMA_NOT_PIVOT: ${tableId} has no measures`);
+    const m = t.measure(measureId);
+    if (!m) throw new Error(`SCHEMA_NO_MEASURE: ${tableId} has no measure ${measureId}`);
+    if (patch.name !== undefined) m.name = patch.name;
+    if (patch.format !== undefined) m.format = patch.format;
+    this.db.touch();
+    return m;
+  }
+
   setRules(modelId: string, tableId: string, rules: string | { target: string; when?: Clause[]; formula: string; name?: string; kind?: 'format' }[], opts: { strict?: boolean; replace?: boolean; smoke?: boolean } = {}) {
     const m = this.model(modelId);
     const t = m.table(tableId);

@@ -161,7 +161,7 @@ export function withOplog<F extends FiniDB>(f: F, dir: string, opts: OplogOption
     createDistinctTable: f.createDistinctTable, createPeriods: f.createPeriods, createPivot: f.createPivot,
     setRules: f.setRules, setValue: f.setValue, setCell: f.setCell,
     upsertRows: f.upsertRows, setSource: f.setSource, trackTable: f.trackTable, deleteRows: f.deleteRows, dropField: f.dropField, dropTable: f.dropTable, dropModel: f.dropModel, addFieldTo: f.addFieldTo,
-    setIterate: f.setIterate,
+    setIterate: f.setIterate, patchField: f.patchField, patchMeasure: f.patchMeasure,
   };
   // Run `call` under the recording guard and, if it is the outermost call, log `args`.
   const record = <T>(op: string, call: () => T, args: () => Record<string, unknown>): T => {
@@ -179,6 +179,8 @@ export function withOplog<F extends FiniDB>(f: F, dir: string, opts: OplogOption
     else if (o.rows) orig.insertRows.call(f, t, o.rows);
     return t;
   };
+  f.patchField = (model, table, field, patch) => record('patchField', () => orig.patchField.call(f, model, table, field, patch), () => ({ model, table, field, patch }));
+  f.patchMeasure = (model, table, measure, patch) => record('patchMeasure', () => orig.patchMeasure.call(f, model, table, measure, patch), () => ({ model, table, measure, patch }));
   f.trackTable = t => record('trackTable', () => orig.trackTable.call(f, t), () => ({ model: t.model.id, table: t.id }));
   f.addField = (t, spec) => record('addField', () => orig.addField.call(f, t, spec), () => ({ model: t.model.id, table: t.id, field: spec }));
   f.insertRows = (t, rows) => record('insertRows', () => orig.insertRows.call(f, t, rows), () => {

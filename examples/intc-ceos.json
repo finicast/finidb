@@ -24253,19 +24253,23 @@
    "lines": [
     {
      "id": "close",
-     "name": "Month-end close ($)"
+     "name": "Month-end close",
+     "format": "$#,##0.00"
     },
     {
      "id": "high",
-     "name": "Monthly high ($)"
+     "name": "Monthly high",
+     "format": "$#,##0.00"
     },
     {
      "id": "low",
-     "name": "Monthly low ($)"
+     "name": "Monthly low",
+     "format": "$#,##0.00"
     },
     {
      "id": "avg",
-     "name": "Monthly average ($)"
+     "name": "Monthly average",
+     "format": "$#,##0.00"
     },
     {
      "id": "return_mom",
@@ -24296,15 +24300,18 @@
    "lines": [
     {
      "id": "start_price",
-     "name": "Close, month of appointment ($)"
+     "name": "Close, month of appointment",
+     "format": "$#,##0.00"
     },
     {
      "id": "end_price",
-     "name": "Close, end of tenure ($)"
+     "name": "Close, end of tenure",
+     "format": "$#,##0.00"
     },
     {
      "id": "months",
-     "name": "Months in the role"
+     "name": "Months in the role",
+     "format": "#,##0"
     },
     {
      "id": "total_return",
@@ -24369,7 +24376,6 @@
      "pivot": "stock",
      "line": "close",
      "title": "INTC, latest month-end close",
-     "unit": "$",
      "w": 3
     },
     {
@@ -24425,7 +24431,6 @@
       "close"
      ],
      "title": "INTC month-end close, with each CEO appointment",
-     "unit": "$",
      "w": 12,
      "h": 7,
      "annotations": [

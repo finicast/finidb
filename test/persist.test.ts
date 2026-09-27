@@ -4,6 +4,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { FiniDB } from '../src/index.js';
+import type { Table, Pivot } from '../src/schema/schema.js';
 import { openDatabase, readMeta } from '../src/persist/store.js';
 import { readOplog, createPersistentFiniDB, replay } from '../src/persist/oplog.js';
 import { saveSnapshot, snapshotBuffer, loadSnapshot, readSnapshotHeader } from '../src/persist/snapshot.js';
@@ -256,5 +257,30 @@ test('a client that holds the model catches up from the ops it missed, as a brow
     assert.equal(nvdaQuery(tab), nvdaQuery(f));
     assert.equal(tab.get('nvda', 'assumptions', { driver: 'revenue_growth', period: 'fy2027' }), 0.42);
     f.oplog.close();
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('renaming a field or a format survives a restart, which it did not when the schema was written to directly', () => {
+  const dir = tmpdir();
+  try {
+    const f = createPersistentFiniDB(dir, { fsync: 'never' });
+    buildNvda(f);
+    f.patchField('nvda', 'is_lines', 'name', { name: 'Line item' });
+    f.patchMeasure('nvda', 'income_statement', 'value', { format: 'currency', name: 'Amount' });
+    f.oplog.close();
+
+    const g = new FiniDB();
+    replay(g, dir);
+    assert.equal((g.model('nvda').table('is_lines') as Table).field('name').name, 'Line item');
+    const m = (g.model('nvda').table('income_statement') as Pivot).measure('value')!;
+    assert.equal(m.format, 'currency');
+    assert.equal(m.name, 'Amount');
+
+    // and through a snapshot, which is the other way a database comes back
+    const file = path.join(dir, 'p.fdb');
+    saveSnapshot(g, file);
+    const h = loadSnapshot(file);
+    assert.equal((h.model('nvda').table('is_lines') as Table).field('name').name, 'Line item');
+    assert.equal((h.model('nvda').table('income_statement') as Pivot).measure('value')!.format, 'currency');
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
