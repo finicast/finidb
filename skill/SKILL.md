@@ -45,6 +45,10 @@ them, so `finicast_load_table` can detect the reference columns (`refCandidate`)
 - **Batch rules in one call.** A model is a set of rules; send them together in the text form, one
   rule per line. On an error, apply the returned `fix` and resend the **full** batch (the batch is
   rejected as a whole in strict mode) — do not retry the same text.
+- **Say how the numbers are written.** A `format` column on the line's table — `currency`, `percent`,
+  `int`, `decimal`, `date`, `currency:EUR`, or a pattern such as `"$#,##0.00"` — or a rule where one
+  attribute cannot say it: `format revenue[version=variance_pct] = "0.0%"`. Without it a reader cannot tell
+  $343,670 of cash from 4 open jobs. See reference/syntax.md.
 - **Call `finicast_schema` once**, at the start; it lists tables, dims, attributes and rules. Ids are
   case-sensitive snake_case; use the exact ids it shows.
 - **Prefer a rule over pre-aggregated data**: load the ledger rows and write `SUM(ledger.amount)`;

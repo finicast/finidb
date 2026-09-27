@@ -13,6 +13,25 @@ gross_profit         = revenue - cogs
 - `[condition]` restricts where the rule applies: dims, attributes (`frame=fcst`,
   `period.year >= 2027`), member sets (`line in (a, b)`), fields (tabular). Not computed values —
   put those tests inside `IF`.
+- **Rules last matching wins**: write the general rule first and the exception below it.
+
+### Format rules
+
+```
+format revenue                       = currency        // how the cells are written, not what they are
+format revenue[version=variance_pct] = "0.0%"          // the exception, below the general rule
+```
+
+- A **name** (`currency`, `percent`, `int`, `decimal`, `date`, `currency:EUR`) or a **pattern**
+  (`"$#,##0.00"`, `"0.0%"`, `"#,##0"`). Same words in a markdown table, a dashboard and a workbook.
+- Same selectors and the same precedence as a value rule. It computes nothing and makes nothing computed.
+- Most formats belong on the line instead, as a `format` column of the dimension's table:
+  `{ "id": "revenue", "name": "Revenue", "format": "currency" }`. Reach for a rule when one attribute
+  cannot say it — a variance % column crossing a money line.
+- A cell takes the last matching format rule; failing that what its own members declare (a percentage on
+  any dimension wins); failing that the measure's own. Mind the general rule: `format headcount = int`
+  covers that line's variance % too.
+- Say it, or a reader cannot tell $343,670 of cash from 4 open jobs.
 - **Last matching rule wins; an input (set_values) beats every rule.** General rule first,
   override below.
 - Structured form (also accepted by `finicast_set_rules`):
