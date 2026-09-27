@@ -6,6 +6,7 @@
  */
 import { FiniDB, type FieldSpec, type PeriodsSpec, type Grid, type Scalar } from '../index.js';
 import { formatNumber, formatValue } from '../view/markdown.js';
+import { isPercent } from '../view/format.js';
 import { isError } from '../store/column.js';
 import type { TableSource } from '../source/types.js';
 import { normalizeDocument } from './normalize.js';
@@ -251,8 +252,14 @@ function gridMarkdown(g: Grid, title: string, o: OutputDoc): string {
   const sep = `|---|${g.colHeaders.map(() => '---:').join('|')}|`;
   const body = g.values.map((row, r) => `| ${g.rowHeaders[r].join(' / ')} | ${row.map((v, c) => {
     const fmt = g.formats?.[r]?.[c];
-    if (typeof v === 'number' && fmt !== 'percent' && fmt !== '%') { const x = v / scale; return o.decimals !== undefined ? formatNumber(x, o.decimals) : formatValue(x, Math.abs(x) >= 100 ? 'int' : undefined); }
-    return formatValue(v, fmt);
+    if (typeof v !== 'number') return formatValue(v, fmt);
+    // A percentage is never scaled: a percentage of a percentage means nothing. Otherwise the document's own
+    // scale and decimals are the caller's business and win; failing those, the cell is written as the model
+    // says, and failing that as it always was.
+    if (isPercent(fmt)) return formatValue(v, fmt);
+    const x = v / scale;
+    if (o.decimals !== undefined) return formatNumber(x, o.decimals);
+    return formatValue(x, fmt ?? (Math.abs(x) >= 100 ? 'int' : undefined));
   }).join(' | ')} |`);
   return `### ${title}\n\n${head}\n${sep}\n${body.join('\n')}`;
 }

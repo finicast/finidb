@@ -1119,8 +1119,7 @@
     "ebitda_margin_ltm",
     "ebitda_margin_ntm"
    ],
-   "title": "Financial performance",
-   "decimals": 2
+   "title": "Financial performance"
   },
   {
    "pivot": "comps",
@@ -1141,8 +1140,7 @@
     "pe_ltm",
     "pe_ntm"
    ],
-   "title": "Valuation and multiples",
-   "decimals": 2
+   "title": "Valuation and multiples"
   },
   {
    "pivot": "peer_stats",
@@ -1164,8 +1162,7 @@
     "ebitda_margin_ltm",
     "ebitda_margin_ntm"
    ],
-   "title": "Peer statistics",
-   "decimals": 2
+   "title": "Peer statistics"
   },
   {
    "pivot": "implied",
@@ -1175,8 +1172,7 @@
    "cols": [
     "stat"
    ],
-   "title": "Implied Apple valuation",
-   "decimals": 1
+   "title": "Implied Apple valuation"
   }
  ],
  "dashboards": [

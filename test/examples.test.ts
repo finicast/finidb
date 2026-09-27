@@ -55,7 +55,13 @@ test('comparables: one table with LTM and NTM side by side, peer statistics excl
   assert.ok(Math.abs(num('implied', { line: 'upside_pe_ltm', stat: 'median' }) - (implied / md('aapl', 'price') - 1)) < 1e-9);
   const g = r.outputs.find(o => o.title === 'Financial performance');
   assert.match(g?.markdown ?? '', /Revenue LTM \| Revenue NTM/, 'LTM and NTM sit side by side as columns of one table');
-  assert.match(r.outputs.find(o => o.title === 'Valuation and multiples')?.markdown ?? '', /EV \/ EBITDA LTM \(x\) \| EV \/ EBITDA NTM \(x\)/);
+  const multiples = r.outputs.find(o => o.title === 'Valuation and multiples')?.markdown ?? '';
+  assert.match(multiples, /EV \/ EBITDA LTM \| EV \/ EBITDA NTM/, 'the names carry no units, because the numbers do');
+  // each line says how it is written: figures in millions plain, multiples with their x, per-share in dollars
+  assert.match(multiples, /\| 4,834,251 \|/, 'a figure in millions');
+  assert.match(multiples, /\| 28\.9x \|/, 'a multiple');
+  assert.match(g?.markdown ?? '', /\| \$8\.73 \|/, 'EPS is money per share');
+  assert.match(g?.markdown ?? '', /\| 16\.4% \|/, 'growth is a percentage');
   assert.ok(f.model(r.model).table('stats').hasField('name'));
 });
 
