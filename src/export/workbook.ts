@@ -27,7 +27,7 @@ function numFmtFor(spec: string | undefined, allInt: boolean): NumFmt {
   if (!f) return allInt ? 'int' : 'dec';
   if (f.percent) return 'pct';
   if (f.date) return 'date';
-  if (f.prefix === '$') return (f.decimals ?? 0) >= 1 ? 'money2' : 'money';
+  if (f.prefix === '$' && !f.suffix) return (f.decimals ?? 0) >= 1 ? 'money2' : 'money';
   return (f.decimals ?? (allInt ? 0 : 2)) >= 1 ? 'dec' : 'int';
 }
 

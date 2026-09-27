@@ -293,9 +293,13 @@ test('the format vocabulary reads names and patterns alike', () => {
     [1234.56, undefined, '1,235'],
     [0.0985, '0.0%', '9.9%'],               // the double is 9.84999…; a reader typed 9.85 and expects 9.9
     [-1234.5, 'currency', '-$1,235'],
+    [12.43, 'multiple', '12.4x'],           // a comps table's multiples carry their unit
+    [12.43, '0.0"x"', '12.4x'],
+    [1234, '#,##0"M"', '1,234M'],
   ];
   for (const [v, spec, want] of cases) assert.equal(formatValue(v, spec), want, `${v} as ${spec}`);
   assert.equal(formatValue(-1234.5, 'currency', { parens: true }), '($1,235)');
   assert.equal(toPattern('currency:EUR'), '€#,##0');
+  assert.equal(toPattern('multiple'), '#,##0.0"x"');
   assert.equal(parseFormat('nonsense'), undefined);
 });

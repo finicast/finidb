@@ -22,6 +22,8 @@ export interface FormatSpec {
   percent: boolean;
   /** what goes in front: a currency symbol, usually */
   prefix: string;
+  /** what goes after: a unit, usually — the x of a multiple */
+  suffix: string;
   /** how many decimal places; absent means "as many as the size of the number warrants" */
   decimals?: number;
   /** group the thousands */
@@ -36,6 +38,7 @@ const SYMBOLS: Record<string, string> = { usd: '$', eur: '€', gbp: '£', jpy: 
 const NAMES: Record<string, string> = {
   percent: '0.0%', pct: '0.0%', '%': '0.0%',
   currency: '$#,##0', money: '$#,##0', usd: '$#,##0', dollars: '$#,##0',
+  multiple: '#,##0.0"x"', times: '#,##0.0"x"', x: '#,##0.0"x"',
   int: '#,##0', integer: '#,##0', count: '#,##0', number: '#,##0',
   decimal: '#,##0.00', dec: '#,##0.00',
   date: 'date', text: 'text', general: '',
@@ -50,11 +53,11 @@ export function parseFormat(spec: string | null | undefined): FormatSpec | undef
 
   // currency:EUR — a model that holds figures in something other than dollars
   const named = /^currency:([a-z]{3})$/.exec(lower);
-  if (named) return { percent: false, prefix: SYMBOLS[named[1]] ?? `${named[1].toUpperCase()} `, decimals: 0, thousands: true, date: false };
-  if (lower in SYMBOLS && lower !== 'usd') return { percent: false, prefix: SYMBOLS[lower], decimals: 0, thousands: true, date: false };
+  if (named) return { percent: false, prefix: SYMBOLS[named[1]] ?? `${named[1].toUpperCase()} `, suffix: '', decimals: 0, thousands: true, date: false };
+  if (lower in SYMBOLS && lower !== 'usd') return { percent: false, prefix: SYMBOLS[lower], suffix: '', decimals: 0, thousands: true, date: false };
 
   const pattern = lower in NAMES ? NAMES[lower] : raw;
-  if (pattern === 'date') return { percent: false, prefix: '', thousands: false, date: true };
+  if (pattern === 'date') return { percent: false, prefix: '', suffix: '', thousands: false, date: true };
   if (pattern === 'text' || pattern === '') return undefined;
   return parsePattern(pattern);
 }
@@ -66,13 +69,17 @@ function parsePattern(p: string): FormatSpec | undefined {
   const bracket = /^\[\$([^\]]{1,6})\]/.exec(rest);
   if (bracket) { prefix = SYMBOLS[bracket[1].toLowerCase()] ?? `${bracket[1]} `; rest = rest.slice(bracket[0].length); }
   else { const sym = /^([$€£¥₹]|CHF |R\$|CA\$|A\$|MX\$)/i.exec(rest); if (sym) { prefix = sym[1]; rest = rest.slice(sym[1].length); } }
+  // a literal after the digits, quoted as a spreadsheet writes it: 0.0"x" for a multiple
+  let suffix = '';
+  const tail = /"([^"]{0,8})"$/.exec(rest);
+  if (tail) { suffix = tail[1]; rest = rest.slice(0, -tail[0].length); }
   const percent = rest.endsWith('%');
   if (percent) rest = rest.slice(0, -1);
   if (!/^[#0,.]*$/.test(rest)) return undefined;                 // anything else is not a pattern we know
-  if (!rest && !prefix && !percent) return undefined;
+  if (!rest && !prefix && !percent && !suffix) return undefined;
   const dot = rest.indexOf('.');
   const decimals = dot < 0 ? (rest ? 0 : undefined) : rest.length - dot - 1;
-  return { percent, prefix, decimals, thousands: rest.includes(','), date: false };
+  return { percent, prefix, suffix, decimals, thousands: rest.includes(','), date: false };
 }
 
 const group = (s: string) => s.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
@@ -94,7 +101,7 @@ export function formatNumber(v: number, spec?: FormatSpec, opts: { parens?: bool
   if (loose && fixed.includes('.')) fixed = fixed.replace(/\.?0+$/, '');
   const [int, frac] = fixed.split('.');
   const body = (s?.thousands === false ? int : group(int)) + (frac ? `.${frac}` : '');
-  const text = `${s?.prefix ?? ''}${body}${percent ? '%' : ''}`;
+  const text = `${s?.prefix ?? ''}${body}${percent ? '%' : ''}${s?.suffix ?? ''}`;
   if (n >= 0 || Object.is(n, -0)) return text;
   return opts.parens ? `(${text})` : `-${text}`;
 }
@@ -120,7 +127,7 @@ export function toPattern(spec: string | null | undefined): string | undefined {
   if (!f) return undefined;
   if (f.date) return 'date';
   const digits = (f.thousands ? '#,##0' : '0') + (f.decimals ? `.${'0'.repeat(f.decimals)}` : '');
-  return `${f.prefix}${digits}${f.percent ? '%' : ''}`;
+  return `${f.prefix}${digits}${f.percent ? '%' : ''}${f.suffix ? `"${f.suffix}"` : ''}`;
 }
 
 /**
