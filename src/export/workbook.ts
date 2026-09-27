@@ -14,7 +14,7 @@ import type { Rule } from '../schema/rules.js';
 import type { Node, Selector } from '../lang/ast.js';
 import { Value, isError } from '../store/column.js';
 import { ReferenceEvaluator, CompileError, type Ctx, type Resolved } from '../eval/reference.js';
-import { parseFormat, formatOf, isPercent } from '../view/format.js';
+import { parseFormat, formatOf, isPercent, toPattern } from '../view/format.js';
 import { writeXlsx, a1, colLetter, sheetRef, sheetName, excelSerial, type Cell, type Sheet, type StyleKey, type NumFmt, type Font, type Workbook, type ChartSpec } from './xlsx.js';
 
 /**
@@ -25,10 +25,13 @@ import { writeXlsx, a1, colLetter, sheetRef, sheetName, excelSerial, type Cell, 
 function numFmtFor(spec: string | undefined, allInt: boolean): NumFmt {
   const f = parseFormat(spec);
   if (!f) return allInt ? 'int' : 'dec';
-  if (f.percent) return 'pct';
   if (f.date) return 'date';
+  // The named formats carry the negative-in-parentheses convention this workbook has always used, so a plain
+  // percentage or a plain dollar keeps it; anything else — another currency, a unit — is written as the
+  // model's own pattern, which the sheet declares.
+  if (f.percent && !f.prefix && !f.suffix) return 'pct';
   if (f.prefix === '$' && !f.suffix) return (f.decimals ?? 0) >= 1 ? 'money2' : 'money';
-  return (f.decimals ?? (allInt ? 0 : 2)) >= 1 ? 'dec' : 'int';
+  return toPattern(spec) ?? (allInt ? 'int' : 'dec');
 }
 
 export interface ExportOptions {
@@ -44,6 +47,8 @@ export interface ExportOptions {
 /** A dashboard as the hosted service stores it, reduced to what the sheet needs: cards in display order, each over one pivot view. */
 export interface DashboardCardExport {
   title: string;
+  /** a line under the title: the scale the figures are in, usually */
+  note?: string;
   kind: 'table' | 'chart' | 'kpi';
   chartType?: string;                 // line | bar | stackedBar | area | waterfall | scatter
   series?: 'rows' | 'cols';           // which axis of the view is a series
@@ -470,6 +475,8 @@ class Compiler extends ReferenceEvaluator {
       const fmtCols = p.dims.map(dm => dm.table.hasField('format') ? dm.table.field('format').column : undefined);
       // title row, then a header row, then one row per row tuple
       sheet.cells.set(a1(row, 1), { v: card.title, style: 'general/bold' });
+      // the note the card carries goes where a reader looks for it, between the title and the table
+      if (card.note) { sheet.cells.set(a1(row + 1, 1), { v: card.note, style: 'general/muted' }); row++; }
       if (card.editable) { const ps = this.pivotSheets.get(`${p.iid}:${m.iid}`); sheet.cells.set(a1(row, 2), { v: `Inputs: edit the blue cells on the ${ps ? `'${ps.sheet.name}'` : p.id} sheet; this table follows them.`, style: 'general/muted' }); }
       const head = row + 1, first = head + 1;
       // one header column per row dimension, as a pivot table lays it out; an outer label is written once and left blank while the rows below share it
